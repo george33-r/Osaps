@@ -1120,7 +1120,7 @@ body:has(.preview-banner) .fab { bottom: 4.6rem; }
   @keyframes fab-ring { 0% { opacity: 0.9; scale: 1; } 70%, 100% { opacity: 0; scale: 1.25; } }
 }
 
-/* ---------- Lookbook (drawn looks in catalogue fabrics) ---------- */
+/* ---------- Lookbook (photographs, each linked to similar cloth) ---------- */
 .lookbook, .weddings, .gallery { max-width: var(--page); margin: 0 auto; padding: var(--s-9) var(--gutter) 0; }
 .lookbook__head, .weddings__head { display: grid; gap: var(--s-3); margin-bottom: var(--s-7); }
 .lookbook__head .section-title, .weddings__head .section-title { font-size: var(--t-3xl); }
@@ -1133,16 +1133,22 @@ body:has(.preview-banner) .fab { bottom: 4.6rem; }
   .look--3, .look--6 { margin-top: var(--s-6); }
 }
 .look {
-  display: flex; flex-direction: column; overflow: hidden; border-radius: var(--r-panel); background: var(--surface); border: 1px solid var(--rule);
+  display: flex; flex-direction: column; margin: 0; overflow: hidden; border-radius: var(--r-panel); background: var(--surface); border: 1px solid var(--rule);
   transform: perspective(1100px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
   transition: transform 600ms var(--ease), box-shadow 600ms var(--ease);
   box-shadow: 0 30px 60px -34px rgba(0, 0, 0, 0.85);
 }
 .look.is-tilting { transition-duration: 90ms, 300ms; box-shadow: 0 50px 80px -36px rgba(0, 0, 0, 0.95); }
-.look__stage { position: relative; aspect-ratio: 3 / 4; overflow: hidden; display: grid; place-items: end center; }
-.look__motif { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0.35; }
-.look__stage::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 40%, rgba(246, 241, 231, 0.18), transparent 60%), linear-gradient(180deg, transparent 55%, rgba(7, 12, 38, 0.7)); z-index: 1; }
-.look__figure { position: relative; z-index: 2; width: 74%; height: 96%; filter: drop-shadow(0 26px 30px rgba(0, 0, 0, 0.55)); transform-origin: 50% 100%; }
+.look__photo { position: relative; aspect-ratio: 3 / 4; overflow: hidden; background: var(--night-2); }
+.look__photo img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 22%; transition: scale 900ms var(--ease); }
+.look.is-tilting .look__photo img, .look:hover .look__photo img { scale: 1.05; }
+.look__photo::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 62%, rgba(7, 12, 38, 0.65)); pointer-events: none; }
+.look__photo .look__culture {
+  position: absolute; left: var(--s-3); top: var(--s-3); z-index: 1; padding: 4px 10px; border-radius: 999px;
+  background: color-mix(in srgb, var(--night) 70%, transparent); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(242, 190, 69, 0.4);
+}
+.look__credit { font-size: 0.7rem; color: var(--ink-faint); }
 .look__text { display: grid; gap: var(--s-2); padding: var(--s-4) var(--s-5) var(--s-5); }
 .look__culture { margin: 0; font-size: var(--t-xs); font-weight: 700; color: var(--gold); }
 .look__name { font-family: var(--font-display); font-stretch: 115%; font-weight: 780; font-size: var(--t-lg); line-height: 1.05; }
@@ -1158,10 +1164,30 @@ body:has(.preview-banner) .fab { bottom: 4.6rem; }
   background: radial-gradient(ellipse at 20% 0%, rgba(242, 190, 69, 0.18), transparent 55%), var(--night-2);
   box-shadow: var(--shadow-float);
 }
-.wedding__stage { position: relative; display: flex; justify-content: center; align-items: flex-end; gap: 0; min-height: 22rem; padding: var(--s-6) var(--s-4) 0; overflow: hidden; }
-.wedding__stage::before { content: ''; position: absolute; left: 5%; right: 5%; bottom: -20%; height: 90%; border-radius: 50%; background: radial-gradient(ellipse at 50% 60%, rgba(246, 241, 231, 0.14), transparent 65%); }
-.wedding__figure { position: relative; width: 44%; max-width: 15rem; height: auto; filter: drop-shadow(0 26px 30px rgba(0, 0, 0, 0.6)); }
-.wedding__figure--groom { margin-left: -6%; }
+.wedding__photos { position: relative; min-height: 24rem; padding: var(--s-6) var(--s-5); }
+.wedding__photo {
+  margin: 0; overflow: hidden; border-radius: var(--r-media); background: var(--night);
+  box-shadow: 0 40px 70px -30px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  transform: perspective(1100px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) rotate(var(--rot, 0deg));
+  transition: transform 600ms var(--ease);
+}
+.wedding__photo img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 25%; }
+.wedding__photo figcaption { position: absolute; left: 0; right: 0; bottom: 0; padding: var(--s-5) var(--s-3) var(--s-2); font-size: 0.7rem; color: rgba(246, 241, 231, 0.8); background: linear-gradient(180deg, transparent, rgba(7, 12, 38, 0.8)); }
+.wedding__photo { position: relative; }
+.wedding__photo--main { --rot: -2deg; width: 70%; aspect-ratio: 4 / 5; }
+.wedding__photo--side { --rot: 4deg; position: absolute; right: var(--s-5); bottom: var(--s-6); width: 44%; aspect-ratio: 3 / 4; border: 4px solid var(--cowrie); }
+.wedding:nth-child(even) .wedding__photo--main { margin-left: auto; --rot: 2deg; }
+.wedding:nth-child(even) .wedding__photo--side { right: auto; left: var(--s-5); --rot: -4deg; }
+.wedding-extra {
+  display: grid; gap: var(--s-4); align-items: center; margin: var(--s-6) 0 0; padding: var(--s-4); border-radius: var(--r-panel);
+  background: var(--surface); border: 1px solid var(--rule);
+  transform: perspective(1100px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transition: transform 600ms var(--ease);
+}
+.wedding-extra img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; object-position: 50% 30%; border-radius: var(--r-media); }
+.wedding-extra figcaption { display: grid; gap: var(--s-2); color: var(--ink-soft); font-size: var(--t-md); max-width: 44ch; }
+.wedding-extra strong { font-family: var(--font-display); font-stretch: 115%; font-size: var(--t-lg); color: var(--ink); }
+.wedding-extra small { font-size: 0.7rem; color: var(--ink-faint); }
+@media (min-width: 48rem) { .wedding-extra { grid-template-columns: 18rem 1fr; } }
 .wedding__text { display: grid; gap: var(--s-3); align-content: center; padding: var(--s-6) var(--s-5) var(--s-7); }
 .wedding__ceremony { margin: 0; font-size: var(--t-xs); font-weight: 700; color: var(--gold); }
 .wedding__name { font-family: var(--font-display); font-stretch: 128%; font-weight: 850; font-size: var(--t-2xl); line-height: 0.95; letter-spacing: -0.03em; }
@@ -1169,8 +1195,8 @@ body:has(.preview-banner) .fab { bottom: 4.6rem; }
 .wedding__actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3); margin-top: var(--s-3); }
 @media (min-width: 56rem) {
   .wedding { grid-template-columns: 1fr 1.1fr; }
-  .wedding:nth-child(even) .wedding__stage { order: 2; }
-  .wedding__stage { min-height: 30rem; }
+  .wedding:nth-child(even) .wedding__photos { order: 2; }
+  .wedding__photos { min-height: 32rem; }
   .wedding__text { padding: var(--s-7); }
 }
 
@@ -1184,10 +1210,73 @@ body:has(.preview-banner) .fab { bottom: 4.6rem; }
 .gallery__empty-title { font-family: var(--font-display); font-stretch: 115%; font-weight: 780; font-size: var(--t-lg); color: var(--ink); }
 
 @media (prefers-reduced-motion: no-preference) {
-  .look__figure, .wedding__figure { animation: sway 6s ease-in-out infinite alternate; }
-  .look--2 .look__figure, .look--4 .look__figure, .wedding__figure--groom { animation-delay: -3s; }
-  @keyframes sway { from { rotate: -1.2deg; translate: 0 2px; } to { rotate: 1.2deg; translate: 0 -4px; } }
+  .wedding__photo--side { animation: float-y 6s ease-in-out infinite alternate; }
+  .wedding:nth-child(even) .wedding__photo--side { animation-delay: -3s; }
+  @keyframes float-y { from { translate: 0 -8px; } to { translate: 0 10px; } }
   @supports (animation-timeline: view()) {
     .look, .wedding { animation: rise-in linear both; animation-timeline: view(); animation-range: entry 0% entry 70%; }
   }
 }
+
+/* ---------- Home: hero video (owner-supplied, used with permission) ---------- */
+.hero__backdrop { position: absolute; inset: -40px; width: calc(100% + 80px); height: calc(100% + 80px); object-fit: cover; filter: blur(28px) saturate(1.25) brightness(0.55); }
+.hero--video .hero__stage::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(20deg, rgba(13, 22, 64, 0.95) 15%, rgba(13, 22, 64, 0.6) 55%, rgba(13, 22, 64, 0.3) 85%),
+    radial-gradient(ellipse at 80% 30%, rgba(216, 31, 42, 0.25), transparent 55%);
+}
+.hero__reel { margin: 0; z-index: 0; }
+.hero__reel-frame { position: relative; overflow: hidden; background: var(--night); }
+.hero__video { display: block; width: 100%; height: 100%; object-fit: cover; }
+.hero__playpause {
+  position: absolute; z-index: 2; width: 44px; height: 44px; display: grid; place-items: center; padding: 0; border-radius: 50%; cursor: pointer;
+  color: var(--cowrie); background: color-mix(in srgb, var(--night) 60%, transparent); border: 1px solid rgba(246, 241, 231, 0.35);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); pointer-events: auto;
+}
+.hero__playpause svg { width: 18px; height: 18px; fill: currentColor; }
+.hero__playpause:hover { background: var(--red); border-color: var(--red); }
+.hero__playpause:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+.hero__reel-caption { display: grid; gap: 2px; font-size: var(--t-xs); color: var(--ink-soft); }
+.hero__reel-caption small { color: var(--ink-faint); font-size: 0.7rem; }
+.hero--video .hero__title { max-width: 12ch; }
+
+/* Phones and tablets: the dance fills the screen behind the words. */
+@media (max-width: 59.99rem) {
+  .hero__reel { position: absolute; inset: 0; z-index: -1; }
+  .hero__reel-frame { position: absolute; inset: 0; }
+  .hero__reel-frame::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(13, 22, 64, 0.55) 0%, rgba(13, 22, 64, 0.15) 28%, rgba(13, 22, 64, 0.55) 52%, rgba(13, 22, 64, 0.96) 78%); }
+  .hero__video { object-position: 50% 30%; }
+  .hero__playpause { top: calc(var(--header-h) + var(--s-3)); right: var(--gutter); }
+  .hero__reel-caption { position: absolute; z-index: 1; top: calc(var(--header-h) + var(--s-3)); left: var(--gutter); right: calc(var(--gutter) + 56px); text-shadow: 0 1px 8px rgba(0, 0, 0, 0.9); color: var(--cowrie); }
+  .hero__reel-caption span { display: none; }
+  .hero__reel-caption small { color: rgba(246, 241, 231, 0.75); }
+  .hero--video .hero__stage { display: none; }
+}
+
+/* Desktop: a floating, tilted portrait panel on the right. */
+@media (min-width: 60rem) {
+  .hero--video .hero__inner { padding-right: calc(var(--gutter) + clamp(16rem, 26vw, 24rem) + var(--s-7)); }
+  .hero--video .hero__title { font-size: clamp(3.2rem, 6.2vw, 6.6rem); max-width: 11ch; }
+  .hero__reel {
+    position: absolute; z-index: 1; top: calc(var(--header-h) + var(--s-6));
+    right: max(var(--gutter), calc((100vw - var(--page)) / 2 + var(--gutter)));
+    width: clamp(16rem, 26vw, 24rem); display: grid; gap: var(--s-3); justify-items: center;
+    translate: calc(var(--px, 0) * 16px) calc(var(--py, 0) * 12px); transition: translate 900ms var(--ease);
+  }
+  .hero__reel-frame {
+    aspect-ratio: 9 / 16; max-height: calc(100svh - var(--header-h) - 13rem); border-radius: var(--r-panel);
+    transform: perspective(1200px) rotateY(calc(-8deg + var(--px, 0) * 6deg)) rotateX(calc(3deg - var(--py, 0) * 4deg)) rotate(2deg);
+    transition: transform 900ms var(--ease);
+    box-shadow: 0 60px 120px -40px rgba(0, 0, 0, 0.95), 0 0 0 1px rgba(246, 241, 231, 0.18), 0 0 80px -20px rgba(242, 190, 69, 0.35);
+  }
+  .hero__playpause { right: var(--s-3); bottom: var(--s-3); }
+  .hero__reel-caption { max-width: 22rem; padding-left: var(--s-2); }
+}
+@media (min-width: 60rem) and (prefers-reduced-motion: no-preference) {
+  .hero__reel-frame { animation: float-y 7s ease-in-out infinite alternate; }
+}
+.wedding__photo img[src*='igbo-wedding-couple'] { object-position: 50% 70%; }
+.festival__photo { position: absolute; inset: 0; margin: 0; }
+.festival__photo img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%; }
+.festival__photo figcaption { position: absolute; right: 6px; bottom: 4px; font-size: 0.65rem; color: rgba(246, 241, 231, 0.85); text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9); }
+.festival:has(.festival__photo) .festival__art { height: 180px; }

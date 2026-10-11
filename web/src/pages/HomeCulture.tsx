@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import type { Fabric } from '../api'
+import { P, type Photo } from '../data/photos'
 import { Cowrie, GREETINGS, LagosClock, Motif, useDettyCountdown, type MotifKind } from '../components/Culture'
 
 const WORDS = ['Owambe', 'Aṣọ-ẹbí', 'Gèlè', 'Babban riga', 'Isiagu', 'Adire', 'Aṣọ-òkè', 'Akwete', 'Durbar', 'Ojude Oba', 'Iri Ji', 'Detty December', 'Fila', 'Hula', 'Shadda', 'George wrapper']
@@ -85,6 +86,8 @@ export function Cultures() {
   )
 }
 
+const FESTIVAL_PHOTOS: Record<string, Photo> = { durbar: P.durbar }
+
 const FESTIVALS: { key: string; name: string; when: string; where: string; body: string; occasion: string; motif: MotifKind }[] = [
   {
     key: 'detty', name: 'Detty December', when: 'December', where: 'Lagos',
@@ -131,7 +134,18 @@ export function Festivals() {
       <div className="festivals__rail">
         {FESTIVALS.map((f) => (
           <article key={f.key} className={`festival festival--${f.key}`} data-tilt aria-labelledby={`fest-${f.key}`}>
-            <div className="festival__art"><Motif kind={f.motif} scale={0.7} /></div>
+            <div className="festival__art">
+              <Motif kind={f.motif} scale={0.7} />
+              {(() => {
+                const ph = FESTIVAL_PHOTOS[f.key]
+                return ph ? (
+                  <figure className="festival__photo">
+                    <img src={ph.src} alt={ph.alt} loading="lazy" decoding="async" />
+                    <figcaption>Image: {ph.credit}</figcaption>
+                  </figure>
+                ) : null
+              })()}
+            </div>
             <div className="festival__text">
               <p className="festival__when">{f.when}</p>
               <h3 id={`fest-${f.key}`} className="festival__name">{f.name}</h3>
@@ -142,7 +156,7 @@ export function Festivals() {
           </article>
         ))}
       </div>
-      <p className="festivals__note">Dates for Ojude Oba and Durbar follow the Islamic calendar; Iri Ji dates are set by each community. Patterns are drawings inspired by the traditions named.</p>
+      <p className="festivals__note">Dates for Ojude Oba and Durbar follow the Islamic calendar; Iri Ji dates are set by each community. Patterns are drawings inspired by the traditions named; photographs are used with permission.</p>
     </section>
   )
 }

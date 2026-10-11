@@ -1,11 +1,11 @@
-import { useMemo, useRef, useState, type PointerEvent } from 'react'
+import { useEffect, useRef, useState, type PointerEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { api, type Fabric } from '../api'
+import { api } from '../api'
 import { FabricCard, TailorCard } from '../components/cards'
-import { ClothStage } from '../components/ClothStage'
 import { Cowrie, GREETINGS } from '../components/Culture'
-import { DrapedCloth, Swatch } from '../components/Swatch'
+import { DrapedCloth } from '../components/Swatch'
 import { ButtonLink, Skeleton } from '../components/ui'
+import { HERO_VIDEO } from '../data/photos'
 import { useSession } from '../lib/session'
 import { useAsync } from '../lib/useAsync'
 import { CultureBand, Cultures, Diaspora, Festivals } from './HomeCulture'
@@ -18,22 +18,29 @@ const STEPS = [
   ['Wear your story', 'Accepting locks the price and details. Follow every stage from cutting to fitting to delivery.'],
 ] as const
 
-const HERO_ORDER = ['aso_oke', 'ankara', 'adire', 'lace', 'george', 'damask']
+/** Motion is off for people who ask for less of it; the video then waits on its poster until they press play. */
+function prefersLessMotion() {
+  return typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+}
 
-function Hero({ fabrics }: { fabrics: Fabric[] }) {
-  const { meta } = useSession()
-  const campaign = meta?.brand ?? { campaign_image: null, campaign_caption: null }
-  const picks = useMemo(() => {
-    const out: Fabric[] = []
-    for (const cat of HERO_ORDER) {
-      const f = fabrics.find((x) => x.category === cat)
-      if (f) out.push(f)
-    }
-    return out.slice(0, 5)
-  }, [fabrics])
-  const [i, setI] = useState(0)
-  const current = picks[i] ?? picks[0]
+function Hero() {
   const hero = useRef<HTMLElement>(null)
+  const video = useRef<HTMLVideoElement>(null)
+  const [playing, setPlaying] = useState(false)
+
+  useEffect(() => {
+    const v = video.current
+    if (!v || prefersLessMotion()) return
+    v.play().then(() => setPlaying(true)).catch(() => setPlaying(false))
+  }, [])
+
+  const toggle = () => {
+    const v = video.current
+    if (!v) return
+    if (v.paused) v.play().then(() => setPlaying(true)).catch(() => setPlaying(false))
+    else { v.pause(); setPlaying(false) }
+  }
+
   // Pointer position as CSS variables (-1…1); floating layers read them at different depths.
   const onMove = (e: PointerEvent<HTMLElement>) => {
     const el = hero.current
@@ -42,31 +49,43 @@ function Hero({ fabrics }: { fabrics: Fabric[] }) {
     el.style.setProperty('--px', (((e.clientX - r.left) / r.width) * 2 - 1).toFixed(3))
     el.style.setProperty('--py', (((e.clientY - r.top) / r.height) * 2 - 1).toFixed(3))
   }
-  const orbs = picks.map((f, n) => ({ f, n })).filter(({ n }) => n !== i).slice(0, 3)
 
   return (
-    <section className="hero" aria-labelledby="hero-title" ref={hero} onPointerMove={onMove}>
-      <div className="hero__stage">
-        {campaign.campaign_image ? (
-          <img className="hero__photo" src={campaign.campaign_image} alt={campaign.campaign_caption ?? 'OSAPS campaign'} fetchPriority="high" />
-        ) : current ? (
-          <ClothStage
-            className="hero__cloth"
-            fabric={current}
-            label={`Moving illustration of ${current.name}, drawn from its listing's pattern and colours`}
-          />
-        ) : null}
+    <section className="hero hero--video" aria-labelledby="hero-title" ref={hero} onPointerMove={onMove}>
+      <div className="hero__stage" aria-hidden>
+        <img className="hero__backdrop" src={HERO_VIDEO.poster} alt="" fetchPriority="high" />
       </div>
 
-      {!campaign.campaign_image && orbs.length > 0 && (
-        <div className="hero__orbs" aria-hidden>
-          {orbs.map(({ f, n }, k) => (
-            <button key={f.id} type="button" tabIndex={-1} className={`hero__orb hero__orb--${k + 1}`} onClick={() => setI(n)} title={`Show ${f.name}`}>
-              <Swatch pattern={f.pattern} colors={f.colors} scale={0.9} />
-            </button>
-          ))}
+      <figure className="hero__reel">
+        <div className="hero__reel-frame">
+          <video
+            ref={video}
+            className="hero__video"
+            poster={HERO_VIDEO.poster}
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            aria-label={HERO_VIDEO.caption}
+            onPlay={() => setPlaying(true)}
+            onPause={() => setPlaying(false)}
+          >
+            <source src={HERO_VIDEO.src} type="video/mp4" />
+            <source src={HERO_VIDEO.webm} type="video/webm" />
+          </video>
+          <button type="button" className="hero__playpause" onClick={toggle} aria-label={playing ? 'Pause the video' : 'Play the video'}>
+            {playing ? (
+              <svg viewBox="0 0 24 24" aria-hidden><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
+            ) : (
+              <svg viewBox="0 0 24 24" aria-hidden><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z" /></svg>
+            )}
+          </button>
         </div>
-      )}
+        <figcaption className="hero__reel-caption">
+          <span>{HERO_VIDEO.caption}</span>
+          <small>Video: {HERO_VIDEO.credit}</small>
+        </figcaption>
+      </figure>
 
       <div className="hero__cowries" aria-hidden>
         <Cowrie className="hero__cowrie hero__cowrie--1" />
@@ -82,34 +101,12 @@ function Hero({ fabrics }: { fabrics: Fabric[] }) {
           <span className="hero__welcome-en">Welcome home.</span>
         </p>
         <h1 id="hero-title" className="hero__title">Your next masterpiece begins with fabric.</h1>
-        <div className="hero__foot">
-          <div className="hero__intro">
-            <p className="hero__lede">Discover extraordinary textiles, meet exceptional makers, and create an outfit that feels entirely yours.</p>
-            <div className="hero__actions">
-              <ButtonLink to="/stylist">Create your look</ButtonLink>
-              <ButtonLink to="/fabrics" variant="secondary">Explore fabrics</ButtonLink>
-            </div>
+        <div className="hero__intro">
+          <p className="hero__lede">Discover extraordinary textiles, meet exceptional makers, and create an outfit that feels entirely yours.</p>
+          <div className="hero__actions">
+            <ButtonLink to="/stylist">Create your look</ButtonLink>
+            <ButtonLink to="/fabrics" variant="secondary">Explore fabrics</ButtonLink>
           </div>
-
-          {!campaign.campaign_image && current && (
-            <div className="hero__now">
-              <p className="hero__now-text">
-                <Link to={`/fabrics/${current.slug}`} className="hero__now-name">{current.name}</Link>
-                <span>{current.price.formatted} per {current.unit}, from {current.vendor?.market ?? current.vendor?.city ?? 'a market vendor'}</span>
-                <span className="hero__now-note">Illustrated from the listing. Touch the cloth to move it.</span>
-              </p>
-              {picks.length > 1 && (
-                <div className="hero__swatches" role="radiogroup" aria-label="Fabric shown on the cloth">
-                  {picks.map((f, n) => (
-                    <button key={f.id} type="button" role="radio" aria-checked={n === i} aria-label={f.name} className="hero__swatch" onClick={() => setI(n)}>
-                      <Swatch pattern={f.pattern} colors={f.colors} scale={0.6} />
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-          {campaign.campaign_image && campaign.campaign_caption && <p className="hero__now-note">{campaign.campaign_caption}</p>}
         </div>
       </div>
     </section>
@@ -195,7 +192,7 @@ export default function Home() {
 
   return (
     <div className="home">
-      <Hero fabrics={rack.data?.data ?? []} />
+      <Hero />
 
       <CultureBand />
 

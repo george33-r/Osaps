@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { Fabric, RequestDraft } from '../api'
-import { Motif, type MotifKind } from '../components/Culture'
-import { FashionFigure, type Look } from '../components/FashionFigure'
+import { LOOKBOOK, P, type Photo } from '../data/photos'
 
 /** Picks a real in-stock fabric for a drawn look, preferring the categories that suit it. */
 function pick(fabrics: Fabric[], cats: string[], skip: Set<number>): Fabric | undefined {
@@ -25,81 +24,63 @@ function draft(garment: string, occasion: string, fabric?: Fabric, title?: strin
   }
 }
 
-const LOOKS: { look: Look; name: string; culture: string; motif: MotifKind; cats: string[]; garment: string; occasion: string }[] = [
-  { look: 'agbada', name: 'Agbada with fila', culture: 'Yorùbá', motif: 'adire', cats: ['aso_oke', 'damask'], garment: 'agbada', occasion: 'traditional_wedding' },
-  { look: 'iro_gele', name: 'Ìró, bùbá and gèlè', culture: 'Yorùbá', motif: 'adire', cats: ['aso_oke', 'adire'], garment: 'iro_buba', occasion: 'family_event' },
-  { look: 'babban_riga', name: 'Babban riga and hula', culture: 'Hausa', motif: 'arewa', cats: ['damask', 'senator'], garment: 'kaftan', occasion: 'festival' },
-  { look: 'igbo_woman', name: 'Blouse, double wrapper and coral', culture: 'Igbo', motif: 'uli', cats: ['george', 'lace'], garment: 'skirt_blouse', occasion: 'traditional_wedding' },
-  { look: 'isiagu', name: 'Isiagu with red cap', culture: 'Igbo', motif: 'uli', cats: ['ankara', 'damask'], garment: 'senator', occasion: 'traditional_wedding' },
-  { look: 'hausa_woman', name: 'Embroidered gown with mayafi', culture: 'Hausa', motif: 'arewa', cats: ['lace', 'ankara'], garment: 'gown', occasion: 'festival' },
-]
-
-/** A floating gallery of drawn looks, each "worn" in a real catalogue fabric. */
+/** A floating photo lookbook. Each look links to similar cloth in the catalogue and can be made to order. */
 export function Lookbook({ fabrics }: { fabrics: Fabric[] }) {
-  if (fabrics.length === 0) return null
   const used = new Set<number>()
-  const looks = LOOKS.map((l) => {
-    const f = pick(fabrics, l.cats, used)
-    if (f) used.add(f.id)
-    return { ...l, fabric: f }
-  })
   return (
     <section className="lookbook" aria-labelledby="lookbook-title">
       <header className="lookbook__head">
         <h2 id="lookbook-title" className="section-title">The OSAPS lookbook</h2>
-        <p>Six ways Nigeria dresses up, each drawn in a fabric you can buy today. Tap a look to have it made.</p>
+        <p>Agbada, gèlè, coral, aṣọ-òkè and Ankara, the way Nigeria really dresses up. See a look you love? Have it made.</p>
       </header>
       <div className="lookbook__grid">
-        {looks.map((l, i) => (
-          <article key={l.look} className={`look look--${i + 1}`} data-tilt>
-            <div className="look__stage">
-              <Motif kind={l.motif} scale={0.8} className="look__motif" />
-              {l.fabric && (
-                <FashionFigure look={l.look} fabric={l.fabric} className="look__figure" title={`Illustration: ${l.name}, drawn in ${l.fabric.name}`} />
-              )}
-            </div>
-            <div className="look__text">
-              <p className="look__culture">{l.culture}</p>
-              <h3 className="look__name">{l.name}</h3>
-              {l.fabric && (
-                <p className="look__fabric">
-                  Drawn in <Link to={`/fabrics/${l.fabric.slug}`}>{l.fabric.name}</Link>, {l.fabric.price.formatted} per {l.fabric.unit}
-                </p>
-              )}
-              <Link to="/requests/new" state={draft(l.garment, l.occasion, l.fabric, l.name)} className="btn btn--primary look__cta">Have this made</Link>
-            </div>
-          </article>
-        ))}
+        {LOOKBOOK.map((ph, i) => {
+          const f = pick(fabrics, ph.fabricCats, used)
+          if (f) used.add(f.id)
+          return (
+            <figure key={ph.src} className={`look look--${(i % 6) + 1}`} data-tilt>
+              <div className="look__photo">
+                <img src={ph.src} alt={ph.alt} loading="lazy" decoding="async" />
+                <span className="look__culture">{ph.culture}</span>
+              </div>
+              <figcaption className="look__text">
+                <span className="look__name">{ph.look}</span>
+                {f && (
+                  <span className="look__fabric">
+                    Similar cloth: <Link to={`/fabrics/${f.slug}`}>{f.name}</Link>, {f.price.formatted} per {f.unit}
+                  </span>
+                )}
+                <Link to="/requests/new" state={draft(ph.garment, ph.occasion, f, ph.look)} className="btn btn--primary look__cta">Have this made</Link>
+                <small className="look__credit">Image: {ph.credit}</small>
+              </figcaption>
+            </figure>
+          )
+        })}
       </div>
-      <p className="lookbook__note">Fashion illustrations, not photographs. Each figure is drawn in the pattern and colours of the linked listing.</p>
     </section>
   )
 }
 
-const WEDDINGS: {
-  key: string; name: string; ceremony: string; body: string
-  bride: Look; groom: Look; cats: string[]; bridegarment: string; groomgarment: string
-}[] = [
+const WEDDINGS: { key: string; name: string; ceremony: string; body: string; main: Photo; side: Photo; bridegarment: string; groomgarment: string }[] = [
   {
     key: 'yoruba', name: 'Yorùbá wedding', ceremony: 'Engagement and white wedding',
-    body: 'The bride wears ìró, bùbá and an ìpèlé sash over one shoulder, usually in hand-woven aṣọ-òkè, crowned with a gèlè. The groom matches her in agbada, bùbá and ṣòkòtò, and guests come in coordinated aṣọ-ẹbí.',
-    bride: 'iro_gele', groom: 'agbada', cats: ['aso_oke', 'lace'], bridegarment: 'bridal', groomgarment: 'agbada',
+    body: 'The bride wears ìró, bùbá and an ìpèlé sash over one shoulder, usually in hand-woven aṣọ-òkè, crowned with a gèlè. The groom matches her in agbada, bùbá and ṣòkòtò, and his friends turn out in coordinated aṣọ-ẹbí.',
+    main: P.asoOkeCouple, side: P.groomsmen, bridegarment: 'bridal', groomgarment: 'agbada',
   },
   {
     key: 'igbo', name: 'Igbo wedding', ceremony: 'Igba nkwu, the wine carrying',
     body: 'The bride carries a cup of palm wine through the guests to find her groom, sips, and offers him the rest. She wears a bright blouse and double wrapper in George, akwete or lace, with a large head tie and coral beads.',
-    bride: 'igbo_woman', groom: 'isiagu', cats: ['george', 'lace'], bridegarment: 'bridal', groomgarment: 'senator',
+    main: P.igboCouple, side: P.igboBride, bridegarment: 'bridal', groomgarment: 'senator',
   },
   {
     key: 'hausa', name: 'Hausa wedding', ceremony: 'Sa lalle to Fatiha',
-    body: 'At the sa lalle, the bride and her friends paint their hands and feet with henna. The Fatiha is held at the mosque after Friday prayer. Brides favour long, finely embroidered gowns with a matching veil.',
-    bride: 'hausa_woman', groom: 'babban_riga', cats: ['lace', 'damask'], bridegarment: 'bridal', groomgarment: 'kaftan',
+    body: 'At the sa lalle, the bride and her friends paint their hands and feet with henna. The Fatiha is held at the mosque after Friday prayer. Grooms and their friends often match in kaftans and embroidered caps; brides favour long, finely embroidered gowns with a matching veil.',
+    main: P.teal, side: P.blueRiga, bridegarment: 'bridal', groomgarment: 'kaftan',
   },
 ]
 
-/** Wedding wardrobes for the three cultures, bride and groom side by side. */
+/** Wedding wardrobes for the three cultures, in photographs. */
 export function Weddings({ fabrics }: { fabrics: Fabric[] }) {
-  if (fabrics.length === 0) return null
   return (
     <section className="weddings" aria-labelledby="weddings-title">
       <header className="weddings__head">
@@ -109,14 +90,20 @@ export function Weddings({ fabrics }: { fabrics: Fabric[] }) {
       <div className="weddings__list">
         {WEDDINGS.map((w) => {
           const used = new Set<number>()
-          const fb = pick(fabrics, w.cats, used)
+          const fb = pick(fabrics, w.main.fabricCats, used)
           if (fb) used.add(fb.id)
-          const fg = pick(fabrics, w.cats.slice().reverse(), used) ?? fb
+          const fg = pick(fabrics, w.side.fabricCats, used) ?? fb
           return (
             <article key={w.key} className={`wedding wedding--${w.key}`} aria-labelledby={`wed-${w.key}`}>
-              <div className="wedding__stage">
-                {fb && <FashionFigure look={w.bride} bridal fabric={fb} className="wedding__figure wedding__figure--bride" title={`Illustration: ${w.name} bride, drawn in ${fb.name}`} />}
-                {fg && <FashionFigure look={w.groom} bridal fabric={fg} className="wedding__figure wedding__figure--groom" title={`Illustration: ${w.name} groom, drawn in ${fg.name}`} />}
+              <div className="wedding__photos">
+                <figure className="wedding__photo wedding__photo--main" data-tilt>
+                  <img src={w.main.src} alt={w.main.alt} loading="lazy" decoding="async" />
+                  <figcaption>Image: {w.main.credit}</figcaption>
+                </figure>
+                <figure className="wedding__photo wedding__photo--side" data-tilt>
+                  <img src={w.side.src} alt={w.side.alt} loading="lazy" decoding="async" />
+                  <figcaption>Image: {w.side.credit}</figcaption>
+                </figure>
               </div>
               <div className="wedding__text">
                 <p className="wedding__ceremony">{w.ceremony}</p>
@@ -132,7 +119,13 @@ export function Weddings({ fabrics }: { fabrics: Fabric[] }) {
           )
         })}
       </div>
-      <p className="lookbook__note">Illustrations drawn in catalogue fabrics. Customs differ between families and towns; ask your tailor about yours.</p>
+      <figure className="wedding-extra" data-tilt>
+        <img src={P.whiteCoral.src} alt={P.whiteCoral.alt} loading="lazy" decoding="async" />
+        <figcaption>
+          <strong>And every tradition in between.</strong> Nigeria has hundreds of wedding styles, like this one in white and coral. Tell your tailor yours.
+          <small>Image: {P.whiteCoral.credit}</small>
+        </figcaption>
+      </figure>
     </section>
   )
 }
@@ -162,7 +155,7 @@ export function PhotoGallery() {
       .catch(() => live && setItems([]))
     return () => { live = false }
   }, [])
-  if (items === null) return null
+  if (items === null || items.length === 0) return null
 
   return (
     <section className="gallery" aria-labelledby="gallery-title">
