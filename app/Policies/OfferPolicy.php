@@ -14,6 +14,12 @@ class OfferPolicy
             || $user->isAdmin();
     }
 
+    /** Write a message: only the two parties, never an admin posing as one. */
+    public function message(User $user, Offer $offer): bool
+    {
+        return $user->id === $offer->tailor_id || $user->id === $offer->jobRequest->customer_id;
+    }
+
     /** Accept, decline, counter. */
     public function respondAsCustomer(User $user, Offer $offer): bool
     {

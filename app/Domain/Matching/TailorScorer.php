@@ -76,7 +76,7 @@ final class TailorScorer
         $confidence = min(1.0, $completed / self::HISTORY_CONFIDENCE_ORDERS);
         $factors['reliability'] = $confidence * $observed + (1 - $confidence) * self::NEUTRAL_PRIOR;
         if ($newVendor) {
-            $reasons[] = 'New on Osapa — limited order history so far.';
+            $reasons[] = 'New on OSAPS — limited order history so far.';
         } elseif ($observed >= 0.9) {
             $reasons[] = "Strong on-time record across {$completed} completed orders.";
         }

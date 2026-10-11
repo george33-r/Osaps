@@ -28,23 +28,29 @@ class DemoSeeder extends Seeder
 
         $password = 'demo-pass-123';
 
-        $this->demoUser(['email' => 'customer@demo.osapa.test'], [
+        $this->demoUser(['email' => 'customer@demo.osaps.test'], [
             'name' => 'Amaka Demo', 'password' => $password, 'city' => 'Abuja', 'role' => 'customer',
         ]);
-        $this->demoUser(['email' => 'admin@demo.osapa.test'], [
+        $this->demoUser(['email' => 'admin@demo.osaps.test'], [
             'name' => 'Admin Demo', 'password' => $password, 'city' => 'Abuja', 'role' => 'admin',
         ]);
 
         $this->seedTailors($password);
         $this->seedFabrics($password);
 
-        $this->command?->info("Demo accounts (password: {$password}): customer@demo.osapa.test, tailor1@demo.osapa.test, admin@demo.osapa.test");
+        $this->command?->info("Demo accounts (password: {$password}): customer@demo.osaps.test, tailor1@demo.osaps.test, admin@demo.osaps.test");
     }
 
-    /** Roles are not mass-assignable, so demo users are written with forceFill. */
+    /**
+     * Roles are not mass-assignable, so demo users are written with forceFill.
+     * Earlier demo runs used other brand domains; those accounts are found and updated, not duplicated.
+     */
     private function demoUser(array $key, array $attributes): User
     {
-        $user = User::query()->firstOrNew($key);
+        $local = strstr($key['email'], '@', true);
+        $user = User::query()->whereIn('email', [
+            $key['email'], "{$local}@demo.osapa.test", "{$local}@demo.asola.test",
+        ])->first() ?? new User;
         $user->forceFill($key + $attributes)->save();
 
         return $user;
@@ -68,7 +74,7 @@ class DemoSeeder extends Seeder
         ];
 
         foreach ($tailors as $i => [$name, $city, $cities, $specialties, $tags, $from, $bio]) {
-            $user = $this->demoUser(['email' => 'tailor'.($i + 1).'@demo.osapa.test'], [
+            $user = $this->demoUser(['email' => 'tailor'.($i + 1).'@demo.osaps.test'], [
                 'name' => $name, 'password' => $password, 'city' => $city, 'role' => 'tailor',
             ]);
             $profile = TailorProfile::query()->firstOrNew(['user_id' => $user->id]);
@@ -98,12 +104,14 @@ class DemoSeeder extends Seeder
         ];
         $vendorModels = [];
         foreach ($vendors as $i => [$name, $city, $market]) {
-            $user = $this->demoUser(['email' => 'vendor'.($i + 1).'@demo.osapa.test'], [
+            $user = $this->demoUser(['email' => 'vendor'.($i + 1).'@demo.osaps.test'], [
                 'name' => $name, 'password' => $password, 'city' => $city, 'role' => 'fabric_vendor',
             ]);
             $vendor = FabricVendor::query()->firstOrNew(['user_id' => $user->id]);
             $vendor->forceFill([
                 'business_name' => $name, 'slug' => Str::slug($name), 'city' => $city, 'market' => $market, 'is_demo' => true,
+                // Demonstration vendors have no phone numbers: inventing numbers could reach real people.
+                'contact_note' => "Demonstration vendor — visit {$market}, {$city}. Real vendors add their phone and WhatsApp here.",
             ])->save();
             $vendorModels[] = $vendor;
         }

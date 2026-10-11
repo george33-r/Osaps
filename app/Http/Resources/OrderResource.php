@@ -17,6 +17,8 @@ class OrderResource extends ApiResource
 
         return [
             'reference' => $this->reference,
+            // The offer thread stays open after acceptance, so the parties keep one conversation.
+            'offer_id' => $this->offer_id,
             'status' => $this->status,
             'status_label' => OrderStatus::LABELS[$this->status] ?? $this->status,
             'viewer_role' => $role,
@@ -39,7 +41,9 @@ class OrderResource extends ApiResource
             'milestones' => collect(OrderStatus::MILESTONES)->map(fn ($s) => [
                 'status' => $s, 'label' => OrderStatus::LABELS[$s],
             ]),
-            'actions' => $role ? collect(OrderStatus::nextFor($this->status, $role))->map(fn ($s) => [
+            'actions' => $role ? collect(OrderStatus::nextFor($this->status, $role))
+                ->reject(fn ($s) => $s === OrderStatus::DISPUTED && ! config('marketplace.disputes_enabled'))
+                ->map(fn ($s) => [
                 'status' => $s,
                 'label' => OrderStatus::LABELS[$s],
                 'requires_reason' => OrderStatus::requiresReason($s),

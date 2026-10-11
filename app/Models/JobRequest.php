@@ -17,7 +17,7 @@ class JobRequest extends Model
     use HasFactory, HasUlids;
 
     protected $fillable = [
-        'title', 'garment_category', 'description', 'style_tags', 'mode', 'budget_min_minor', 'budget_max_minor',
+        'title', 'garment_category', 'occasion', 'description', 'style_tags', 'mode', 'budget_min_minor', 'budget_max_minor',
         'fabric_status', 'fabric_id', 'city', 'needed_by', 'fitting_required',
     ];
 

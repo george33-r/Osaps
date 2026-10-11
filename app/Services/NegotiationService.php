@@ -329,6 +329,7 @@ class NegotiationService
         return [
             'title' => $request->title,
             'garment_category' => $request->garment_category,
+            'occasion' => $request->occasion,
             'description' => $request->description,
             'style_tags' => $request->style_tags ?? [],
             'fabric_status' => $request->fabric_status,

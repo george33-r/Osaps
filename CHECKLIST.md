@@ -2,73 +2,73 @@
 
 Status as of 11 Oct 2026. "Verified" means it was executed in this environment, not just written.
 
-**Environment limit:** Packagist was blocked in the build environment, so `composer install` could not run.
-The Laravel layer is complete code but has **never been booted**. Run the steps under "First run on your machine" before trusting it.
+**Environment limit:** Packagist is blocked in the build environment, so `composer install` cannot run here.
+The Laravel layer has **never been booted in this environment**. The live Hostinger site serves the earlier version of it
+(`/api/v1/meta`, `/fabrics`, `/tailors` return JSON), but the code added in the OSAPS phase is unexecuted until deployed.
+The GitHub Actions workflow in `.github/workflows/ci.yml` runs the full suite wherever Composer can reach Packagist.
 
-## Verification legend
+## Legend
 
 - ✅ **Verified** — executed here and passed
 - 🟡 **Written, not run** — code complete; needs `composer install` to execute
 - ⬜ **Not started**
 
-## Done in this slice: request → offers → negotiation → order
+## Core marketplace (earlier phases)
 
 | Area | Status | Evidence |
 |---|---|---|
-| Domain rules: money in kobo, fees, offer rules, job/offer/order state machines, matching scorer, quote comparison (framework-free) | ✅ | 37 tests pass via `php tests/bin/run-domain-tests.php`; a deliberately injected bug was caught |
-| PHP syntax for all 81 PHP files | ✅ | `php -l` clean |
-| All internal class references resolve to files | ✅ | 62 references checked |
-| Migrations: users, vendors, fabrics, requests, offers (+ append-only revisions), orders (+ append-only events) | 🟡 | Unique keys block double awards at DB level |
-| API v1: auth (cookie for web, tokens for mobile), catalogue, tailors, requests, offers, counteroffers, accept, orders, transitions | 🟡 | 19 feature tests written in `tests/Feature/Api` |
-| Authorization: policies, ownership checks, admin never self-assignable, tailors see customer first name only | 🟡 | Covered by feature tests |
-| Idempotent offer acceptance with row locks | 🟡 | Feature test `test_accept_is_idempotent_and_single_award` |
-| Offer/request expiry sweep (scheduler, every 5 min) | 🟡 | `marketplace:expire-stale` |
-| Rate limiting (auth, marketplace writes, general API) | 🟡 | |
-| Local demo seeder (flagged `is_demo`, no fake reviews, history or verified badges) | 🟡 | |
-| Design system: tokens, type scale, buttons, fields, badges, dialogs, toasts, empty/error/skeleton states | ✅ | TypeScript check + production build pass |
-| Procedural textile swatches (labelled as illustrations) | ✅ | Screenshots |
-| Pages: home, fabric catalogue + detail, tailor directory + profile, sign in/register, post request, my requests, offer comparison, tailor inbox, tailor offer/negotiation, tailor profile onboarding, orders + order timeline | ✅ in preview mode | 18 screenshots at 390px and 1440px; no console errors; no horizontal overflow |
-| Full journey clicked through in a browser (14 steps, both roles) | ✅ in preview mode | Playwright run: filters, validation, estimate, post, counter, tailor reply, explanation rule, accept, award, payout, transitions, dispute reason rule, completion |
-| Production bundle excludes the design-review adapter | ✅ | Bundle grep |
-| End-to-end against the real Laravel API | 🟡 | Not possible here — first run on your machine |
+| Domain rules: money in kobo, fees, offer rules, state machines, matching, quote comparison | ✅ | `php tests/bin/run-domain-tests.php` |
+| Migrations, API v1, policies, idempotent accept, expiry sweep, rate limits | 🟡 | Feature tests in `tests/Feature/Api` |
+| Live site on Hostinger (subfolder layout, installer, `.env` and logs unreachable from the web) | ✅ | Fetched from the live domain |
 
-"Preview mode" means the frontend running against an in-memory adapter (`npm run preview:fixtures`) that mirrors the API contract. It proves the UI works, not that Laravel does.
+## OSAPS phase
 
-## Bugs found and fixed during verification
-
-- A production build shipped an unused preview chunk → guards made static; bundle now clean.
-- "Lowest total" badge shown when delivery cost was unknown → renamed "Lowest price".
-- Every offer dialog shared `id="dialog-title"` (broken `aria-labelledby`) → unique IDs.
-- "How it works" nav link showed as active on the homepage.
-- A customer's counteroffer was displayed as the headline price without a label.
-- Browser-native validation hid the API's dispute-reason message.
-- Strict-mode Eloquent would have thrown on registration (non-fillable `role`) and in the seeder → fixed before running.
-
-## Remaining work (in recommended order)
-
-| Phase | Item | Status |
+| Area | Status | Evidence |
 |---|---|---|
-| 1 | Run `composer install`, migrations, feature tests; fix anything they surface | ⬜ |
-| 3 | Fabric vendor workspace: listings, stock, photo upload, stock reservation | ⬜ |
-| 3 | Image uploads: inspiration photos on requests, tailor portfolio (private disk, type/size checks, signed URLs) | ⬜ |
-| 3 | Messaging between customer and tailor; clarification questions on budget requests | ⬜ |
-| 3 | Fittings and appointments; measurement profile with privacy controls | ⬜ |
-| 3 | Scope-change versions on orders (mutual approval) | ⬜ |
-| 3 | Admin command centre: verification queue, moderation, disputes with recorded reasons, audit log | ⬜ |
-| 4 | Payments: provider adapter (e.g. Paystack), server-side verification, idempotent signed webhooks, ledger, refunds, payouts. Do not call it escrow without a legal/provider basis. | ⬜ |
-| 4 | Fabric checkout on platform (currently discovery only, clearly labelled) | ⬜ |
-| 4 | Notifications (email/SMS/push) via queued jobs | ⬜ |
-| 4 | Reviews tied to completed orders only | ⬜ |
-| 5 | AI service layer: provider interface, structured-output validation, timeouts, quotas, cost logging, prompt versions, graceful "unavailable" state | ⬜ |
-| 5 | AI stylist, image-to-brief (customer edits before posting), smart budget planner, quote explanation, tailor assistant | ⬜ |
-| 6 | Mobile: React Native/Expo app on the existing API; push tokens; deep links; App Store privacy disclosures | ⬜ |
-| 7 | Search ranking beyond LIKE (only if measurably better); query monitoring | ⬜ |
-| — | NDPA 2023 review, consumer-protection and payments obligations — needs qualified professionals | ⬜ |
+| AI safety rules (schema validator, JSON extraction, criteria sanitising + relaxation, keyword reader, consultation slots, budget estimate, grounding to offered IDs, claim scrubbing) | ✅ | 15 new domain tests; **52 domain tests pass in total**; a deliberately injected Grounding bug was caught |
+| AI layer: provider interface, Anthropic provider (server-side key), unavailable/fake providers, gateway (timeouts, per-minute + daily limits, usage logging without prompt text), rule-based fallbacks | 🟡 | `tests/Feature/Api/AiFeaturesTest.php` (11 tests, FakeProvider — no network) |
+| Natural-language fabric search (real catalogue items only, relaxes and says so) | 🟡 backend · ✅ UI in preview | Flow + screenshots |
+| AI stylist: one question at a time, concept, catalogue fabrics, matched makers, budget with each line's basis, "Turn this into a request" | 🟡 backend · ✅ UI in preview (guided mode) | Flow steps 18–19 |
+| Image-to-brief (editable, caveat, image not stored; off without a key) | 🟡 | Feature test; UI shows "switches on when AI is enabled" |
+| Fabric outfit ideas (AI, or the style guide) | 🟡 backend · ✅ UI in preview | Screenshot |
+| Ask questions before accepting (offer messages, parties only, closed offers read-only) | 🟡 backend · ✅ UI in preview | Flow step 8; `MessagingAndContactTest` (6 tests) |
+| Minimum-only budget accepted | 🟡 | Validation rule + feature test |
+| Disputes off until someone can resolve them (`DISPUTES_ENABLED`), help route shown instead | 🟡 backend · ✅ UI in preview | Flow step 16 |
+| Vendor contact for signed-in users, labelled "not protected by OSAPS" | 🟡 backend · ✅ UI in preview | Screenshot |
+| OSAPS identity: logo, ivory/espresso/oxblood/gold/emerald/indigo palette, Bodoni Moda + Hanken Grotesk, editorial layouts | ✅ | Screenshots at 390 px and 1440 px of 11 screens; no console errors; no horizontal overflow |
+| Homepage: cinematic hero, three edits, stylist invitation, process, makers, editorial footer | ✅ in preview | Screenshots |
+| Five-step request consultation with server errors mapped back to the right step | ✅ in preview | Flow steps 3–7 |
+| Full journey (19 steps, three roles) | ✅ in preview | Playwright |
+| Production bundle excludes the preview adapter | ✅ | Bundle grep |
+| Contrast: text colours ≥ 4.5:1 (gold text uses `#7E6230`, 5.2:1); gold `#A98545` (3.1:1) only for rules, dots and the focus ring | ✅ | Calculated |
+
+"Preview" means the frontend running against the in-memory adapter (`npm run preview:fixtures`). It proves the UI, not Laravel.
+
+## Honesty rules in force
+
+- No testimonials, ratings, review counts, "verified" badges or order histories that do not exist. Every seeded tailor reads "New maker on OSAPS".
+- Fabric pictures are drawn from each listing's pattern and colours and always captioned as illustrations. The hero only shows a photograph when `BRAND_CAMPAIGN_IMAGE` points to one you have the rights to.
+- AI never sets prices, IDs, availability or permissions, and every AI answer says whether AI or the rule-based fallback produced it.
+
+## Remaining work
+
+| Item | Status |
+|---|---|
+| Deploy, run the installer upgrade, then run the feature suite (CI or a machine with Composer) and fix what it surfaces | ⬜ |
+| Licensed campaign and product photography (vendor photo upload) | ⬜ |
+| Admin console: verification queue, moderation, dispute resolution, audit log — then turn disputes on | ⬜ |
+| Payments (provider adapter, verified webhooks, ledger, refunds, payouts) | ⬜ |
+| Notifications (email/WhatsApp/SMS) for new offers and messages | ⬜ |
+| Tailor portfolio uploads | ⬜ |
+| Tailor assistant (draft an offer from a brief) and support assistant | ⬜ |
+| AI quote explanation beyond the rule-based comparison | ⬜ |
+| Fittings, measurements, scope-change versions | ⬜ |
+| Mobile app on the same API | ⬜ |
+| NDPA 2023 and consumer-protection review by qualified professionals | ⬜ |
 
 ## Known risks
 
-- Laravel code is unexecuted. Expect a handful of fixes on first boot.
-- Fee levels, offer limits and expiry windows are placeholders in `config/marketplace.php` and need business sign-off.
-- `TailorProfile::trackRecord()` runs per tailor; precompute or cache before tailor counts reach the hundreds.
-- No payment exists, so orders show "unpaid" and customers arrange payment with the tailor. This is stated in the UI.
-- Matching uses no real history yet; every seeded tailor is honestly "new".
+- New Laravel code is unexecuted; expect small fixes on first boot.
+- The logo's varsity/streetwear style differs from the "quiet couture" brief; the layout is designed to hold it, but it is a brand decision.
+- Fees, limits and AI quotas in `config/marketplace.php` and `config/ai.php` are placeholders.
+- AI cost depends on traffic; daily per-user and per-IP limits cap it, and `ai_usages` records token counts per feature.

@@ -43,6 +43,11 @@ class Offer extends Model
         return $this->hasMany(OfferRevision::class)->orderBy('id');
     }
 
+    public function messages(): HasMany
+    {
+        return $this->hasMany(OfferMessage::class)->orderBy('id');
+    }
+
     public function isLive(): bool
     {
         return in_array($this->status, OfferStatus::LIVE, true) && $this->expires_at->isFuture();

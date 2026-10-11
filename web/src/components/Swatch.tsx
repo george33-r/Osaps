@@ -228,3 +228,49 @@ export function Swatch({ pattern, colors, scale = 1, className, title }: SwatchP
     </svg>
   )
 }
+
+/**
+ * A textile pattern rendered as hanging cloth: folds displace the weave and light falls across them.
+ * An illustration built from a listing's real pattern and colours — callers caption it as such.
+ * Static (no animation); the SVG filter is computed once by the browser.
+ */
+export function DrapedCloth({
+  pattern,
+  colors,
+  seed = 4,
+  scale = 1,
+  className,
+  title,
+}: SwatchProps & { seed?: number }) {
+  const id = useId().replace(/:/g, '')
+  const a = hex(colors[0], '#2a3170')
+  const b = hex(colors[1], colors.length === 1 ? shade(a, 40) : '#c49a3a')
+  const c = hex(colors[2], colors.length >= 2 ? shade(b, -30) : shade(a, -30))
+  const draw = PATTERNS[pattern ?? 'plain'] ?? PATTERNS.plain!
+  const { size, body } = draw(a, b, c)
+
+  return (
+    <svg className={className} viewBox="0 0 400 600" preserveAspectRatio="xMidYMid slice" role={title ? 'img' : undefined} aria-label={title} aria-hidden={title ? undefined : true}>
+      <defs>
+        <pattern id={`dp${id}`} width={size * scale} height={size * scale} patternUnits="userSpaceOnUse">
+          <g transform={`scale(${scale})`}>{body}</g>
+        </pattern>
+        <filter id={`df${id}`} x="-6%" y="-4%" width="112%" height="108%" colorInterpolationFilters="sRGB">
+          <feTurbulence type="fractalNoise" baseFrequency="0.0105 0.0009" numOctaves={3} seed={seed} result="n" />
+          <feDisplacementMap in="SourceGraphic" in2="n" scale={42} xChannelSelector="R" yChannelSelector="A" result="d" />
+          <feDiffuseLighting in="n" surfaceScale={20} diffuseConstant={1.12} lightingColor="#fff" result="light">
+            <feDistantLight azimuth={190} elevation={36} />
+          </feDiffuseLighting>
+          <feComposite in="light" in2="d" operator="in" result="lightc" />
+          <feBlend in="d" in2="lightc" mode="multiply" result="shaded" />
+          <feSpecularLighting in="n" surfaceScale={20} specularConstant={0.32} specularExponent={22} lightingColor="#fff4e2" result="spec">
+            <feDistantLight azimuth={190} elevation={42} />
+          </feSpecularLighting>
+          <feComposite in="spec" in2="d" operator="in" result="specc" />
+          <feComposite in="shaded" in2="specc" operator="arithmetic" k2={1.16} k3={0.26} />
+        </filter>
+      </defs>
+      <rect x="-20" y="-10" width="440" height="620" fill={`url(#dp${id})`} filter={`url(#df${id})`} />
+    </svg>
+  )
+}

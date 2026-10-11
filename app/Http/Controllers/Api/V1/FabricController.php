@@ -38,6 +38,27 @@ class FabricController extends Controller
         return FabricResource::collection($query->paginate($f['per_page'] ?? 24)->withQueryString());
     }
 
+    /**
+     * How to reach the vendor. Signed-in users only, so contact details are not scraped from public pages.
+     * Purchases are arranged directly with the vendor until on-platform checkout exists.
+     */
+    public function contact(string $slug): \Illuminate\Http\JsonResponse
+    {
+        $fabric = Fabric::query()->listed()->with('vendor')->where('slug', $slug)->firstOrFail();
+        $v = $fabric->vendor;
+
+        return response()->json(['data' => [
+            'business_name' => $v->business_name,
+            'market' => $v->market,
+            'city' => $v->city,
+            'phone' => $v->phone,
+            'whatsapp' => $v->whatsapp,
+            'note' => $v->contact_note,
+            'purchase_mode' => 'contact_vendor',
+            'protected_by_osaps' => false,
+        ]]);
+    }
+
     public function show(string $slug): FabricResource
     {
         return new FabricResource(Fabric::query()->listed()->with('vendor')->where('slug', $slug)->firstOrFail());

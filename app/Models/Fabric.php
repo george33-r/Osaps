@@ -69,8 +69,24 @@ class Fabric extends Model
                     ->orWhere('description', 'like', $like)
                     ->orWhere('material', 'like', $like));
             })
+            // Each extra word must appear in the name, material or description.
+            ->when($f['terms'] ?? null, function (Builder $q, array $terms) {
+                foreach (array_slice($terms, 0, 4) as $term) {
+                    $like = '%'.mb_substr(trim((string) $term), 0, 30).'%';
+                    $q->where(fn (Builder $w) => $w->where('name', 'like', $like)
+                        ->orWhere('description', 'like', $like)
+                        ->orWhere('material', 'like', $like));
+                }
+            })
             ->when($f['category'] ?? null, fn (Builder $q, $c) => $q->whereIn('category', (array) $c))
             ->when($f['color'] ?? null, fn (Builder $q, $c) => $q->whereIn('primary_color', (array) $c))
+            // Natural-language search: the colour may be anywhere in the fabric, not only the main one.
+            ->when($f['any_color'] ?? null, fn (Builder $q, $c) => $q->where(function (Builder $w) use ($c) {
+                $w->whereIn('primary_color', (array) $c);
+                foreach ((array) $c as $color) {
+                    $w->orWhereJsonContains('colors', $color);
+                }
+            }))
             ->when(isset($f['min_price']), fn (Builder $q) => $q->where('price_minor', '>=', (int) $f['min_price']))
             ->when(isset($f['max_price']), fn (Builder $q) => $q->where('price_minor', '<=', (int) $f['max_price']))
             ->when($f['in_stock'] ?? false, fn (Builder $q) => $q->whereColumn('stock_quantity', '>', 'reserved_quantity'))

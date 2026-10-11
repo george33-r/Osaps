@@ -9,11 +9,45 @@
 return [
 
     'brand' => [
-        'name' => env('BRAND_NAME', 'Osapa'),
+        'name' => env('BRAND_NAME', 'OSAPS'),
         'tagline' => env('BRAND_TAGLINE', 'From fabric to finished outfit — your style, your budget, your choice.'),
+        // Optional licensed campaign photograph for the homepage hero, e.g. /spa/brand/campaign.jpg.
+        // Without it the hero shows draped illustrations of real catalogue fabrics, captioned as such.
+        'campaign_image' => env('BRAND_CAMPAIGN_IMAGE'),
+        'campaign_caption' => env('BRAND_CAMPAIGN_CAPTION'),
     ],
 
     'currency' => 'NGN',
+
+    // Shown when customers need a human. Leave empty to hide.
+    'support' => [
+        'email' => env('SUPPORT_EMAIL'),
+        'whatsapp' => env('SUPPORT_WHATSAPP'),
+    ],
+
+    // Disputes stay off until an admin can resolve them (see CHECKLIST.md). While off, customers are
+    // pointed to support instead and the API refuses the "disputed" transition.
+    'disputes_enabled' => (bool) env('DISPUTES_ENABLED', false),
+
+    // Typical yardage per garment, used ONLY to label an estimated fabric cost — never as a fact.
+    'typical_yards' => [
+        'agbada' => 10, 'senator' => 5, 'kaftan' => 5, 'buba_sokoto' => 5, 'iro_buba' => 6, 'gown' => 5,
+        'skirt_blouse' => 5, 'suit' => 4, 'bridal' => 8, 'aso_ebi' => 5, 'kids' => 3, 'alteration' => 0,
+    ],
+
+    // Which fabric types usually suit each garment — used to shortlist real catalogue items for the stylist.
+    'garment_fabrics' => [
+        'agbada' => ['aso_oke', 'damask', 'senator'], 'senator' => ['senator', 'damask'], 'kaftan' => ['senator', 'damask', 'adire'],
+        'buba_sokoto' => ['aso_oke', 'adire', 'damask'], 'iro_buba' => ['aso_oke', 'adire', 'ankara', 'lace'], 'gown' => ['lace', 'ankara', 'george'],
+        'skirt_blouse' => ['ankara', 'lace', 'adire'], 'suit' => ['suiting'], 'bridal' => ['lace', 'aso_oke', 'george'],
+        'aso_ebi' => ['ankara', 'lace', 'aso_oke'], 'kids' => ['ankara', 'adire'], 'alteration' => [],
+    ],
+
+    'occasions' => [
+        'wedding_guest' => 'Wedding guest', 'traditional_wedding' => 'Traditional wedding', 'own_wedding' => 'My own wedding',
+        'naming_ceremony' => 'Naming ceremony', 'church_mosque' => 'Church or mosque', 'work' => 'Work',
+        'party' => 'Party or birthday', 'everyday' => 'Everyday', 'family_event' => 'Family event (aṣọ-ẹbí)', 'other' => 'Something else',
+    ],
 
     'fees' => [
         'customer_service_fee_bps' => (int) env('FEE_CUSTOMER_SERVICE_BPS', 250),

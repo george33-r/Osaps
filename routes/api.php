@@ -1,10 +1,12 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AiController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\FabricController;
 use App\Http\Controllers\Api\V1\JobRequestController;
 use App\Http\Controllers\Api\V1\MetaController;
 use App\Http\Controllers\Api\V1\OfferController;
+use App\Http\Controllers\Api\V1\OfferMessageController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\TailorController;
 use Illuminate\Support\Facades\Route;
@@ -22,6 +24,15 @@ Route::prefix('v1')->name('v1.')->group(function () {
     Route::get('fabrics/{slug}', [FabricController::class, 'show'])->name('fabrics.show');
     Route::get('tailors', [TailorController::class, 'index'])->name('tailors.index');
     Route::get('tailors/{slug}', [TailorController::class, 'show'])->name('tailors.show');
+
+    // AI-assisted features (guests allowed, rate limited; each response says whether AI or rules produced it)
+    Route::middleware('throttle:ai')->prefix('ai')->name('ai.')->group(function () {
+        Route::get('status', [AiController::class, 'status'])->name('status');
+        Route::get('fabric-search', [AiController::class, 'fabricSearch'])->name('fabric-search');
+        Route::post('stylist', [AiController::class, 'stylist'])->name('stylist');
+        Route::get('fabrics/{slug}/ideas', [AiController::class, 'fabricIdeas'])->name('fabric-ideas');
+        Route::post('inspiration', [AiController::class, 'inspiration'])->middleware('auth:sanctum')->name('inspiration');
+    });
 
     Route::middleware('throttle:auth')->group(function () {
         Route::post('auth/register', [AuthController::class, 'register'])->name('auth.register');
@@ -54,6 +65,13 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('offers/{offer}/decline', [OfferController::class, 'decline'])->name('offers.decline');
             Route::post('offers/{offer}/accept', [OfferController::class, 'accept'])->name('offers.accept');
         });
+
+        // Messages between the two parties to an offer
+        Route::get('offers/{offer}/messages', [OfferMessageController::class, 'index'])->name('offers.messages.index');
+        Route::post('offers/{offer}/messages', [OfferMessageController::class, 'store'])->middleware('throttle:marketplace-writes')->name('offers.messages.store');
+
+        // Vendor contact (signed-in only)
+        Route::get('fabrics/{slug}/contact', [FabricController::class, 'contact'])->name('fabrics.contact');
 
         // Orders
         Route::get('orders', [OrderController::class, 'index'])->name('orders.index');

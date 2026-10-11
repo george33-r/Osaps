@@ -166,6 +166,7 @@ class NegotiationFlowTest extends TestCase
 
     public function test_order_status_follows_server_side_transitions(): void
     {
+        config(['marketplace.disputes_enabled' => true]);
         $id = $this->postRequest();
         $offerId = $this->actingAs($this->tailorA)->postJson("/api/v1/job-requests/{$id}/offers", ['amount_minor' => 3_000_000, 'delivery_days' => 10])->json('data.id');
         $ref = $this->actingAs($this->customer)->postJson("/api/v1/offers/{$offerId}/accept")->json('data.reference');

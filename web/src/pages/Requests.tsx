@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, ApiError, type JobRequest, type Offer, type Tailor } from '../api'
 import { TrustLine } from '../components/cards'
+import { MessageThread } from '../components/Messages'
 import {
   Badge,
   Button,
@@ -132,16 +133,22 @@ function OfferCard({ offer, request, onChanged }: { offer: Offer; request: JobRe
       </dl>
 
       {offer.comparison && offer.comparison.questions.length > 0 && (
-        <div className="ask">
-          <p className="ask__title">Worth asking before you accept</p>
+        <div className="ask-first">
+          <p className="ask-first__title">Worth asking before you accept</p>
           <ul>
-            {offer.comparison.questions.map((q) => (
-              <li key={q}>{q}</li>
-            ))}
+            {offer.comparison.questions.map((q) => <li key={q}>{q}</li>)}
           </ul>
-          <p className="ask__source">Checked against the other offers using fixed rules, not AI.</p>
+          <p className="ask-first__source">Found by comparing the offers with fixed rules, not AI. Tap a question below to send it.</p>
         </div>
       )}
+
+      <MessageThread
+        offerId={offer.id}
+        otherParty={offer.tailor?.business_name ?? 'the tailor'}
+        suggestions={live ? offer.comparison?.questions ?? [] : []}
+        open={live && (offer.comparison?.questions.length ?? 0) > 0}
+        closed={!live && offer.status !== 'accepted'}
+      />
 
       {offer.cost_breakdown && (
         <details className="breakdown">
@@ -202,7 +209,7 @@ function OfferCard({ offer, request, onChanged }: { offer: Offer; request: JobRe
           ))}
           <div className="terms__total"><dt>Total</dt><dd>{offer.cost_breakdown?.total.formatted}</dd></div>
         </dl>
-        <p className="muted">Paying through Osapa is not available yet. Your order is confirmed now, and you arrange payment with the tailor.</p>
+        <p className="muted">Paying through OSAPS is not available yet. Your order is confirmed now, and you arrange payment with the tailor.</p>
         <div className="dialog__actions">
           <Button
             busy={busy}
@@ -299,6 +306,7 @@ export function RequestDetail() {
         <Link to="/requests">My requests</Link> <span aria-hidden>/</span> <span>{r.title}</span>
       </nav>
       <PageHeader
+        label={r.occasion_label ?? r.garment_label}
         title={r.title}
         intro={
           <>
@@ -351,7 +359,7 @@ export function RequestDetail() {
             <p>{r.description}</p>
             {r.style_tags.length > 0 && <p className="muted">Style: {r.style_tags.join(', ')}</p>}
             <dl className="terms terms--compact">
-              <div><dt>Fabric</dt><dd>{r.fabric_status === 'own_fabric' ? 'You have it' : r.fabric_status === 'need_advice' ? 'Advice wanted' : r.fabric?.name ?? 'Buying on Osapa'}</dd></div>
+              <div><dt>Fabric</dt><dd>{r.fabric_status === 'own_fabric' ? 'You have it' : r.fabric_status === 'need_advice' ? 'Advice wanted' : r.fabric?.name ?? 'Buying on OSAPS'}</dd></div>
               <div><dt>Fitting</dt><dd>{r.fitting_required ? 'Wanted' : 'Not needed'}</dd></div>
             </dl>
             {r.status === 'open' && (
@@ -364,7 +372,7 @@ export function RequestDetail() {
           {r.status === 'open' && matches.data && matches.data.length > 0 && (
             <section className="matches">
               <h2 className="brief__title">Tailors who fit this request</h2>
-              <p className="muted matches__how">Ranked by what they make, where they work and their Osapa record. Not by price or payment.</p>
+              <p className="muted matches__how">Ranked by what they make, where they work and their OSAPS record. Not by price or payment.</p>
               <ol className="matches__list">
                 {matches.data.slice(0, 4).map((t) => (
                   <li key={t.slug}>

@@ -16,6 +16,8 @@ class MetaController extends Controller
             'brand' => config('marketplace.brand'),
             'currency' => config('marketplace.currency'),
             'garment_categories' => $kv(config('marketplace.garment_categories')),
+            'occasions' => $kv(config('marketplace.occasions')),
+            'support' => array_filter(config('marketplace.support')),
             'fabric_categories' => $kv(config('marketplace.fabric_categories')),
             'fabric_units' => config('marketplace.fabric_units'),
             'colors' => config('marketplace.colors'),
@@ -29,7 +31,8 @@ class MetaController extends Controller
             ],
             'features' => [
                 'payments' => false,
-                'ai_assistant' => false,
+                'ai_assistant' => app(\App\Ai\AiGateway::class)->available(),
+                'disputes' => (bool) config('marketplace.disputes_enabled'),
             ],
         ]])->setPublic()->setMaxAge(300);
     }

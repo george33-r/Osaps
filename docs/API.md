@@ -1,4 +1,4 @@
-# Osapa API v1
+# OSAPS API v1
 
 One versioned API serves the web app and future iOS/Android apps. Base path: `/api/v1`.
 Breaking changes go to `/api/v2`; v1 stays stable for shipped mobile builds.
@@ -62,7 +62,22 @@ Auth endpoints are throttled (10/min per IP, 5/min per email+IP). Marketplace wr
 | POST | `/offers/{id}/accept` | request owner | **Idempotent.** Creates the order (201); a retry returns the same order (200). |
 | GET | `/orders` | signed in | Own orders (as customer or tailor) |
 | GET | `/orders/{reference}` | parties, admin | |
-| POST | `/orders/{reference}/transitions` | parties, admin | `{ status, note? }`. `cancelled` and `disputed` need a note ≥ 10 chars. |
+| POST | `/orders/{reference}/transitions` | parties, admin | `{ status, note? }`. `cancelled` and `disputed` need a note ≥ 10 chars. `disputed` returns 422 `disputes_unavailable` unless `DISPUTES_ENABLED=true`. |
+| GET | `/offers/{id}/messages` | the request owner and the offer's tailor | Questions before (and after) accepting. Each item has `mine`. |
+| POST | `/offers/{id}/messages` | same | `{ body }` 2–1000 chars. Closed offers return 422 `offer_closed`. |
+| GET | `/fabrics/{slug}/contact` | signed in | Vendor phone/WhatsApp/note. `protected_by_osaps: false` — buying is directly with the vendor. |
+
+### AI endpoints (`/ai/…`, throttled; every response says whether AI or the rule-based fallback answered)
+
+| Method | Path | Who | Notes |
+|---|---|---|---|
+| GET | `/ai/status` | anyone | `{ available }` |
+| GET | `/ai/fabric-search?q=` | anyone | `q` 2–200 chars → `source` (`ai`/`keywords`), `understood`, `criteria`, `results` (real catalogue items only), `relaxed`, `notice` |
+| POST | `/ai/stylist` | anyone | `{ known, message?, slot? }` → `next_question` or `result` (concept, catalogue `fabrics`, matched `tailors`, `budget` with each line's basis, `request_draft`) |
+| GET | `/ai/fabrics/{slug}/ideas` | anyone | Outfit ideas for one fabric (AI, or the style guide) |
+| POST | `/ai/inspiration` | signed in | multipart `image` (jpeg/png/webp ≤ 5 MB). Editable draft brief + caveat. Image is not stored. 503 `ai_unavailable` without a key. |
+
+AI never sets prices, IDs, availability or permissions: the server validates output against a schema, keeps only catalogue IDs it offered, removes price claims and guarantees, and logs token counts (not prompts) in `ai_usages`.
 
 ## State machines (server-enforced)
 
@@ -111,4 +126,4 @@ A network retry of the same accept returns `200` with the same `reference`, so m
 
 ## Not in v1 yet
 
-Payments, image uploads (inspiration photos, portfolios), messaging, push notifications, reviews, disputes resolution UI, AI endpoints. See `CHECKLIST.md`.
+Payments, portfolio uploads, push notifications, reviews, dispute resolution console, admin console. See `CHECKLIST.md`.

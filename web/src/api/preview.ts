@@ -7,6 +7,7 @@
  * authority; nothing here is a source of truth.
  */
 import { ApiError, type Api } from './client'
+import { OCCASIONS, previewAi } from './preview-ai'
 import type {
   Fabric,
   JobRequest,
@@ -20,12 +21,12 @@ import type {
   User,
 } from './types'
 
-const GARMENTS: Record<string, string> = {
+export const GARMENTS: Record<string, string> = {
   agbada: 'Agbada', senator: 'Senator', kaftan: 'Kaftan', buba_sokoto: 'Buba & Sokoto', iro_buba: 'Iro & Buba',
   gown: 'Gown', skirt_blouse: 'Skirt & Blouse', suit: 'Suit', bridal: 'Bridal', aso_ebi: 'Aṣọ-ẹbí (group order)',
   kids: "Children's wear", alteration: 'Alteration',
 }
-const FABRIC_CATS: Record<string, string> = {
+export const FABRIC_CATS: Record<string, string> = {
   ankara: 'Ankara', adire: 'Adire', aso_oke: 'Aṣọ-òkè', lace: 'Lace', senator: 'Senator fabric', suiting: 'Suiting',
   george: 'George', damask: 'Damask', other: 'Other textiles',
 }
@@ -34,14 +35,14 @@ const FEE_CAP = 500_000
 const MAX_ROUNDS = 3
 const EXPIRY_HOURS = 48
 
-const money = (minor: number): MoneyValue => ({
+export const money = (minor: number): MoneyValue => ({
   amount_minor: minor,
   currency: 'NGN',
   formatted: '₦' + Math.floor(minor / 100).toLocaleString('en-NG') + (minor % 100 ? '.' + String(minor % 100).padStart(2, '0') : ''),
 })
 const slug = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
-const delay = <T,>(v: T) => new Promise<T>((r) => setTimeout(() => r(structuredClone(v)), 120))
-const fail = (message: string, status: number, code: string, fieldErrors: Record<string, string[]> = {}) => {
+export const delay = <T,>(v: T) => new Promise<T>((r) => setTimeout(() => r(structuredClone(v)), 120))
+export const fail = (message: string, status: number, code: string, fieldErrors: Record<string, string[]> = {}) => {
   throw new ApiError(message, status, code, fieldErrors)
 }
 
@@ -70,7 +71,7 @@ const fabricRows: F[] = [
   ['Emerald Damask Brocade', 'damask', 'emerald', ['emerald'], 'jacquard', 'Cotton damask', 'yard', 9500, 70, 2],
   ['Royal Purple Ankara', 'ankara', 'purple', ['purple', 'gold', 'orange'], 'feathers', 'Cotton wax print', 'yard', 4000, 55, 1],
 ]
-const fabrics: Fabric[] = fabricRows.map(([name, cat, primary, colors, pattern, material, unit, naira, stock, v], i) => ({
+export const fabrics: Fabric[] = fabricRows.map(([name, cat, primary, colors, pattern, material, unit, naira, stock, v], i) => ({
   id: i + 1,
   slug: slug(name),
   name,
@@ -101,7 +102,7 @@ const tailorRows: T[] = [
   ['Northern Needle', 'Kano', ['Kano', 'Abuja'], ['kaftan', 'senator', 'kids'], ['minimal'], 1_500_000, "Everyday kaftans and senators, family and children's orders welcome."],
   ['Iro & Co.', 'Ibadan', ['Ibadan', 'Lagos'], ['iro_buba', 'aso_ebi', 'alteration'], ['adire', 'classic'], 1_800_000, 'Iro and buba in aṣọ-òkè and adire; quick alterations.'],
 ]
-const tailors: Tailor[] = tailorRows.map(([name, city, cities, specs, tags, from, bio]) => ({
+export const tailors: Tailor[] = tailorRows.map(([name, city, cities, specs, tags, from, bio]) => ({
   slug: slug(name),
   business_name: name,
   bio,
@@ -117,12 +118,12 @@ const tailors: Tailor[] = tailorRows.map(([name, city, cities, specs, tags, from
 }))
 
 const users: Record<string, User> = {
-  customer: { id: 1, name: 'Amaka Demo', email: 'customer@demo.osapa.test', phone: null, role: 'customer', city: 'Abuja' },
-  tailor: { id: 2, name: 'Ọ̀ṣọ́ Atelier', email: 'tailor1@demo.osapa.test', phone: null, role: 'tailor', city: 'Abuja', has_tailor_profile: true },
+  customer: { id: 1, name: 'Amaka Demo', email: 'customer@demo.osaps.test', phone: null, role: 'customer', city: 'Abuja' },
+  tailor: { id: 2, name: 'Ọ̀ṣọ́ Atelier', email: 'tailor1@demo.osaps.test', phone: null, role: 'tailor', city: 'Abuja', has_tailor_profile: true },
 }
 let current: User | null = null
 try {
-  const saved = sessionStorage.getItem('osapa-preview-user')
+  const saved = sessionStorage.getItem('osaps-preview-user')
   if (saved && users[saved]) current = users[saved]!
 } catch {
   /* storage unavailable — stay signed out */
@@ -137,6 +138,8 @@ interface OfferRow extends Offer {
 const requests: JobRequest[] = []
 const offers: OfferRow[] = []
 const orders: (Order & { customerId: number; tailorUserId: number })[] = []
+const messages: Record<number, { id: number; author_role: 'customer' | 'tailor'; body: string; created_at: string }[]> = {}
+let messageSeq = 1
 let offerSeq = 100
 
 const hours = (h: number) => new Date(Date.now() + h * 3_600_000).toISOString()
@@ -146,6 +149,7 @@ function seedRequest() {
   const id = '01JPREVIEW0000000000000001'
   requests.push({
     id, title: 'Navy senator for my cousin’s wedding', garment_category: 'senator', garment_label: 'Senator',
+    occasion: 'wedding_guest', occasion_label: 'Wedding guest',
     description: 'Classic navy senator, slightly slim fit, with subtle gold embroidery on the placket and cuffs. I already have 4 yards of cashmere.',
     style_tags: ['embroidered'], mode: 'budget', budget_min: null, budget_max: money(3_000_000), fabric_status: 'own_fabric',
     fabric: null, city: 'Abuja', needed_by: days(24), fitting_required: true, status: 'open', offers_close_at: hours(24 * 6),
@@ -179,10 +183,10 @@ const OFFER_NEXT: Record<OfferStatus, Partial<Record<'customer' | 'tailor', Offe
 }
 const ORDER_NEXT: Record<OrderStatus, Partial<Record<'customer' | 'tailor', OrderStatus[]>>> = {
   confirmed: { tailor: ['in_progress', 'cancelled'], customer: ['cancelled'] },
-  in_progress: { tailor: ['fitting', 'ready'], customer: ['disputed'] },
-  fitting: { tailor: ['in_progress', 'ready'], customer: ['disputed'] },
-  ready: { tailor: ['delivered'], customer: ['disputed'] },
-  delivered: { customer: ['completed', 'disputed'] },
+  in_progress: { tailor: ['fitting', 'ready'] },
+  fitting: { tailor: ['in_progress', 'ready'] },
+  ready: { tailor: ['delivered'] },
+  delivered: { customer: ['completed'] },
   disputed: {}, completed: {}, cancelled: {},
 }
 const ORDER_LABELS: Record<OrderStatus, string> = {
@@ -204,7 +208,7 @@ function viewOffer(o: OfferRow, role: 'customer' | 'tailor', all?: OfferRow[]): 
       lines: [
         { key: 'tailoring', label: 'Tailoring', amount: o.amount },
         ...(fee > 0 ? [{ key: 'delivery', label: 'Delivery', amount: money(fee) }] : []),
-        { key: 'service_fee', label: 'Osapa service fee', amount: money(service) },
+        { key: 'service_fee', label: 'OSAPS service fee', amount: money(service) },
       ],
       total: money(o.amount.amount_minor + fee + service),
       within_budget: req.budget_max ? o.amount.amount_minor <= req.budget_max.amount_minor : null,
@@ -247,7 +251,7 @@ function score(req: JobRequest, t: Tailor) {
   const reasons: string[] = []
   if (spec === 1) reasons.push(`Specialises in ${GARMENTS[req.garment_category]?.toLowerCase() ?? req.garment_category}.`)
   if (loc === 1) reasons.push(`Serves ${req.city}.`)
-  reasons.push('New on Osapa — limited order history so far.')
+  reasons.push('New on OSAPS — limited order history so far.')
   if (portfolio > 0 && req.style_tags.length) reasons.push('Has portfolio work in a similar style.')
   return { score: Math.round(total), new_vendor: true, reasons, factors: {} }
 }
@@ -255,34 +259,36 @@ function score(req: JobRequest, t: Tailor) {
 export const previewApi: Api = {
   meta: () =>
     delay<Meta>({
-      brand: { name: 'Osapa', tagline: 'From fabric to finished outfit — your style, your budget, your choice.' },
+      brand: { name: 'OSAPS', tagline: 'From fabric to finished outfit — your style, your budget, your choice.' },
       currency: 'NGN',
       garment_categories: Object.entries(GARMENTS).map(([key, label]) => ({ key, label })),
+      occasions: Object.entries(OCCASIONS).map(([key, label]) => ({ key, label })),
+      support: {},
       fabric_categories: Object.entries(FABRIC_CATS).map(([key, label]) => ({ key, label })),
       fabric_units: ['yard', 'metre', 'piece', 'bundle'],
       colors: ['navy', 'indigo', 'gold', 'terracotta', 'emerald', 'burgundy', 'cream', 'black', 'white', 'orange', 'royal_blue', 'purple'],
       fees: { customer_service_fee_bps: FEE_BPS, customer_service_fee_cap_minor: FEE_CAP },
       offer_rules: { expiry_hours: EXPIRY_HOURS, max_counter_rounds_per_side: MAX_ROUNDS },
-      features: { payments: false, ai_assistant: false },
+      features: { payments: false, ai_assistant: false, disputes: false },
     }),
   me: () => delay(current),
   register: async (input) => {
     if (input.password !== input.password_confirmation) fail('Passwords do not match.', 422, 'validation_failed', { password: ['The passwords do not match.'] })
     const role = input.role === 'tailor' ? 'tailor' : 'customer'
     current = users[role]!
-    try { sessionStorage.setItem('osapa-preview-user', role) } catch { /* ignore */ }
+    try { sessionStorage.setItem('osaps-preview-user', role) } catch { /* ignore */ }
     return delay(current)
   },
   login: async (email) => {
     const found = Object.entries(users).find(([, u]) => u.email === email)
     if (!found) fail('Those details do not match an account.', 422, 'validation_failed', { email: ['Those details do not match an account.'] })
     current = found![1]
-    try { sessionStorage.setItem('osapa-preview-user', found![0]) } catch { /* ignore */ }
+    try { sessionStorage.setItem('osaps-preview-user', found![0]) } catch { /* ignore */ }
     return delay(current)
   },
   logout: async () => {
     current = null
-    try { sessionStorage.removeItem('osapa-preview-user') } catch { /* ignore */ }
+    try { sessionStorage.removeItem('osaps-preview-user') } catch { /* ignore */ }
   },
 
   fabrics: (f) => {
@@ -346,6 +352,7 @@ export const previewApi: Api = {
     const id = '01JPREVIEW' + String(Date.now()).padStart(16, '0')
     const req: JobRequest = {
       id, title: input.title, garment_category: input.garment_category, garment_label: GARMENTS[input.garment_category] ?? input.garment_category,
+      occasion: input.occasion, occasion_label: input.occasion ? OCCASIONS[input.occasion] ?? null : null,
       description: input.description, style_tags: input.style_tags, mode: input.mode,
       budget_min: input.mode === 'open' && input.budget_min_minor ? money(input.budget_min_minor) : null,
       budget_max: input.budget_max_minor ? money(input.budget_max_minor) : null,
@@ -466,7 +473,7 @@ export const previewApi: Api = {
     const service = feeFor(o.amount.amount_minor)
     const now = new Date().toISOString()
     const order = {
-      reference: 'OSP-' + Math.random().toString(36).slice(2, 10).toUpperCase(), status: 'confirmed' as OrderStatus,
+      reference: 'OSP-' + Math.random().toString(36).slice(2, 10).toUpperCase(), offer_id: o.id, status: 'confirmed' as OrderStatus,
       status_label: ORDER_LABELS.confirmed, viewer_role: 'customer' as const,
       spec: {
         title: r.title, garment_category: r.garment_category, description: r.description, style_tags: r.style_tags,
@@ -491,6 +498,33 @@ export const previewApi: Api = {
     orders.push(order)
     return previewApi.order(order.reference)
   },
+
+  messages: (id) => {
+    const u = requireUser()
+    const role = u.role === 'tailor' ? 'tailor' : 'customer'
+    return delay((messages[id] ?? []).map((m) => ({ ...m, mine: m.author_role === role })))
+  },
+  sendMessage: async (id, body) => {
+    const u = requireUser()
+    const o = offers.find((x) => x.id === id)
+    if (!o || !['awaiting_customer', 'awaiting_tailor', 'accepted'].includes(o.status)) fail('This offer is closed, so messages are turned off.', 422, 'offer_closed')
+    if (body.trim().length < 2) fail('Write a little more.', 422, 'validation_failed', { body: ['Write a little more.'] })
+    const m = { id: messageSeq++, author_role: (u.role === 'tailor' ? 'tailor' : 'customer') as 'customer' | 'tailor', body: body.trim(), created_at: new Date().toISOString() }
+    ;(messages[id] ??= []).push(m)
+    return delay({ ...m, mine: true })
+  },
+  vendorContact: (slug) => {
+    requireUser()
+    const f = fabrics.find((x) => x.slug === slug)
+    if (!f?.vendor) fail('Not found.', 404, 'not_found')
+    const v = f!.vendor!
+    return delay({
+      business_name: v.business_name, market: v.market, city: v.city, phone: null, whatsapp: null,
+      note: `Demonstration vendor — visit ${v.market}, ${v.city}. Real vendors add their phone and WhatsApp here.`,
+      purchase_mode: 'contact_vendor' as const, protected_by_osaps: false,
+    })
+  },
+  ...previewAi,
 
   orders: () => {
     const u = requireUser()
@@ -527,8 +561,8 @@ export const previewApi: Api = {
 export function previewSwitchUser(role: 'customer' | 'tailor' | null) {
   current = role ? users[role]! : null
   try {
-    if (role) sessionStorage.setItem('osapa-preview-user', role)
-    else sessionStorage.removeItem('osapa-preview-user')
+    if (role) sessionStorage.setItem('osaps-preview-user', role)
+    else sessionStorage.removeItem('osaps-preview-user')
   } catch {
     /* ignore */
   }

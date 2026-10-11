@@ -23,6 +23,10 @@ class OrderService
 
             OrderStatus::assert($order->status, $to, $role);
 
+            if ($to === OrderStatus::DISPUTED && ! config('marketplace.disputes_enabled')) {
+                throw new DomainRuleViolation('Problem reports go to OSAPS support for now. Contact support and quote your order reference.', 'disputes_unavailable');
+            }
+
             if (OrderStatus::requiresReason($to) && mb_strlen(trim((string) $note)) < 10) {
                 throw new DomainRuleViolation('Please give a reason (at least 10 characters).', 'reason_required');
             }

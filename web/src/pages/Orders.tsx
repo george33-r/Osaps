@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api, type Order, type OrderStatus } from '../api'
+import { MessageThread } from '../components/Messages'
 import { Button, Dialog, EmptyState, ErrorState, Field, OrderStatusBadge, PageHeader, Skeleton, errorMessage } from '../components/ui'
 import { formatDate, plural } from '../lib/format'
 import { useSession } from '../lib/session'
@@ -86,6 +87,7 @@ const ACTION_COPY: Partial<Record<OrderStatus, string>> = {
 }
 
 export function OrderDetail() {
+  const { meta } = useSession()
   const { reference = '' } = useParams()
   const toast = useToast()
   const res = useAsync(() => api.order(reference), [reference])
@@ -123,6 +125,7 @@ export function OrderDetail() {
         <Link to="/orders">Orders</Link> <span aria-hidden>/</span> <span>{o.reference}</span>
       </nav>
       <PageHeader
+        label={`Order ${o.reference}`}
         title={o.spec.title}
         intro={
           <>
@@ -152,7 +155,22 @@ export function OrderDetail() {
               )}
             </div>
           )}
-          {o.status === 'disputed' && <p className="notice">An Osapa team member will review this and contact both of you. Nothing is decided automatically.</p>}
+          {o.status === 'disputed' && <p className="notice">An OSAPS team member will review this and contact both of you. Nothing is decided automatically.</p>}
+          {o.viewer_role === 'customer' && !meta?.features.disputes && !['completed', 'cancelled', 'confirmed'].includes(o.status) && (
+            <div className="help-box">
+              <p className="help-box__title">Something not right?</p>
+              <p>Message {o.tailor?.business_name ?? 'your tailor'} below first. If you cannot resolve it together,{' '}
+                {meta?.support.email ? <>email <a href={`mailto:${meta.support.email}?subject=${encodeURIComponent(`Order ${o.reference}`)}`}>{meta.support.email}</a></> : 'contact OSAPS support'}{' '}
+                and quote order {o.reference}. A person reviews every report.</p>
+            </div>
+          )}
+          <h2 className="section-title section-title--small orders__messages">Messages</h2>
+          <MessageThread
+            offerId={o.offer_id}
+            otherParty={o.viewer_role === 'tailor' ? o.customer?.name.split(' ')[0] ?? 'the customer' : o.tailor?.business_name ?? 'the tailor'}
+            open
+            closed={o.status === 'completed' || o.status === 'cancelled'}
+          />
         </section>
 
         <aside className="request-layout__side">
@@ -174,7 +192,7 @@ export function OrderDetail() {
               {o.viewer_role === 'tailor' && o.tailor_payout ? (
                 <>
                   <div><dt>Tailoring price</dt><dd>{o.tailor_payout.gross.formatted}</dd></div>
-                  <div><dt>Osapa commission</dt><dd>−{o.tailor_payout.commission.formatted}</dd></div>
+                  <div><dt>OSAPS commission</dt><dd>−{o.tailor_payout.commission.formatted}</dd></div>
                   <div className="terms__total"><dt>You receive</dt><dd>{o.tailor_payout.net.formatted}</dd></div>
                 </>
               ) : (
@@ -186,7 +204,7 @@ export function OrderDetail() {
                 </>
               )}
             </dl>
-            <p className="muted">Payment status: {o.payment_status === 'unpaid' ? 'not paid through Osapa. In-app payment is not available yet.' : o.payment_status}</p>
+            <p className="muted">Payment status: {o.payment_status === 'unpaid' ? 'not paid through OSAPS. In-app payment is not available yet.' : o.payment_status}</p>
             {o.viewer_role === 'tailor' && o.customer?.phone && <p>Customer phone: {o.customer.phone}</p>}
           </section>
         </aside>
@@ -203,7 +221,7 @@ export function OrderDetail() {
         >
           <p className="muted">
             {pending?.status === 'disputed'
-              ? 'Tell us what went wrong. A person on the Osapa team reviews every report.'
+              ? 'Tell us what went wrong. A person on the OSAPS team reviews every report.'
               : 'Say why you are cancelling. The other side will see this.'}
           </p>
           <Field label="Reason" error={dialogError ?? undefined}>

@@ -20,12 +20,14 @@ class StoreJobRequestRequest extends FormRequest
         return [
             'title' => ['required', 'string', 'min:5', 'max:140'],
             'garment_category' => ['required', Rule::in(array_keys(config('marketplace.garment_categories')))],
+            'occasion' => ['nullable', Rule::in(array_keys(config('marketplace.occasions')))],
             'description' => ['required', 'string', 'min:20', 'max:3000'],
             'style_tags' => ['nullable', 'array', 'max:8'],
             'style_tags.*' => ['string', 'max:30'],
             'mode' => ['required', Rule::in(['budget', 'open'])],
             'budget_max_minor' => ['nullable', 'required_if:mode,budget', 'integer', "min:{$min}", "max:{$max}"],
-            'budget_min_minor' => ['nullable', 'integer', "min:{$min}", 'lte:budget_max_minor'],
+            // A minimum on its own is allowed; it only has to sit below the maximum when both are given.
+            'budget_min_minor' => ['nullable', 'integer', "min:{$min}", Rule::when(fn ($in) => filled($in->budget_max_minor), ['lte:budget_max_minor'])],
             'fabric_status' => ['required', Rule::in(['own_fabric', 'buying_on_platform', 'need_advice'])],
             'fabric_id' => ['nullable', 'required_if:fabric_status,buying_on_platform', 'integer', 'exists:fabrics,id'],
             'city' => ['required', 'string', 'max:80'],

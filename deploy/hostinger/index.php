@@ -1,9 +1,9 @@
 <?php
 
 /*
-| Osapa front controller for Hostinger shared hosting.
+| OSAPS front controller for Hostinger shared hosting.
 | Works with either layout:
-|   A) domains/YOUR-DOMAIN/osapa/ + domains/YOUR-DOMAIN/public_html/  (app beside the web root)
+|   A) domains/YOUR-DOMAIN/osaps/ + domains/YOUR-DOMAIN/public_html/  (app beside the web root)
 |   B) public_html/SUBDOMAIN/ holding the app, with this file in public_html/SUBDOMAIN/public_html/
 |      (needs the root .htaccess from deploy/hostinger/root.htaccess one level up)
 */
@@ -14,7 +14,7 @@ define('LARAVEL_START', microtime(true));
 
 // Find the app: the first candidate folder that contains Laravel's "artisan" file.
 $base = null;
-foreach ([dirname(__DIR__).'/osapa', dirname(__DIR__).'/asola', dirname(__DIR__)] as $candidate) {
+foreach ([dirname(__DIR__).'/osaps', dirname(__DIR__).'/asola', dirname(__DIR__)] as $candidate) {
     if (is_file($candidate.'/artisan') && is_dir($candidate.'/app')) {
         $base = $candidate;
         break;
@@ -47,7 +47,7 @@ if ($problems) {
     header('Content-Type: text/html; charset=UTF-8');
     echo '<!doctype html><meta name="viewport" content="width=device-width"><title>Setup not finished</title>'
         .'<body style="font:16px/1.5 system-ui;max-width:40rem;margin:3rem auto;padding:0 1rem">'
-        .'<h1 style="font-size:1.4rem">Osapa setup is not finished yet</h1><ul><li>'
+        .'<h1 style="font-size:1.4rem">OSAPS setup is not finished yet</h1><ul><li>'
         .implode('</li><li>', array_map('htmlspecialchars', $problems)).'</li></ul></body>';
     exit;
 }

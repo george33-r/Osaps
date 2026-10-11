@@ -175,15 +175,38 @@ export function Dialog({ open, onClose, title, children }: { open: boolean; onCl
   )
 }
 
-export function PageHeader({ title, intro, aside }: { title: ReactNode; intro?: ReactNode; aside?: ReactNode }) {
+/** Small uppercase editorial label, used sparingly above titles and in captions. */
+export function Label({ children, as: Tag = 'p', className = '' }: { children: ReactNode; as?: 'p' | 'span' | 'h2' | 'h3'; className?: string }) {
+  return <Tag className={`label ${className}`}>{children}</Tag>
+}
+
+export function PageHeader({ title, intro, aside, label }: { title: ReactNode; intro?: ReactNode; aside?: ReactNode; label?: string }) {
   return (
     <header className="page-header">
-      <div>
+      <div className="page-header__text">
+        {label && <Label>{label}</Label>}
         <h1 className="page-header__title">{title}</h1>
         {intro && <p className="page-header__intro">{intro}</p>}
       </div>
       {aside && <div className="page-header__aside">{aside}</div>}
     </header>
+  )
+}
+
+/** Says where AI-assisted content came from: the model, or the rule-based fallback. */
+export function SourceNote({ source, notice }: { source: string; notice?: string | null }) {
+  const text =
+    source === 'ai'
+      ? 'Suggested by the OSAPS AI stylist from our live catalogue. Check details with your vendor and tailor.'
+      : source === 'keywords'
+        ? 'Basic search: matched by keywords.'
+        : 'Guided mode: written from our style guide, without AI.'
+  return (
+    <p className={`source-note source-note--${source === 'ai' ? 'ai' : 'rules'}`}>
+      <span className="source-note__mark" aria-hidden />
+      {notice ? `${notice} ` : ''}
+      {text}
+    </p>
   )
 }
 

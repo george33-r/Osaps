@@ -24,15 +24,17 @@ export interface KeyLabel {
 }
 
 export interface Meta {
-  brand: { name: string; tagline: string }
+  brand: { name: string; tagline: string; campaign_image?: string | null; campaign_caption?: string | null }
   currency: string
   garment_categories: KeyLabel[]
+  occasions: KeyLabel[]
+  support: { email?: string; whatsapp?: string }
   fabric_categories: KeyLabel[]
   fabric_units: string[]
   colors: string[]
   fees: { customer_service_fee_bps: number; customer_service_fee_cap_minor: number }
   offer_rules: { expiry_hours: number; max_counter_rounds_per_side: number }
-  features: { payments: boolean; ai_assistant: boolean }
+  features: { payments: boolean; ai_assistant: boolean; disputes: boolean }
 }
 
 export interface Fabric {
@@ -132,6 +134,8 @@ export interface JobRequest {
   title: string
   garment_category: string
   garment_label: string
+  occasion: string | null
+  occasion_label: string | null
   description: string
   style_tags: string[]
   mode: PricingMode
@@ -158,6 +162,7 @@ export interface JobRequest {
 export interface NewJobRequest {
   title: string
   garment_category: string
+  occasion: string | null
   description: string
   style_tags: string[]
   mode: PricingMode
@@ -191,6 +196,7 @@ export type OrderStatus =
 
 export interface Order {
   reference: string
+  offer_id: number
   status: OrderStatus
   status_label: string
   viewer_role: 'customer' | 'tailor' | 'admin' | null
@@ -252,4 +258,131 @@ export interface TailorProfileInput {
   weekly_capacity: number
   starting_price_minor: number | null
   accepting_work: boolean
+}
+
+// ---- Messages and vendor contact ----
+
+export interface OfferMessage {
+  id: number
+  author_role: 'customer' | 'tailor'
+  mine: boolean
+  body: string
+  created_at: string
+}
+
+export interface VendorContact {
+  business_name: string
+  market: string | null
+  city: string
+  phone: string | null
+  whatsapp: string | null
+  note: string | null
+  purchase_mode: 'contact_vendor'
+  protected_by_osaps: boolean
+}
+
+// ---- AI-assisted features. "source" always says whether AI or rules produced the content. ----
+
+export interface AiFabricSearch {
+  source: 'ai' | 'keywords'
+  understood: string
+  criteria: { categories: string[]; colors: string[]; max_price_minor: number | null; in_stock_only: boolean; terms: string[]; occasion: string | null }
+  relaxed: string[]
+  notice: string | null
+  results: Fabric[]
+}
+
+export interface StylistChoice {
+  value: string | number
+  label: string
+}
+
+export interface StylistQuestion {
+  slot: 'occasion' | 'garment' | 'colors' | 'budget_naira' | 'needs' | 'timing'
+  text: string
+  choices: StylistChoice[]
+  multiple: boolean
+  allow_text: boolean
+}
+
+export interface StylistKnown {
+  occasion?: string
+  garment?: string
+  colors?: string[]
+  colors_open?: boolean
+  budget_naira?: number
+  needs?: string
+  timing?: string
+  preferences?: string
+}
+
+export interface BudgetLine {
+  key: string
+  label: string
+  amount: MoneyValue
+  basis: string
+}
+
+export interface RequestDraft {
+  garment_category: string
+  occasion: string | null
+  occasion_label?: string | null
+  title: string
+  description: string
+  style_tags: string[]
+  mode: PricingMode
+  fabric_status: FabricStatus
+  fabric_id: number | null
+}
+
+export interface StylistResult {
+  source: 'ai' | 'guided'
+  notice: string | null
+  concept: {
+    title: string
+    summary: string
+    silhouette: string
+    colour_direction: string
+    fabric_characteristics: string
+    finishing_details: string
+    why?: string
+    questions_for_tailor: string[]
+    style_tags: string[]
+  }
+  fabrics: Fabric[]
+  tailors: Tailor[]
+  budget: { lines: BudgetLine[]; missing: string[]; total: MoneyValue | null; budget: MoneyValue | null; within_budget: boolean | null; note: string | null }
+  request_draft: RequestDraft
+}
+
+export interface StylistTurn {
+  source: 'ai' | 'guided'
+  notice: string | null
+  known: StylistKnown
+  next_question: StylistQuestion | null
+  result: StylistResult | null
+}
+
+export interface FabricIdea {
+  title: string
+  garment_category: string
+  occasion: string | null
+  description: string
+  styling_note: string | null
+}
+
+export interface InspirationBriefResult {
+  source: 'ai'
+  garment_category: string | null
+  title: string
+  summary: string
+  silhouette: string | null
+  neckline: string | null
+  sleeves: string | null
+  fabric_appearance: string | null
+  embellishments: string[]
+  colors: string[]
+  aesthetic: string | null
+  confidence: 'low' | 'medium' | 'high'
+  caveat: string
 }

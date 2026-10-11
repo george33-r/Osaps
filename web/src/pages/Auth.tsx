@@ -1,8 +1,26 @@
-import { useState, type FormEvent } from 'react'
+import { useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { api, ApiError } from '../api'
-import { Button, Field } from '../components/ui'
+import { DrapedCloth } from '../components/Swatch'
+import { Button, Field, Label } from '../components/ui'
 import { useSession } from '../lib/session'
+
+function AuthFrame({ title, intro, children }: { title: string; intro: string; children: ReactNode }) {
+  return (
+    <div className="auth">
+      <aside className="auth__art" aria-hidden>
+        <DrapedCloth pattern="stripes" colors={['burgundy', 'gold', 'cream']} seed={6} scale={1.3} />
+        <p className="auth__statement">Discover the fabric. Imagine the outfit. Meet your maker. Wear your story.</p>
+      </aside>
+      <div className="auth__panel">
+        <Label>OSAPS</Label>
+        <h1 className="page-header__title">{title}</h1>
+        <p className="page-header__intro">{intro}</p>
+        {children}
+      </div>
+    </div>
+  )
+}
 
 function safeNext(next: string | null, fallback: string) {
   // Only same-site relative paths — never redirect to another origin.
@@ -33,8 +51,7 @@ export function SignIn() {
   }
 
   return (
-    <div className="page page--auth">
-      <h1 className="page-header__title">Sign in</h1>
+    <AuthFrame title="Welcome back" intro="Sign in to follow your requests, offers and orders.">
       <form className="form" onSubmit={submit} noValidate>
         {error && !error.field('email') && <p className="form__error" role="alert">{error.message}</p>}
         <Field label="Email" error={error?.field('email')}>
@@ -47,10 +64,10 @@ export function SignIn() {
           Sign in
         </Button>
         <p className="muted">
-          New to Osapa? <Link to={`/register${params.get('next') ? `?next=${encodeURIComponent(params.get('next')!)}` : ''}`}>Create an account</Link>
+          New to OSAPS? <Link to={`/register${params.get('next') ? `?next=${encodeURIComponent(params.get('next')!)}` : ''}`}>Create an account</Link>
         </p>
       </form>
-    </div>
+    </AuthFrame>
   )
 }
 
@@ -86,8 +103,7 @@ export function Register() {
   }
 
   return (
-    <div className="page page--auth">
-      <h1 className="page-header__title">Create an account</h1>
+    <AuthFrame title="Create your account" intro="Have outfits made by tailors you choose, or take tailoring work as a maker.">
       <form className="form" onSubmit={submit} noValidate>
         <fieldset className="segmented" aria-label="I want to">
           <legend className="field__label">I want to</legend>
@@ -123,6 +139,6 @@ export function Register() {
           Already have an account? <Link to="/signin">Sign in</Link>
         </p>
       </form>
-    </div>
+    </AuthFrame>
   )
 }

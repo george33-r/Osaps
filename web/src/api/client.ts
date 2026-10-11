@@ -12,6 +12,13 @@ import type {
   Tailor,
   TailorProfileInput,
   User,
+  AiFabricSearch,
+  StylistKnown,
+  StylistTurn,
+  FabricIdea,
+  InspirationBriefResult,
+  OfferMessage,
+  VendorContact,
 } from './types'
 
 /** One error shape for every failure: what the server said, or what the network did. */
@@ -58,6 +65,15 @@ export interface Api {
   decline(offerId: number): Promise<Offer>
   accept(offerId: number): Promise<Order>
 
+  messages(offerId: number): Promise<OfferMessage[]>
+  sendMessage(offerId: number, body: string): Promise<OfferMessage>
+  vendorContact(slug: string): Promise<VendorContact>
+
+  aiSearch(q: string): Promise<AiFabricSearch>
+  stylist(known: StylistKnown, message?: string | null, slot?: string | null): Promise<StylistTurn>
+  fabricIdeas(slug: string): Promise<{ source: 'ai' | 'guide'; notice: string | null; ideas: FabricIdea[] }>
+  inspiration(image: File): Promise<InspirationBriefResult>
+
   orders(): Promise<Paginated<Order>>
   order(reference: string): Promise<Order>
   transition(reference: string, status: OrderStatus, note: string | null): Promise<Order>
@@ -82,7 +98,8 @@ async function http<T>(method: string, path: string, body?: unknown): Promise<T>
   if (unsafe) await ensureCsrf()
 
   const headers: Record<string, string> = { Accept: 'application/json' }
-  if (body !== undefined) headers['Content-Type'] = 'application/json'
+  const isForm = typeof FormData !== 'undefined' && body instanceof FormData
+  if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json'
   const xsrf = readCookie('XSRF-TOKEN')
   if (unsafe && xsrf) headers['X-XSRF-TOKEN'] = xsrf
 
@@ -92,10 +109,10 @@ async function http<T>(method: string, path: string, body?: unknown): Promise<T>
       method,
       headers,
       credentials: 'same-origin',
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : isForm ? (body as FormData) : JSON.stringify(body),
     })
   } catch {
-    throw new ApiError('Could not reach Osapa. Check your connection and try again.', 0, 'network')
+    throw new ApiError('Could not reach OSAPS. Check your connection and try again.', 0, 'network')
   }
 
   if (res.status === 204) return undefined as T
@@ -158,6 +175,19 @@ export const httpApi: Api = {
   withdraw: (id) => data(http('POST', `/offers/${id}/withdraw`)),
   decline: (id) => data(http('POST', `/offers/${id}/decline`)),
   accept: (id) => data(http('POST', `/offers/${id}/accept`)),
+
+  messages: (id) => data(http('GET', `/offers/${id}/messages`)),
+  sendMessage: (id, body) => data(http('POST', `/offers/${id}/messages`, { body })),
+  vendorContact: (slug) => data(http('GET', `/fabrics/${encodeURIComponent(slug)}/contact`)),
+
+  aiSearch: (q) => data(http('GET', '/ai/fabric-search' + qs({ q }))),
+  stylist: (known, message, slot) => data(http('POST', '/ai/stylist', { known, message: message ?? null, slot: slot ?? null })),
+  fabricIdeas: (slug) => data(http('GET', `/ai/fabrics/${encodeURIComponent(slug)}/ideas`)),
+  inspiration: (image) => {
+    const form = new FormData()
+    form.append('image', image)
+    return data(http('POST', '/ai/inspiration', form))
+  },
 
   orders: () => http('GET', '/orders'),
   order: (ref) => data(http('GET', `/orders/${encodeURIComponent(ref)}`)),

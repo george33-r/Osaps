@@ -46,7 +46,7 @@ final class FeeSchedule
         if ($delivery !== null && $delivery->minor > 0) {
             $lines[] = ['key' => 'delivery', 'label' => 'Delivery', 'amount' => $delivery];
         }
-        $lines[] = ['key' => 'service_fee', 'label' => 'Osapa service fee', 'amount' => $this->customerServiceFee($tailoring)];
+        $lines[] = ['key' => 'service_fee', 'label' => 'OSAPS service fee', 'amount' => $this->customerServiceFee($tailoring)];
 
         $total = Money::zero($currency);
         foreach ($lines as $line) {

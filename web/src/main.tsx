@@ -1,3 +1,5 @@
+import '@fontsource/bodoni-moda/400.css'
+import '@fontsource/bodoni-moda/400-italic.css'
 import '@fontsource/bodoni-moda/500.css'
 import '@fontsource/bodoni-moda/600.css'
 import '@fontsource-variable/hanken-grotesk'
@@ -21,6 +23,7 @@ const TailorProfilePage = lazy(() => import('./pages/Tailors').then((m) => ({ de
 const SignIn = lazy(() => import('./pages/Auth').then((m) => ({ default: m.SignIn })))
 const Register = lazy(() => import('./pages/Auth').then((m) => ({ default: m.Register })))
 const PostRequest = lazy(() => import('./pages/PostRequest'))
+const Stylist = lazy(() => import('./pages/Stylist'))
 const MyRequests = lazy(() => import('./pages/Requests').then((m) => ({ default: m.MyRequests })))
 const RequestDetail = lazy(() => import('./pages/Requests').then((m) => ({ default: m.RequestDetail })))
 const TailorInbox = lazy(() => import('./pages/Tailor').then((m) => ({ default: m.TailorInbox })))
@@ -67,6 +70,7 @@ const router = createBrowserRouter(
             { path: 'fabrics/:slug', element: page(<FabricDetail />) },
             { path: 'tailors', element: page(<TailorDirectory />) },
             { path: 'tailors/:slug', element: page(<TailorProfilePage />) },
+            { path: 'stylist', element: page(<Stylist />) },
             { path: 'signin', element: page(<SignIn />) },
             { path: 'register', element: page(<Register />) },
             { path: 'requests', element: customer(<MyRequests />) },

@@ -20,6 +20,8 @@ class JobRequestResource extends ApiResource
             'title' => $this->title,
             'garment_category' => $this->garment_category,
             'garment_label' => config('marketplace.garment_categories.'.$this->garment_category, $this->garment_category),
+            'occasion' => $this->occasion,
+            'occasion_label' => $this->occasion ? config('marketplace.occasions.'.$this->occasion) : null,
             'description' => $this->description,
             'style_tags' => $this->style_tags ?? [],
             'mode' => $this->mode,

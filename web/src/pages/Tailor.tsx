@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, ApiError, type JobRequest, type Offer } from '../api'
+import { MessageThread } from '../components/Messages'
 import {
   Badge,
   Button,
@@ -211,12 +212,12 @@ function Negotiation({ offer, request, onDone }: { offer: Offer; request: JobReq
         <h2 className="form__section-title">Your offer</h2>
         <OfferStatusBadge status={offer.status} viewer="tailor" />
       </div>
-      <ol className="thread">
+      <ol className="revisions">
         {offer.revisions?.map((r, i) => (
-          <li key={i} className={`thread__item thread__item--${r.author_role}`}>
-            <span className="thread__who">{r.author_role === 'tailor' ? 'You' : request.customer.first_name || 'Customer'}</span>
-            <span className="thread__amount">{r.amount.formatted}</span>
-            {r.note && <p className="thread__note">{r.note}</p>}
+          <li key={i} className={`revisions__item revisions__item--${r.author_role}`}>
+            <span className="revisions__who">{r.author_role === 'tailor' ? 'You' : request.customer.first_name || 'Customer'}</span>
+            <span className="revisions__amount">{r.amount.formatted}</span>
+            {r.note && <p className="revisions__note">{r.note}</p>}
           </li>
         ))}
       </ol>
@@ -266,6 +267,8 @@ function Negotiation({ offer, request, onDone }: { offer: Offer; request: JobReq
           Withdraw offer
         </Button>
       )}
+      <MessageThread offerId={offer.id} otherParty={request.customer.first_name || 'the customer'} open closed={!live && offer.status !== 'accepted'} />
+
       {offer.status === 'accepted' && (
         <div className="notice notice--good">The customer accepted your offer. <Link to="/orders">Go to your orders</Link></div>
       )}
@@ -299,7 +302,7 @@ export function TailorJob() {
             <dl className="terms terms--compact">
               <div><dt>Price</dt><dd>{r.mode === 'budget' && r.budget_max ? `${r.budget_max.formatted} (customer's price)` : r.budget_max ? `Open, up to ${r.budget_max.formatted}` : 'Open offers'}</dd></div>
               <div><dt>Needed by</dt><dd>{formatDate(r.needed_by)}</dd></div>
-              <div><dt>Fabric</dt><dd>{r.fabric_status === 'own_fabric' ? 'Customer has it' : r.fabric_status === 'need_advice' ? 'Wants your advice' : r.fabric?.name ?? 'Buying on Osapa'}</dd></div>
+              <div><dt>Fabric</dt><dd>{r.fabric_status === 'own_fabric' ? 'Customer has it' : r.fabric_status === 'need_advice' ? 'Wants your advice' : r.fabric?.name ?? 'Buying on OSAPS'}</dd></div>
               <div><dt>Fitting</dt><dd>{r.fitting_required ? 'Wanted' : 'Not needed'}</dd></div>
             </dl>
           </section>
@@ -353,7 +356,7 @@ export function TailorProfileEdit() {
 
   return (
     <div className="page page--form">
-      <PageHeader title="Your tailor profile" intro="Customers see this when you send an offer. Verification by the Osapa team comes after you sign up." />
+      <PageHeader title="Your tailor profile" intro="Customers see this when you send an offer. Verification by the OSAPS team comes after you sign up." />
       <form className="form form--wide" onSubmit={submit} noValidate>
         {error && <p className="form__error" role="alert">{Object.keys(error.fieldErrors).length ? 'Please fix the highlighted fields.' : error.message}</p>}
         <Field label="Business name" error={error?.field('business_name')}>

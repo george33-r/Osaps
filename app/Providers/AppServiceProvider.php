@@ -29,13 +29,19 @@ class AppServiceProvider extends ServiceProvider
             tailorCommissionBps: (int) config('marketplace.fees.tailor_commission_bps'),
         ));
 
+        $this->app->singleton(\App\Ai\AiProvider::class, fn () => match (config('ai.provider')) {
+            'anthropic' => new \App\Ai\Providers\AnthropicProvider(config('ai.anthropic'), (int) config('ai.timeout_seconds')),
+            default => new \App\Ai\Providers\UnavailableProvider,
+        });
+
         $this->app->singleton(TailorScorer::class, fn () => new TailorScorer(config('marketplace.matching.weights')));
     }
 
     public function boot(): void
     {
-        // Catch lazy loading, silently discarded attributes and missing attributes during development.
-        Model::shouldBeStrict(! $this->app->isProduction());
+        // Strict Eloquent catches lazy loading and silently discarded attributes — in local and test runs only,
+        // never on a live server, where it would turn a missed eager-load into a 500.
+        Model::shouldBeStrict($this->app->environment('local', 'testing'));
 
         RateLimiter::for('api', fn (Request $r) => Limit::perMinute(120)->by($r->user()?->id ?: $r->ip()));
 
@@ -43,6 +49,9 @@ class AppServiceProvider extends ServiceProvider
             Limit::perMinute(10)->by($r->ip()),
             Limit::perMinute(5)->by(strtolower((string) $r->input('email')).'|'.$r->ip()),
         ]);
+
+        // AI endpoints: a short burst limit at the HTTP layer (the AiGateway also enforces daily quotas).
+        RateLimiter::for('ai', fn (Request $r) => Limit::perMinute(12)->by($r->user()?->id ?: $r->ip()));
 
         // Spam protection for marketplace writes (posting requests, offers, counters).
         RateLimiter::for('marketplace-writes', fn (Request $r) => Limit::perMinute(20)->by($r->user()?->id ?: $r->ip()));

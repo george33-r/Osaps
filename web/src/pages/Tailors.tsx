@@ -1,7 +1,7 @@
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
-import { TailorCard, TrustLine } from '../components/cards'
-import { Badge, ButtonLink, EmptyState, ErrorState, PageHeader, Price, Skeleton } from '../components/ui'
+import { Monogram, TailorCard, TrustLine } from '../components/cards'
+import { Badge, ButtonLink, EmptyState, ErrorState, Label, PageHeader, Skeleton } from '../components/ui'
 import { useSession } from '../lib/session'
 import { useAsync } from '../lib/useAsync'
 
@@ -24,46 +24,37 @@ export function TailorDirectory() {
   return (
     <div className="page">
       <PageHeader
-        title="Tailors"
-        intro="Track records here are counted from completed Osapa orders only. Nobody can buy a higher place in this list."
+        label="Find a tailor"
+        title="The makers"
+        intro="Tailors and designers across Nigeria. Track records count completed OSAPS orders only, and nobody can pay for a higher place."
         aside={<ButtonLink to="/requests/new">Get offers from tailors</ButtonLink>}
       />
       <div className="toolbar">
-        <label className="filters__inline">
-          City
+        <label className="inline-field">
+          <span>City</span>
           <select className="input input--select" value={city} onChange={(e) => set('city', e.target.value)}>
             <option value="">All cities</option>
-            {CITIES.map((c) => (
-              <option key={c}>{c}</option>
-            ))}
+            {CITIES.map((c) => <option key={c}>{c}</option>)}
           </select>
         </label>
-        <label className="filters__inline">
-          Makes
+        <label className="inline-field">
+          <span>Makes</span>
           <select className="input input--select" value={specialty} onChange={(e) => set('specialty', e.target.value)}>
             <option value="">Any garment</option>
-            {meta?.garment_categories.map((g) => (
-              <option key={g.key} value={g.key}>
-                {g.label}
-              </option>
-            ))}
+            {meta?.garment_categories.map((g) => <option key={g.key} value={g.key}>{g.label}</option>)}
           </select>
         </label>
       </div>
       {res.status === 'error' && !res.data ? (
         <ErrorState error={res.error} onRetry={res.reload} />
       ) : !res.data ? (
-        <div className="grid grid--tailors">{Array.from({ length: 6 }, (_, i) => <Skeleton key={i} lines={4} />)}</div>
+        <div className="grid grid--makers">{Array.from({ length: 6 }, (_, i) => <Skeleton key={i} lines={4} />)}</div>
       ) : res.data.data.length === 0 ? (
-        <EmptyState title="No tailors match yet" action={<button className="btn btn--secondary" onClick={() => setParams({})}>Show all tailors</button>}>
+        <EmptyState title="No makers match yet" action={<button className="btn btn--secondary" onClick={() => setParams({})}>Show all makers</button>}>
           Post a request anyway: tailors who serve nearby cities can still respond.
         </EmptyState>
       ) : (
-        <div className="grid grid--tailors">
-          {res.data.data.map((t) => (
-            <TailorCard key={t.slug} tailor={t} />
-          ))}
-        </div>
+        <div className="grid grid--makers">{res.data.data.map((t) => <TailorCard key={t.slug} tailor={t} />)}</div>
       )}
     </div>
   )
@@ -77,32 +68,48 @@ export function TailorProfilePage() {
   const t = res.data
 
   return (
-    <div className="page page--narrow">
+    <div className="page">
       <nav className="crumbs" aria-label="Breadcrumb">
-        <Link to="/tailors">Tailors</Link> <span aria-hidden>/</span> <span>{t.business_name}</span>
+        <Link to="/tailors">Makers</Link> <span aria-hidden>/</span> <span>{t.business_name}</span>
       </nav>
-      <header className="profile-head">
-        <div className="tailor-card__monogram tailor-card__monogram--large" aria-hidden>
-          {t.business_name.normalize('NFD').replace(/[̀-ͯ]/g, '').slice(0, 1)}
+      <article className="maker">
+        <header className="maker__head">
+          <Monogram name={t.business_name} large />
+          <div>
+            <Label>{t.specialties.map((s) => s.label).join(', ')}</Label>
+            <h1 className="maker__name">{t.business_name}</h1>
+            <p className="maker__where">Based in {t.city}. Works in {t.service_cities.join(', ')}.</p>
+            <TrustLine tailor={t} />
+            {t.is_demo && <Badge tone="waiting">Demonstration profile</Badge>}
+          </div>
+        </header>
+
+        <div className="maker__body">
+          <div className="maker__story">
+            {t.bio && <p className="maker__bio">{t.bio}</p>}
+            {t.track_record.is_new && (
+              <p className="maker__new">
+                New makers start without reviews. Ask to see past work in a message before you accept an offer, and agree fittings and alterations up front.
+              </p>
+            )}
+            <section className="maker__portfolio" aria-labelledby="portfolio-title">
+              <h2 id="portfolio-title" className="section-title section-title--small">Portfolio</h2>
+              <EmptyState title="Portfolio photographs are coming">
+                {t.business_name.split(' ')[0]} has not uploaded work yet. Portfolio uploads arrive in the next release.
+              </EmptyState>
+            </section>
+          </div>
+          <aside className="maker__facts">
+            <dl className="specs">
+              <div><dt>Makes</dt><dd>{t.specialties.map((s) => s.label).join(', ')}</dd></div>
+              {t.portfolio_tags.length > 0 && <div><dt>Style</dt><dd>{t.portfolio_tags.join(', ')}</dd></div>}
+              {t.starting_price && <div><dt>Prices from</dt><dd>{t.starting_price.formatted}</dd></div>}
+              <div><dt>Taking new work</dt><dd>{t.accepting_work ? 'Yes' : 'Not right now'}</dd></div>
+            </dl>
+            <ButtonLink to="/requests/new">Post a request this maker can answer</ButtonLink>
+          </aside>
         </div>
-        <div>
-          <h1 className="page-header__title">{t.business_name}</h1>
-          <p className="muted">Based in {t.city}. Works in {t.service_cities.join(', ')}.</p>
-          <TrustLine tailor={t} />
-        </div>
-      </header>
-      {t.is_demo && <p><Badge tone="waiting">Demonstration profile</Badge></p>}
-      {t.bio && <p className="prose">{t.bio}</p>}
-      <dl className="specs">
-        <div><dt>Makes</dt><dd>{t.specialties.map((s) => s.label).join(', ')}</dd></div>
-        {t.portfolio_tags.length > 0 && <div><dt>Style</dt><dd>{t.portfolio_tags.join(', ')}</dd></div>}
-        {t.starting_price && <div><dt>Prices from</dt><dd><Price value={t.starting_price} /></dd></div>}
-        <div><dt>Taking new work</dt><dd>{t.accepting_work ? 'Yes' : 'Not right now'}</dd></div>
-      </dl>
-      <EmptyState title="No portfolio photos yet">Portfolio uploads are coming in the next release.</EmptyState>
-      <div className="fabric-detail__actions">
-        <ButtonLink to="/requests/new">Post a request this tailor can respond to</ButtonLink>
-      </div>
+      </article>
     </div>
   )
 }

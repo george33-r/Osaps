@@ -50,7 +50,7 @@ final class MatchingAndQuotesTest extends TestCase
         );
         $this->assertTrue($r['new_vendor']);
         $this->assertSame(0.6, $r['factors']['reliability']);
-        $this->assertContains('New on Osapa — limited order history so far.', $r['reasons']);
+        $this->assertContains('New on OSAPS — limited order history so far.', $r['reasons']);
         // Discoverable: a relevant local newcomer still clears a reasonable bar.
         $this->assertGreaterThan(60, $r['score']);
     }
