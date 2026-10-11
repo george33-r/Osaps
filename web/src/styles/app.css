@@ -1082,3 +1082,112 @@ html, body { overflow-x: clip; }
     .diaspora__panel { animation: tilt-in linear both; animation-timeline: view(); animation-range: entry 0% cover 40%; --tilt: 2deg; }
   }
 }
+
+/* ---------- Floating stylist button ---------- */
+.fab { position: fixed; right: max(var(--s-4), env(safe-area-inset-right)); bottom: max(var(--s-4), env(safe-area-inset-bottom)); z-index: 75; display: grid; justify-items: end; gap: var(--s-3); }
+body:has(.preview-banner) .fab { bottom: 4.6rem; }
+.fab__button {
+  position: relative; display: inline-flex; align-items: center; gap: var(--s-2); min-height: 56px; padding: 0 1.4rem 0 1.1rem;
+  border: 0; border-radius: var(--r-pill); cursor: pointer; color: #fff; font-weight: 700; font-size: var(--t-base);
+  background: linear-gradient(135deg, #e3262e, var(--red-deep));
+  box-shadow: 0 18px 40px -12px rgba(216, 31, 42, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.18) inset;
+  translate: var(--mx, 0px) var(--my, 0px); transition: translate 350ms var(--ease), transform 160ms var(--ease);
+}
+.fab__button svg { color: var(--gold); filter: drop-shadow(0 0 6px rgba(242, 190, 69, 0.8)); }
+.fab__button:active { transform: scale(0.96); }
+.fab__button::before { content: ''; position: absolute; inset: -5px; border-radius: inherit; border: 2px solid rgba(242, 190, 69, 0.7); opacity: 0; pointer-events: none; }
+.fab.is-open .fab__button { background: var(--night-3); box-shadow: 0 18px 40px -14px rgba(0, 0, 0, 0.9); }
+@media (max-width: 30rem) { .fab__button { padding: 0 1rem; } }
+.fab__panel {
+  width: min(23rem, calc(100vw - 2rem)); padding: var(--s-5); border-radius: var(--r-panel);
+  background: color-mix(in srgb, var(--night-2) 94%, transparent); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--rule-strong); box-shadow: var(--shadow-float); display: grid; gap: var(--s-3);
+}
+.fab__head { display: flex; justify-content: space-between; align-items: center; }
+.fab__title { margin: 0; font-family: var(--font-display); font-stretch: 125%; font-weight: 820; font-size: var(--t-lg); }
+.fab__close { width: 40px; height: 40px; border: 0; border-radius: 50%; background: color-mix(in srgb, var(--cowrie) 10%, transparent); color: var(--ink); font-size: 1.4rem; cursor: pointer; }
+.fab__intro { margin: 0; font-size: var(--t-sm); color: var(--ink-soft); }
+.fab__form { display: flex; gap: var(--s-2); }
+.fab__form .input { flex: 1; min-width: 0; }
+.fab__form .btn { padding: 0 1.1rem; }
+.fab__chips { display: flex; flex-wrap: wrap; gap: var(--s-1); }
+.fab__chips .chip { min-height: 34px; font-size: var(--t-xs); }
+.fab__note { margin: 0; font-size: var(--t-xs); color: var(--ink-faint); }
+@media (prefers-reduced-motion: no-preference) {
+  .fab__button::before { animation: fab-ring 2.8s var(--ease) infinite; }
+  .fab.is-open .fab__button::before { animation: none; }
+  .fab__panel { animation: pop 300ms var(--ease) both; transform-origin: bottom right; }
+  @keyframes fab-ring { 0% { opacity: 0.9; scale: 1; } 70%, 100% { opacity: 0; scale: 1.25; } }
+}
+
+/* ---------- Lookbook (drawn looks in catalogue fabrics) ---------- */
+.lookbook, .weddings, .gallery { max-width: var(--page); margin: 0 auto; padding: var(--s-9) var(--gutter) 0; }
+.lookbook__head, .weddings__head { display: grid; gap: var(--s-3); margin-bottom: var(--s-7); }
+.lookbook__head .section-title, .weddings__head .section-title { font-size: var(--t-3xl); }
+.lookbook__head p, .weddings__head p { color: var(--ink-soft); max-width: 48ch; font-size: var(--t-md); margin: 0; }
+@media (min-width: 60rem) { .lookbook__head, .weddings__head { grid-template-columns: 1fr 26rem; align-items: end; } }
+.lookbook__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-4); }
+@media (min-width: 60rem) {
+  .lookbook__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-5); }
+  .look--2, .look--5 { margin-top: var(--s-8); }
+  .look--3, .look--6 { margin-top: var(--s-6); }
+}
+.look {
+  display: flex; flex-direction: column; overflow: hidden; border-radius: var(--r-panel); background: var(--surface); border: 1px solid var(--rule);
+  transform: perspective(1100px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  transition: transform 600ms var(--ease), box-shadow 600ms var(--ease);
+  box-shadow: 0 30px 60px -34px rgba(0, 0, 0, 0.85);
+}
+.look.is-tilting { transition-duration: 90ms, 300ms; box-shadow: 0 50px 80px -36px rgba(0, 0, 0, 0.95); }
+.look__stage { position: relative; aspect-ratio: 3 / 4; overflow: hidden; display: grid; place-items: end center; }
+.look__motif { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0.35; }
+.look__stage::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 40%, rgba(246, 241, 231, 0.18), transparent 60%), linear-gradient(180deg, transparent 55%, rgba(7, 12, 38, 0.7)); z-index: 1; }
+.look__figure { position: relative; z-index: 2; width: 74%; height: 96%; filter: drop-shadow(0 26px 30px rgba(0, 0, 0, 0.55)); transform-origin: 50% 100%; }
+.look__text { display: grid; gap: var(--s-2); padding: var(--s-4) var(--s-5) var(--s-5); }
+.look__culture { margin: 0; font-size: var(--t-xs); font-weight: 700; color: var(--gold); }
+.look__name { font-family: var(--font-display); font-stretch: 115%; font-weight: 780; font-size: var(--t-lg); line-height: 1.05; }
+.look__fabric { margin: 0; font-size: var(--t-xs); color: var(--ink-soft); }
+.look__cta { justify-self: start; min-height: 44px; padding: 0 1.1rem; font-size: var(--t-sm); margin-top: var(--s-1); }
+.lookbook__note { margin: var(--s-5) 0 0; font-size: var(--t-xs); color: var(--ink-faint); }
+@media (max-width: 40rem) { .look__text { padding: var(--s-3) var(--s-3) var(--s-4); } .look__name { font-size: var(--t-md); } }
+
+/* ---------- Wedding wardrobes ---------- */
+.weddings__list { display: grid; gap: var(--s-6); }
+.wedding {
+  display: grid; overflow: hidden; border-radius: var(--r-panel); border: 1px solid var(--rule);
+  background: radial-gradient(ellipse at 20% 0%, rgba(242, 190, 69, 0.18), transparent 55%), var(--night-2);
+  box-shadow: var(--shadow-float);
+}
+.wedding__stage { position: relative; display: flex; justify-content: center; align-items: flex-end; gap: 0; min-height: 22rem; padding: var(--s-6) var(--s-4) 0; overflow: hidden; }
+.wedding__stage::before { content: ''; position: absolute; left: 5%; right: 5%; bottom: -20%; height: 90%; border-radius: 50%; background: radial-gradient(ellipse at 50% 60%, rgba(246, 241, 231, 0.14), transparent 65%); }
+.wedding__figure { position: relative; width: 44%; max-width: 15rem; height: auto; filter: drop-shadow(0 26px 30px rgba(0, 0, 0, 0.6)); }
+.wedding__figure--groom { margin-left: -6%; }
+.wedding__text { display: grid; gap: var(--s-3); align-content: center; padding: var(--s-6) var(--s-5) var(--s-7); }
+.wedding__ceremony { margin: 0; font-size: var(--t-xs); font-weight: 700; color: var(--gold); }
+.wedding__name { font-family: var(--font-display); font-stretch: 128%; font-weight: 850; font-size: var(--t-2xl); line-height: 0.95; letter-spacing: -0.03em; }
+.wedding__text > p { color: var(--ink-soft); max-width: 52ch; margin: 0; }
+.wedding__actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3); margin-top: var(--s-3); }
+@media (min-width: 56rem) {
+  .wedding { grid-template-columns: 1fr 1.1fr; }
+  .wedding:nth-child(even) .wedding__stage { order: 2; }
+  .wedding__stage { min-height: 30rem; }
+  .wedding__text { padding: var(--s-7); }
+}
+
+/* ---------- Real photo gallery ---------- */
+.gallery__grid { columns: 2 14rem; column-gap: var(--s-4); }
+.gallery__item { break-inside: avoid; margin: 0 0 var(--s-4); overflow: hidden; border-radius: var(--r-media); background: var(--surface); transform: perspective(1000px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transition: transform 600ms var(--ease); }
+.gallery__item img { width: 100%; height: auto; }
+.gallery__item figcaption { display: grid; gap: 2px; padding: var(--s-3) var(--s-4); font-size: var(--t-sm); }
+.gallery__item small { color: var(--ink-faint); font-size: var(--t-xs); }
+.gallery__empty { padding: var(--s-6); border: 1px dashed var(--rule-strong); border-radius: var(--r-panel); max-width: 44rem; color: var(--ink-soft); }
+.gallery__empty-title { font-family: var(--font-display); font-stretch: 115%; font-weight: 780; font-size: var(--t-lg); color: var(--ink); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .look__figure, .wedding__figure { animation: sway 6s ease-in-out infinite alternate; }
+  .look--2 .look__figure, .look--4 .look__figure, .wedding__figure--groom { animation-delay: -3s; }
+  @keyframes sway { from { rotate: -1.2deg; translate: 0 2px; } to { rotate: 1.2deg; translate: 0 -4px; } }
+  @supports (animation-timeline: view()) {
+    .look, .wedding { animation: rise-in linear both; animation-timeline: view(); animation-range: entry 0% entry 70%; }
+  }
+}

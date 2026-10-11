@@ -161,7 +161,14 @@ export default function Stylist() {
   }
 
   useEffect(() => {
-    void run(initial)
+    // Arriving from the floating "Ask the stylist" button: start from the customer's own words.
+    const ask = params.get('ask')?.trim()
+    if (ask && ask.length >= 2) {
+      setLog([{ question: 'Tell me what you would like to wear', answer: ask.slice(0, 500) }])
+      void run(initial, ask.slice(0, 500), 'occasion')
+    } else {
+      void run(initial)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   useEffect(() => questionRef.current?.focus(), [turn?.next_question?.slot])

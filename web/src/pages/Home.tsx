@@ -9,6 +9,7 @@ import { ButtonLink, Skeleton } from '../components/ui'
 import { useSession } from '../lib/session'
 import { useAsync } from '../lib/useAsync'
 import { CultureBand, Cultures, Diaspora, Festivals } from './HomeCulture'
+import { Lookbook, PhotoGallery, Weddings } from './HomeLookbook'
 
 const STEPS = [
   ['Discover the fabric', 'Ankara, aṣọ-òkè, lace and adire from market vendors, with real prices and stock.'],
@@ -206,6 +207,8 @@ export default function Home() {
       />
 
       <Cultures />
+
+      <Lookbook fabrics={rack.data?.data ?? []} />
       <Edit
         category="aso_oke"
         panel
@@ -215,6 +218,8 @@ export default function Home() {
       />
 
       <Festivals />
+
+      <Weddings fabrics={rack.data?.data ?? []} />
       <Edit
         category="lace"
         title="Lace Worth Celebrating"
@@ -238,6 +243,8 @@ export default function Home() {
           ))}
         </ol>
       </section>
+
+      <PhotoGallery />
 
       <section className="makers" aria-labelledby="makers-title">
         <header className="makers__head">

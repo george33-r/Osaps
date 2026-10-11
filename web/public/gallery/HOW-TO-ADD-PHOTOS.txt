@@ -1,0 +1,25 @@
+OSAPS "Worn by real people" gallery
+===================================
+
+Only add a photo when the person in it has agreed in writing to appear on OSAPS,
+and you own the photo or have a licence to use it. Celebrity or press photos may
+not be used without a written agreement with both the person and the photographer.
+
+1. Upload the image (JPG or WebP, about 1200 px tall) into this folder,
+   e.g. amaka-asoebi.jpg
+2. Add an entry to gallery.json:
+
+{
+  "items": [
+    {
+      "src": "amaka-asoebi.jpg",
+      "alt": "A woman in a wine aso-oke iro and buba with a gold gele",
+      "name": "Amaka, Abuja",
+      "look": "Aso-ebi for her sister's wedding",
+      "credit": "Photo by Tunde Studio, used with permission",
+      "consent": true
+    }
+  ]
+}
+
+An entry without "consent": true or without a "credit" is never shown.

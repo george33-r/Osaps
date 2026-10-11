@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useSession } from '../lib/session'
+import { StylistFab } from './StylistFab'
 
 function PreviewBanner() {
   const { user, refresh } = useSession()
@@ -266,6 +267,7 @@ export function Layout() {
         <Outlet />
       </main>
       <Footer />
+      <StylistFab />
     </>
   )
 }

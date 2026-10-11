@@ -291,3 +291,17 @@ export function PatternTile({ pattern, colors }: Pick<SwatchProps, 'pattern' | '
     </svg>
   )
 }
+
+/** A listing's pattern as an SVG <pattern> definition, for filling drawn garments. */
+export function FabricPattern({ id, pattern, colors, scale = 1 }: { id: string; pattern: string | null; colors: string[]; scale?: number }) {
+  const a = hex(colors[0], '#2a3170')
+  const b = hex(colors[1], colors.length === 1 ? shade(a, 40) : '#c49a3a')
+  const c = hex(colors[2], colors.length >= 2 ? shade(b, -30) : shade(a, -30))
+  const draw = PATTERNS[pattern ?? 'plain'] ?? PATTERNS.plain!
+  const { size, body } = draw(a, b, c)
+  return (
+    <pattern id={id} width={size * scale} height={size * scale} patternUnits="userSpaceOnUse">
+      <g transform={`scale(${scale})`}>{body}</g>
+    </pattern>
+  )
+}
