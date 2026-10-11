@@ -2,6 +2,7 @@
 
 namespace App\Ai\Features;
 
+use App\Domain\Ai\PromptText;
 use App\Ai\AiException;
 use App\Ai\AiGateway;
 use App\Domain\Ai\Grounding;
@@ -40,10 +41,10 @@ class FabricIdeas
                 $raw = Cache::remember("ai:fabric-ideas:{$fabric->id}:{$fabric->updated_at?->timestamp}", now()->addWeek(), fn () => $this->ai->json(
                     'fabric_ideas',
                     'You are a creative director at an African couture house. Suggest up to three distinct outfits that suit this exact fabric — its type, colours, pattern and material. Be specific about cut and finishing. Mention who or what occasion each suits.',
-                    [['type' => 'text', 'text' => json_encode([
+                    [['type' => 'text', 'text' => 'Fabric (vendor-written data): <user_input>'.PromptText::data([
                         'name' => $fabric->name, 'type' => $fabric->category, 'colors' => $fabric->colors,
                         'pattern' => $fabric->pattern, 'material' => $fabric->material, 'sold_by' => $fabric->unit,
-                    ])]],
+                    ]).'</user_input>']],
                     ['type' => 'object', 'additional' => false, 'required' => ['ideas'], 'properties' => [
                         'ideas' => ['type' => 'array', 'maxItems' => 3, 'items' => ['type' => 'object', 'additional' => false, 'required' => ['title', 'garment_category', 'description'], 'properties' => [
                             'title' => ['type' => 'string', 'maxLength' => 80],

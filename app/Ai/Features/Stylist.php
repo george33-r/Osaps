@@ -7,6 +7,7 @@ use App\Ai\AiGateway;
 use App\Domain\Ai\BudgetEstimate;
 use App\Domain\Ai\FabricCriteria;
 use App\Domain\Ai\Grounding;
+use App\Domain\Ai\PromptText;
 use App\Domain\Ai\KeywordInterpreter;
 use App\Domain\Ai\StylistConsultation;
 use App\Models\Fabric;
@@ -65,7 +66,7 @@ class Stylist
                 $raw = $this->ai->json(
                     'stylist_extract',
                     'You are the intake assistant of an African fashion house. Read the customer\'s message and fill only the fields they actually expressed. Leave out anything they did not say. "budget_naira" is the total they want to spend in whole naira. Put comfort, fit, modesty or style wishes in "preferences" in their own words.',
-                    [['type' => 'text', 'text' => 'Current question: '.($slot ?? 'none').'. Already known: '.json_encode($known).'. <user_input>'.$message.'</user_input>']],
+                    [['type' => 'text', 'text' => 'Current question: '.($slot ?? 'none').'. Already known (customer data): <user_input>'.PromptText::data($known).'</user_input> Customer message: '.PromptText::block($message)]],
                     $this->extractSchema(), $user, $ip, false, 300,
                 );
                 $merged = $flow->clean(array_merge($known, array_filter($raw, fn ($v) => $v !== null)));
@@ -199,7 +200,7 @@ class Stylist
         $raw = $this->ai->json(
             'stylist_concept',
             'You are the head stylist of an international African couture house. Write one outfit concept for this customer: warm, specific and practical, in British English, in a confident editorial voice. Respect any comfort, fit or modesty preferences. Choose up to three fabrics only from the catalogue list by id, or none if none suit. Suggest finishing details a skilled Nigerian tailor can make.',
-            [['type' => 'text', 'text' => 'Customer brief: '.json_encode(array_diff_key($known, ['budget_naira' => 1]))."\nCatalogue fabrics available now: ".json_encode($catalogue)]],
+            [['type' => 'text', 'text' => 'Customer brief: <user_input>'.PromptText::data(array_diff_key($known, ['budget_naira' => 1]))."</user_input>\nCatalogue fabrics available now (vendor-written data): <user_input>".PromptText::data($catalogue, 4000).'</user_input>']],
             $this->conceptSchema($candidates->pluck('id')->all()),
             $user, $ip, false, 700,
         );

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Domain\Money\Money;
+use App\Domain\Negotiation\AcceptanceCheck;
 use App\Domain\Negotiation\JobRequestStatus;
 use App\Domain\Negotiation\OfferRules;
 use App\Domain\Negotiation\OfferStatus;
@@ -197,7 +198,7 @@ class NegotiationService
      * Customer accepts a tailor's current terms. Locks price and scope into an order.
      * Idempotent: retrying the same acceptance returns the same order.
      */
-    public function accept(User $customer, Offer $offer): Order
+    public function accept(User $customer, Offer $offer, ?int $expectedAmountMinor = null, ?int $expectedDeliveryFeeMinor = null): Order
     {
         return DB::transaction(function () use ($customer, $offer) {
             $request = JobRequest::query()->lockForUpdate()->findOrFail($offer->job_request_id);
@@ -211,6 +212,8 @@ class NegotiationService
             }
             $this->assertLive($offer);
             OfferStatus::assert($offer->status, OfferStatus::ACCEPTED, 'customer');
+            // Checked under the row lock: the price accepted is the price the customer saw.
+            AcceptanceCheck::assertUnchanged($expectedAmountMinor, $offer->amount_minor, $expectedDeliveryFeeMinor, $offer->delivery_fee_minor);
             JobRequestStatus::assert($request->status, JobRequestStatus::AWARDED, 'customer');
 
             $offer->status = OfferStatus::ACCEPTED;
@@ -259,30 +262,47 @@ class NegotiationService
         });
     }
 
-    /** Sweep for the scheduler: expire offers and requests whose windows have passed. */
+    /**
+     * Sweep for the scheduler: expire offers and requests whose windows have passed.
+     * Each row is re-read under a lock and re-checked, so an acceptance that commits at the same moment
+     * is never overwritten with "expired".
+     */
     public function expireStale(): array
     {
         $offers = 0;
         Offer::query()->whereIn('status', OfferStatus::LIVE)->where('expires_at', '<=', now())
+            ->select('id', 'job_request_id')
             ->chunkById(200, function ($chunk) use (&$offers) {
-                foreach ($chunk as $offer) {
-                    OfferStatus::assert($offer->status, OfferStatus::EXPIRED, 'system');
-                    $offer->status = OfferStatus::EXPIRED;
-                    $offer->save();
-                    $offers++;
+                foreach ($chunk as $stale) {
+                    DB::transaction(function () use ($stale, &$offers) {
+                        JobRequest::query()->lockForUpdate()->find($stale->job_request_id);
+                        $offer = Offer::query()->lockForUpdate()->find($stale->id);
+                        if (! $offer || ! in_array($offer->status, OfferStatus::LIVE, true) || $offer->expires_at->isFuture()) {
+                            return;
+                        }
+                        OfferStatus::assert($offer->status, OfferStatus::EXPIRED, 'system');
+                        $offer->status = OfferStatus::EXPIRED;
+                        $offer->save();
+                        $offers++;
+                    });
                 }
             });
 
         $requests = 0;
         JobRequest::query()->where('status', JobRequestStatus::OPEN)->where('offers_close_at', '<=', now())
+            ->select('id')
             ->chunkById(200, function ($chunk) use (&$requests) {
-                foreach ($chunk as $request) {
-                    DB::transaction(function () use ($request) {
+                foreach ($chunk as $stale) {
+                    DB::transaction(function () use ($stale, &$requests) {
+                        $request = JobRequest::query()->lockForUpdate()->find($stale->id);
+                        if (! $request || $request->status !== JobRequestStatus::OPEN || $request->offers_close_at->isFuture()) {
+                            return;
+                        }
                         $request->status = JobRequestStatus::EXPIRED;
                         $request->save();
                         $this->closeLiveOffers($request, OfferStatus::EXPIRED);
+                        $requests++;
                     });
-                    $requests++;
                 }
             });
 

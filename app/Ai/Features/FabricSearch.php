@@ -5,6 +5,7 @@ namespace App\Ai\Features;
 use App\Ai\AiException;
 use App\Ai\AiGateway;
 use App\Domain\Ai\FabricCriteria;
+use App\Domain\Ai\PromptText;
 use App\Domain\Ai\KeywordInterpreter;
 use App\Models\Fabric;
 use App\Models\User;
@@ -38,7 +39,7 @@ class FabricSearch
                 $raw = Cache::remember('ai:fabric-search:'.sha1(mb_strtolower($query)), now()->addDay(), fn () => $this->ai->json(
                     'fabric_search',
                     'You turn a shopper\'s request for fabric into search filters for an African fabric catalogue. Choose only from the allowed values. Use "terms" only for concrete material or texture words that could appear in a product name (e.g. "cashmere", "beaded", "linen"); never for occasions or feelings.',
-                    [['type' => 'text', 'text' => '<user_input>'.$query.'</user_input>']],
+                    [['type' => 'text', 'text' => PromptText::block($query, 200)]],
                     self::schema($cats, $colors, $occasions),
                     $user, $ip, false, 300,
                 ));

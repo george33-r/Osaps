@@ -63,7 +63,8 @@ export interface Api {
   revise(offerId: number, amountMinor: number, deliveryDays: number | null, note: string | null): Promise<Offer>
   withdraw(offerId: number): Promise<Offer>
   decline(offerId: number): Promise<Offer>
-  accept(offerId: number): Promise<Order>
+  /** Sends the terms the customer saw; the server refuses with `offer_changed` if the tailor changed them. */
+  accept(offerId: number, seen: { amount_minor: number; delivery_fee_minor: number | null }): Promise<Order>
 
   messages(offerId: number): Promise<OfferMessage[]>
   sendMessage(offerId: number, body: string): Promise<OfferMessage>
@@ -174,7 +175,7 @@ export const httpApi: Api = {
   revise: (id, amount_minor, delivery_days, note) => data(http('POST', `/offers/${id}/revise`, { amount_minor, delivery_days, note })),
   withdraw: (id) => data(http('POST', `/offers/${id}/withdraw`)),
   decline: (id) => data(http('POST', `/offers/${id}/decline`)),
-  accept: (id) => data(http('POST', `/offers/${id}/accept`)),
+  accept: (id, seen) => data(http('POST', `/offers/${id}/accept`, { expected_amount_minor: seen.amount_minor, expected_delivery_fee_minor: seen.delivery_fee_minor })),
 
   messages: (id) => data(http('GET', `/offers/${id}/messages`)),
   sendMessage: (id, body) => data(http('POST', `/offers/${id}/messages`, { body })),

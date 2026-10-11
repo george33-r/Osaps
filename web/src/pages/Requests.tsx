@@ -216,7 +216,7 @@ function OfferCard({ offer, request, onChanged }: { offer: Offer; request: JobRe
             onClick={async () => {
               setBusy(true)
               try {
-                const order = await api.accept(offer.id)
+                const order = await api.accept(offer.id, { amount_minor: offer.amount.amount_minor, delivery_fee_minor: offer.delivery_fee?.amount_minor ?? null })
                 toast('Offer accepted. Your order is confirmed.', 'good')
                 navigate(`/orders/${order.reference}`)
               } catch (e) {

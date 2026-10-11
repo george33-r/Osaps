@@ -50,6 +50,20 @@ abstract class TestCase
         }
     }
 
+    public static function assertStringContainsString(string $needle, string $haystack, string $message = ''): void
+    {
+        if (! str_contains($haystack, $needle)) {
+            throw new AssertionFailedError(($message ? $message.' — ' : '').var_export($needle, true).' not found in string.');
+        }
+    }
+
+    public static function assertStringNotContainsString(string $needle, string $haystack, string $message = ''): void
+    {
+        if (str_contains($haystack, $needle)) {
+            throw new AssertionFailedError(($message ? $message.' — ' : '').var_export($needle, true).' unexpectedly found in string.');
+        }
+    }
+
     public static function assertTrue(mixed $condition, string $message = ''): void
     {
         self::assertSame(true, $condition, $message);

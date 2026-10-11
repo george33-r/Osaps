@@ -68,7 +68,7 @@ class NegotiationFlowTest extends TestCase
         $this->assertNotNull($show->json('data.offers.0.cost_breakdown.total'));
 
         // Accept A -> order created with locked spec; B becomes not_selected.
-        $order = $this->actingAs($this->customer)->postJson('/api/v1/offers/'.$a->json('data.id').'/accept')
+        $order = $this->actingAs($this->customer)->postJson('/api/v1/offers/'.$a->json('data.id').'/accept', $this->acceptPayload($a->json('data.id')))
             ->assertCreated()
             ->assertJsonPath('data.status', 'confirmed')
             ->assertJsonPath('data.spec.terms.amount_minor', 3_000_000)
@@ -91,8 +91,8 @@ class NegotiationFlowTest extends TestCase
             'amount_minor' => 3_000_000, 'delivery_days' => 10,
         ])->json('data.id');
 
-        $first = $this->actingAs($this->customer)->postJson("/api/v1/offers/{$offerId}/accept")->assertCreated();
-        $retry = $this->actingAs($this->customer)->postJson("/api/v1/offers/{$offerId}/accept")->assertOk();
+        $first = $this->actingAs($this->customer)->postJson("/api/v1/offers/{$offerId}/accept", $this->acceptPayload($offerId))->assertCreated();
+        $retry = $this->actingAs($this->customer)->postJson("/api/v1/offers/{$offerId}/accept", $this->acceptPayload($offerId))->assertOk();
 
         $this->assertSame($first->json('data.reference'), $retry->json('data.reference'));
         $this->assertSame(1, Order::query()->count());
@@ -116,14 +116,14 @@ class NegotiationFlowTest extends TestCase
         // Customer counters; customer cannot accept while waiting on tailor.
         $this->actingAs($this->customer)->postJson("/api/v1/offers/{$offerId}/counter", ['amount_minor' => 3_200_000])
             ->assertOk()->assertJsonPath('data.status', 'awaiting_tailor');
-        $this->actingAs($this->customer)->postJson("/api/v1/offers/{$offerId}/accept")
+        $this->actingAs($this->customer)->postJson("/api/v1/offers/{$offerId}/accept", $this->acceptPayload($offerId))
             ->assertStatus(409)->assertJsonPath('code', 'invalid_transition');
 
         // Tailor agrees to the countered amount (does not consume a round).
         $this->actingAs($this->tailorA)->postJson("/api/v1/offers/{$offerId}/revise", ['amount_minor' => 3_200_000])
             ->assertOk()->assertJsonPath('data.status', 'awaiting_customer')->assertJsonPath('data.rounds.tailor_used', 0);
 
-        $this->actingAs($this->customer)->postJson("/api/v1/offers/{$offerId}/accept")
+        $this->actingAs($this->customer)->postJson("/api/v1/offers/{$offerId}/accept", $this->acceptPayload($offerId))
             ->assertCreated()->assertJsonPath('data.costs.tailoring.amount_minor', 3_200_000);
     }
 
@@ -157,7 +157,7 @@ class NegotiationFlowTest extends TestCase
 
         $this->travel(49)->hours();
 
-        $this->actingAs($this->customer)->postJson("/api/v1/offers/{$offerId}/accept")
+        $this->actingAs($this->customer)->postJson("/api/v1/offers/{$offerId}/accept", $this->acceptPayload($offerId))
             ->assertStatus(422)->assertJsonPath('code', 'offer_expired');
 
         Artisan::call('marketplace:expire-stale');
@@ -169,7 +169,7 @@ class NegotiationFlowTest extends TestCase
         config(['marketplace.disputes_enabled' => true]);
         $id = $this->postRequest();
         $offerId = $this->actingAs($this->tailorA)->postJson("/api/v1/job-requests/{$id}/offers", ['amount_minor' => 3_000_000, 'delivery_days' => 10])->json('data.id');
-        $ref = $this->actingAs($this->customer)->postJson("/api/v1/offers/{$offerId}/accept")->json('data.reference');
+        $ref = $this->actingAs($this->customer)->postJson("/api/v1/offers/{$offerId}/accept", $this->acceptPayload($offerId))->json('data.reference');
 
         $move = fn (User $u, string $to, ?string $note = null) => $this->actingAs($u)->postJson("/api/v1/orders/{$ref}/transitions", ['status' => $to, 'note' => $note]);
 

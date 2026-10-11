@@ -43,7 +43,7 @@ class AuthorizationAndCatalogTest extends TestCase
             'amount_minor' => 3_000_000, 'delivery_days' => 10,
         ])->json('data.id');
 
-        $this->actingAs($tailor)->postJson("/api/v1/offers/{$offerId}/accept")->assertStatus(403);
+        $this->actingAs($tailor)->postJson("/api/v1/offers/{$offerId}/accept", $this->acceptPayload($offerId))->assertStatus(403);
     }
 
     public function test_customers_cannot_post_offers_and_tailors_cannot_post_requests(): void

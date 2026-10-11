@@ -18,13 +18,16 @@ return [
         'vision_model' => env('AI_VISION_MODEL', env('AI_MODEL', 'claude-haiku-5-5')),
     ],
 
-    'timeout_seconds' => (int) env('AI_TIMEOUT', 25),
+    // Kept well under shared hosting's usual 30-second PHP limit, so a slow answer falls back instead of crashing.
+    'timeout_seconds' => (int) env('AI_TIMEOUT', 15),
     'max_output_tokens' => (int) env('AI_MAX_OUTPUT_TOKENS', 900),
 
     // Per-user daily allowance across all AI features, plus a short-term burst limit.
     'daily_requests_per_user' => (int) env('AI_DAILY_LIMIT_USER', 60),
     'daily_requests_per_ip' => (int) env('AI_DAILY_LIMIT_IP', 30),
     'per_minute' => (int) env('AI_PER_MINUTE', 8),
+    // Site-wide ceiling on AI calls per day, whoever makes them. Bounds the bill.
+    'daily_requests_global' => (int) env('AI_DAILY_LIMIT_GLOBAL', 400),
 
     // Inspiration images: analysed in memory and never stored.
     'image_max_kb' => (int) env('AI_IMAGE_MAX_KB', 5120),

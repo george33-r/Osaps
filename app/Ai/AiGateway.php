@@ -6,6 +6,8 @@ use App\Domain\Ai\JsonExtractor;
 use App\Domain\Ai\SchemaValidator;
 use App\Models\AiUsage;
 use App\Models\User;
+use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Throwable;
@@ -74,6 +76,12 @@ class AiGateway
         return $data;
     }
 
+    /**
+     * Per-minute and daily allowances per person (or IP for guests), plus one site-wide daily cap that
+     * bounds total spend even if someone rotates IPs or registers many accounts.
+     * The check-and-count runs under a cache lock so parallel requests cannot all slip through at once
+     * (the file cache used on shared hosting has no atomic increment).
+     */
     private function throttle(?User $user, ?string $ip): void
     {
         $who = $user ? 'u'.$user->id : 'ip'.($ip ?? 'unknown');
@@ -82,14 +90,24 @@ class AiGateway
             $user
                 ? ["ai:day:{$who}", (int) config('ai.daily_requests_per_user'), 86_400]
                 : ["ai:day:{$who}", (int) config('ai.daily_requests_per_ip'), 86_400],
+            ['ai:day:global', (int) config('ai.daily_requests_global'), 86_400],
         ];
-        foreach ($checks as [$key, $max, $decay]) {
-            if (RateLimiter::tooManyAttempts($key, $max)) {
-                throw new AiException('rate_limited', 'You have used AI assistance a lot today. Please try again later.');
-            }
-        }
-        foreach ($checks as [$key, , $decay]) {
-            RateLimiter::hit($key, $decay);
+
+        try {
+            Cache::lock('ai:throttle', 5)->block(3, function () use ($checks) {
+                foreach ($checks as [$key, $max]) {
+                    if (RateLimiter::tooManyAttempts($key, $max)) {
+                        throw new AiException('rate_limited', $key === 'ai:day:global'
+                            ? 'The AI stylist has reached today\'s limit. Guided mode still works.'
+                            : 'You have used AI assistance a lot today. Please try again later.');
+                    }
+                }
+                foreach ($checks as [$key, , $decay]) {
+                    RateLimiter::hit($key, $decay);
+                }
+            });
+        } catch (LockTimeoutException) {
+            throw new AiException('rate_limited', 'The AI stylist is busy. Please try again in a moment.');
         }
     }
 

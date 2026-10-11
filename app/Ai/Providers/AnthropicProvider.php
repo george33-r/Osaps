@@ -46,8 +46,9 @@ final class AnthropicProvider implements AiProvider
                 ->acceptJson()
                 ->connectTimeout(5)
                 ->timeout($this->timeout)
-                // One quick retry on connection problems only; never on 4xx/5xx answers.
-                ->retry(2, 500, fn ($e) => $e instanceof ConnectionException, throw: false)
+                // One quick retry only when the connection could not be made. Never after a timeout
+                // (cURL error 28): a second full wait would outlast the PHP time limit on shared hosting.
+                ->retry(2, 300, fn ($e) => $e instanceof ConnectionException && ! str_contains($e->getMessage(), 'cURL error 28'), throw: false)
                 ->post('/v1/messages', [
                     'model' => $model,
                     'max_tokens' => $maxTokens,

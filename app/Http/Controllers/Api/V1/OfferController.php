@@ -78,7 +78,15 @@ class OfferController extends Controller
     public function accept(Request $request, Offer $offer): JsonResponse
     {
         Gate::authorize('respondAsCustomer', $offer);
-        $order = $this->negotiation->accept($request->user(), $offer);
+        $terms = $request->validate([
+            'expected_amount_minor' => ['required', 'integer', 'min:0'],
+            'expected_delivery_fee_minor' => ['nullable', 'integer', 'min:0'],
+        ]);
+        $order = $this->negotiation->accept(
+            $request->user(), $offer,
+            (int) $terms['expected_amount_minor'],
+            isset($terms['expected_delivery_fee_minor']) ? (int) $terms['expected_delivery_fee_minor'] : null,
+        );
         $order->load(['tailor.tailorProfile', 'customer', 'events']);
 
         return (new OrderResource($order))->response()->setStatusCode($order->wasRecentlyCreated ? 201 : 200);

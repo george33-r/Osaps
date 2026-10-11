@@ -26,25 +26,45 @@ class DemoSeeder extends Seeder
             throw new RuntimeException('DemoSeeder must never run in production.');
         }
 
-        $password = 'demo-pass-123';
+        // A fresh random password on every run: a password printed in docs or chat must never open a live site.
+        // Every demo account gets it, so re-running the seeder also locks out anyone using an old demo password.
+        $password = (string) (env('DEMO_PASSWORD') ?: Str::password(18, symbols: false));
+
+        // Demo data never includes an administrator. Earlier versions created one with a published password;
+        // remove it (and its API tokens) wherever it still exists.
+        $this->removeDemoAdmins();
 
         $this->demoUser(['email' => 'customer@demo.osaps.test'], [
             'name' => 'Amaka Demo', 'password' => $password, 'city' => 'Abuja', 'role' => 'customer',
-        ]);
-        $this->demoUser(['email' => 'admin@demo.osaps.test'], [
-            'name' => 'Admin Demo', 'password' => $password, 'city' => 'Abuja', 'role' => 'admin',
         ]);
 
         $this->seedTailors($password);
         $this->seedFabrics($password);
 
-        $this->command?->info("Demo accounts (password: {$password}): customer@demo.osaps.test, tailor1@demo.osaps.test, admin@demo.osaps.test");
+        $this->command?->info("Demo accounts: customer@demo.osaps.test, tailor1@demo.osaps.test … tailor6@demo.osaps.test. Password (shown once, not stored anywhere else): {$password}");
     }
 
     /**
      * Roles are not mass-assignable, so demo users are written with forceFill.
      * Earlier demo runs used other brand domains; those accounts are found and updated, not duplicated.
      */
+    private function removeDemoAdmins(): void
+    {
+        User::query()
+            ->whereIn('email', ['admin@demo.osaps.test', 'admin@demo.osapa.test', 'admin@demo.asola.test'])
+            ->where('role', 'admin')
+            ->get()
+            ->each(function (User $admin) {
+                $admin->tokens()->delete();
+                try {
+                    $admin->delete();
+                } catch (\Illuminate\Database\QueryException) {
+                    // Referenced by audit rows: keep the row, but it can no longer sign in or act as admin.
+                    $admin->forceFill(['role' => 'customer', 'password' => Str::password(40)])->save();
+                }
+            });
+    }
+
     private function demoUser(array $key, array $attributes): User
     {
         $local = strstr($key['email'], '@', true);

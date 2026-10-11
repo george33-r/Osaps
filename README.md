@@ -31,7 +31,7 @@ npm --prefix web run build          # outputs public/spa
 php artisan serve                   # http://localhost:8000
 ```
 
-Demo accounts (local only, password `demo-pass-123`): `customer@demo.osaps.test`, `tailor1@demo.osaps.test` … `tailor6@`, `admin@demo.osaps.test`.
+Demo accounts: `customer@demo.osaps.test`, `tailor1@demo.osaps.test` … `tailor6@`. The seeder prints a new random password each time it runs (or uses `DEMO_PASSWORD` if set). There is no demo administrator.
 
 ### Developing the frontend
 

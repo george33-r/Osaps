@@ -459,13 +459,16 @@ export const previewApi: Api = {
     o.status = 'declined'
     return delay(viewOffer(o, 'customer'))
   },
-  accept: async (id) => {
+  accept: async (id, seen) => {
     const u = requireUser('customer')
     const o = offers.find((x) => x.id === id)!
     const r = requests.find((x) => x.id === o.requestId)!
     const existing = orders.find((x) => x.spec.title === r.title)
     if (o.status === 'accepted' && existing) return delay(existing)
     if (o.status !== 'awaiting_customer') fail(`Offer: cannot move from '${o.status}' to 'accepted' by customer.`, 409, 'invalid_transition')
+    if (seen.amount_minor !== o.amount.amount_minor || (seen.delivery_fee_minor ?? 0) !== (o.delivery_fee?.amount_minor ?? 0)) {
+      fail('The tailor changed this offer while you were looking at it. Check the new terms before accepting.', 422, 'offer_changed')
+    }
     o.status = 'accepted'
     r.status = 'awarded'
     offers.filter((x) => x.requestId === r.id && x.id !== id && ['awaiting_customer', 'awaiting_tailor'].includes(x.status)).forEach((x) => (x.status = 'not_selected'))

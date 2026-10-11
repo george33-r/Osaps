@@ -76,6 +76,6 @@ Route::prefix('v1')->name('v1.')->group(function () {
         // Orders
         Route::get('orders', [OrderController::class, 'index'])->name('orders.index');
         Route::get('orders/{order}', [OrderController::class, 'show'])->name('orders.show');
-        Route::post('orders/{order}/transitions', [OrderController::class, 'transition'])->name('orders.transition');
+        Route::post('orders/{order}/transitions', [OrderController::class, 'transition'])->middleware('throttle:marketplace-writes')->name('orders.transition');
     });
 });
