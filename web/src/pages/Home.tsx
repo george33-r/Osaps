@@ -9,7 +9,7 @@ import { HERO_VIDEO } from '../data/photos'
 import { useSession } from '../lib/session'
 import { useAsync } from '../lib/useAsync'
 import { CultureBand, Cultures, Diaspora, Festivals } from './HomeCulture'
-import { Lookbook, PhotoGallery, Weddings } from './HomeLookbook'
+import { Lookbook, PhotoGallery, StyleWall, Weddings } from './HomeLookbook'
 
 const STEPS = [
   ['Discover the fabric', 'Ankara, aṣọ-òkè, lace and adire from market vendors, with real prices and stock.'],
@@ -223,6 +223,8 @@ export default function Home() {
         short="lace"
         lede="Guipure and beaded lace for occasionwear, made up by tailors who know how to line, finish and fit it."
       />
+
+      <StyleWall />
 
       <StylistInvite />
 

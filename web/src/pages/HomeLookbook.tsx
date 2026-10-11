@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { Fabric, RequestDraft } from '../api'
-import { LOOKBOOK, P, type Photo } from '../data/photos'
+import { LOOKBOOK, P, STYLE_WALL, type Photo } from '../data/photos'
 
 /** Picks a real in-stock fabric for a drawn look, preferring the categories that suit it. */
 function pick(fabrics: Fabric[], cats: string[], skip: Set<number>): Fabric | undefined {
@@ -75,7 +75,7 @@ const WEDDINGS: { key: string; name: string; ceremony: string; body: string; mai
   {
     key: 'hausa', name: 'Hausa wedding', ceremony: 'Sa lalle to Fatiha',
     body: 'At the sa lalle, the bride and her friends paint their hands and feet with henna. The Fatiha is held at the mosque after Friday prayer. Grooms and their friends often match in kaftans and embroidered caps; brides favour long, finely embroidered gowns with a matching veil.',
-    main: P.teal, side: P.blueRiga, bridegarment: 'bridal', groomgarment: 'kaftan',
+    main: P.teal, side: P.whiteRiga, bridegarment: 'bridal', groomgarment: 'kaftan',
   },
 ]
 
@@ -126,6 +126,37 @@ export function Weddings({ fabrics }: { fabrics: Fabric[] }) {
           <small>Image: {P.whiteCoral.credit}</small>
         </figcaption>
       </figure>
+    </section>
+  )
+}
+
+/** More looks as a floating photo wall; each tile can be made to order. */
+export function StyleWall() {
+  return (
+    <section className="stylewall" aria-labelledby="stylewall-title">
+      <header className="lookbook__head">
+        <h2 id="stylewall-title" className="section-title">From the street to the palace</h2>
+        <p>Senator on a Friday, aṣọ-òkè at the owambe, red regalia for the chieftaincy. Tap any look to have one made.</p>
+      </header>
+      <div className="stylewall__grid">
+        {STYLE_WALL.map((ph, i) => (
+          <Link
+            key={ph.src}
+            to="/requests/new"
+            state={draft(ph.garment, ph.occasion, undefined, ph.look)}
+            className={`stylewall__tile stylewall__tile--${(i % 4) + 1}`}
+            data-tilt
+          >
+            <img src={ph.src} alt={ph.alt} loading="lazy" decoding="async" />
+            <span className="stylewall__info">
+              <span className="stylewall__culture">{ph.culture}</span>
+              <span className="stylewall__look">{ph.look}</span>
+              <span className="stylewall__cta">Have this made</span>
+              <small>Image: {ph.credit}</small>
+            </span>
+          </Link>
+        ))}
+      </div>
     </section>
   )
 }

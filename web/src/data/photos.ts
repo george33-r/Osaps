@@ -8,7 +8,7 @@ export interface Photo {
   src: string
   alt: string
   credit: string
-  culture: 'Yorùbá' | 'Igbo' | 'Hausa' | 'Ankara' | 'Niger Delta' | 'Nigerian'
+  culture: 'Yorùbá' | 'Igbo' | 'Hausa' | 'Arewa' | 'Ankara' | 'Niger Delta' | 'Nigerian'
   look: string
   garment: string
   occasion: string
@@ -45,7 +45,21 @@ export const P = {
   igboBride: { src: m('igbo-bride-coral-dance.webp'), alt: 'A bride in red and white with layers of coral beads and a coral headpiece, dancing among guests', credit: PERMISSION, culture: 'Igbo', look: 'Coral and red for the bride', garment: 'bridal', occasion: 'own_wedding', fabricCats: ['lace', 'george'] },
   igboCouple: { src: m('igbo-wedding-couple.webp'), alt: 'A bride in a wine velvet gown trimmed with coral beads beside a groom in a red cap, gold and black outfit and coral', credit: 'OmaStyle Bride', culture: 'Igbo', look: 'Velvet, coral and gold', garment: 'bridal', occasion: 'own_wedding', fabricCats: ['lace', 'george'] },
   whiteCoral: { src: m('white-coral-wedding-couple.webp'), alt: 'A couple in white with long coral bead necklaces, he in a black hat with a cane, she in a white gèlè with a fan', credit: PERMISSION, culture: 'Niger Delta', look: 'White and coral', garment: 'bridal', occasion: 'own_wedding', fabricCats: ['lace'] },
+  whiteRiga: { src: m('arewa-white-riga-zanna-cap.webp'), alt: 'A man in a white babban riga with a star-patterned embroidered chest panel and a matching zanna cap', credit: PERMISSION, culture: 'Hausa', look: 'White babban riga with zanna cap', garment: 'kaftan', occasion: 'church_mosque', fabricCats: ['damask', 'lace'] },
+  vintageLace: { src: m('vintage-lace-coral-fan.webp'), alt: 'A vintage photograph of a woman in green and gold lace with coral beads, a beaded cap, sunglasses and a white feather fan', credit: PERMISSION, culture: 'Nigerian', look: 'Vintage lace, coral and a feather fan', garment: 'skirt_blouse', occasion: 'traditional_wedding', fabricCats: ['lace'] },
+  goldGele: { src: m('aso-oke-gele-gold-chains.webp'), alt: 'A woman in a cream and burgundy aṣọ-òkè gèlè and bùbá, layered with gold chains', credit: PERMISSION, culture: 'Yorùbá', look: 'Aṣọ-òkè gèlè with gold', garment: 'iro_buba', occasion: 'party', fabricCats: ['aso_oke'] },
+  veilCalabash: { src: m('arewa-veil-coral-calabash.webp'), alt: 'A woman in a navy and gold striped veil and wrapper with coral and beaded necklaces, henna on her hands, holding a decorated calabash', credit: PERMISSION, culture: 'Arewa', look: 'Striped veil, coral and calabash', garment: 'gown', occasion: 'festival', fabricCats: ['aso_oke', 'george'] },
+  floralMaxi: { src: m('blue-floral-maxi-dress.webp'), alt: 'A woman in a blue and white floral print maxi dress with puff sleeves', credit: PERMISSION, culture: 'Ankara', look: 'Everyday print maxi', garment: 'gown', occasion: 'everyday', fabricCats: ['ankara'] },
+  isiaguDress: { src: m('igbo-isiagu-lion-dress.webp'), alt: 'A woman in a strapless red isiagu lion-print dress with a beaded neckline, holding a horsetail', credit: 'Vick Imagery', culture: 'Igbo', look: 'Isiagu lion-print dress', garment: 'gown', occasion: 'traditional_wedding', fabricCats: ['george', 'ankara'] },
+  redSenator: { src: m('red-two-tone-senator.webp'), alt: 'A man in a red senator top and trousers with a white collar and white cuffs', credit: PERMISSION, culture: 'Nigerian', look: 'Two-tone senator', garment: 'senator', occasion: 'party', fabricCats: ['senator'] },
+  magentaKaftan: { src: m('magenta-open-kaftan-beads.webp'), alt: 'A man in an open magenta jacket over a black kaftan with long black bead strands', credit: PERMISSION, culture: 'Nigerian', look: 'Open-front kaftan with beads', garment: 'kaftan', occasion: 'december', fabricCats: ['senator'] },
+  igboChief: { src: m('igbo-chief-red-regalia.webp'), alt: 'A man in red chieftaincy regalia with an embroidered robe, a red beaded cap, a hand fan and a carved walking stick', credit: PERMISSION, culture: 'Igbo', look: 'Chieftaincy regalia in red', garment: 'agbada', occasion: 'traditional_wedding', fabricCats: ['george', 'damask'] },
+  pinkAsoOke: { src: m('aso-oke-pink-two-piece.webp'), alt: 'A woman in a pink and grey striped aṣọ-òkè top and short wrapper with a matching gèlè and coral beads', credit: PERMISSION, culture: 'Yorùbá', look: 'Aṣọ-òkè two-piece with coral', garment: 'skirt_blouse', occasion: 'party', fabricCats: ['aso_oke'] },
+  damaskGele: { src: m('damask-lace-pleated-gele.webp'), alt: 'A woman in a red and white damask wrapper over an orange lace blouse, with a pleated gèlè and pearls', credit: PERMISSION, culture: 'Yorùbá', look: 'Damask and lace with a pleated gèlè', garment: 'iro_buba', occasion: 'wedding_guest', fabricCats: ['damask', 'lace'] },
 } satisfies Record<string, Photo>
 
 /** The lookbook, in the order it is shown. */
 export const LOOKBOOK: Photo[] = [P.orangeGele, P.burgundyAgbada, P.gownsDuo, P.igboMan, P.sequinGele, P.teal, P.adireHalter, P.brownAgbada, P.asoOkeGele, P.halterGowns, P.blueRiga, P.greenShirt]
+
+/** A floating wall of more looks, from the street to the palace. */
+export const STYLE_WALL: Photo[] = [P.igboChief, P.damaskGele, P.whiteRiga, P.isiaguDress, P.goldGele, P.magentaKaftan, P.veilCalabash, P.pinkAsoOke, P.redSenator, P.vintageLace, P.floralMaxi]

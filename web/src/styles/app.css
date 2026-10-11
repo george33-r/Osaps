@@ -1280,3 +1280,36 @@ body:has(.preview-banner) .fab { bottom: 4.6rem; }
 .festival__photo img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%; }
 .festival__photo figcaption { position: absolute; right: 6px; bottom: 4px; font-size: 0.65rem; color: rgba(246, 241, 231, 0.85); text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9); }
 .festival:has(.festival__photo) .festival__art { height: 180px; }
+
+/* ---------- Style wall (more photographs, masonry, floating) ---------- */
+.stylewall { max-width: var(--page); margin: 0 auto; padding: var(--s-9) var(--gutter) 0; }
+.stylewall__grid { columns: 2; column-gap: var(--s-3); }
+@media (min-width: 40rem) { .stylewall__grid { columns: 3; column-gap: var(--s-4); } }
+@media (max-width: 40rem) { .stylewall__tile { margin-bottom: var(--s-3); } .stylewall__look { font-size: var(--t-sm); } .stylewall__info { padding: var(--s-5) var(--s-2) var(--s-2); } }
+@media (min-width: 60rem) { .stylewall__grid { columns: 4; column-gap: var(--s-5); } }
+.stylewall__tile {
+  position: relative; display: block; break-inside: avoid; margin: 0 0 var(--s-4); overflow: hidden; border-radius: var(--r-panel);
+  color: var(--cowrie); text-decoration: none; background: var(--night-2); border: 1px solid var(--rule);
+  transform: perspective(1100px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  transition: transform 600ms var(--ease), box-shadow 600ms var(--ease);
+  box-shadow: 0 30px 60px -34px rgba(0, 0, 0, 0.85);
+}
+.stylewall__tile img { width: 100%; height: auto; display: block; transition: scale 900ms var(--ease); }
+.stylewall__tile:hover img, .stylewall__tile.is-tilting img { scale: 1.06; }
+.stylewall__tile:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+.stylewall__info {
+  position: absolute; left: 0; right: 0; bottom: 0; display: grid; gap: 2px; padding: var(--s-6) var(--s-3) var(--s-3);
+  background: linear-gradient(180deg, transparent, rgba(7, 12, 38, 0.92) 55%);
+}
+.stylewall__culture { font-size: var(--t-xs); font-weight: 700; color: var(--gold); }
+.stylewall__look { font-family: var(--font-display); font-stretch: 112%; font-weight: 780; font-size: var(--t-md); line-height: 1.05; }
+.stylewall__cta { font-size: var(--t-xs); font-weight: 700; color: var(--cowrie); text-decoration: underline; text-decoration-color: var(--red); text-underline-offset: 3px; }
+.stylewall__info small { font-size: 0.65rem; color: rgba(246, 241, 231, 0.7); }
+@media (prefers-reduced-motion: no-preference) {
+  .stylewall__tile--2 { animation: float-y 7s ease-in-out infinite alternate; }
+  .stylewall__tile--4 { animation: float-y 8s ease-in-out -3s infinite alternate; }
+  @supports (animation-timeline: view()) {
+    .stylewall__tile--1, .stylewall__tile--3 { animation: rise-in linear both; animation-timeline: view(); animation-range: entry 0% entry 70%; }
+  }
+}
+@media (max-width: 40rem) { .stylewall .stylewall__look { font-size: var(--t-sm); } .stylewall .stylewall__info { padding: var(--s-6) var(--s-2) var(--s-2); gap: 0; } .stylewall .stylewall__info small { font-size: 0.6rem; } }
