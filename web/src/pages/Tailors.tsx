@@ -25,7 +25,7 @@ export function TailorDirectory() {
     <div className="page">
       <PageHeader
         title="Tailors"
-        intro="Track records here are counted from completed Aṣọlà orders only. Nobody can buy a higher place in this list."
+        intro="Track records here are counted from completed Osapa orders only. Nobody can buy a higher place in this list."
         aside={<ButtonLink to="/requests/new">Get offers from tailors</ButtonLink>}
       />
       <div className="toolbar">

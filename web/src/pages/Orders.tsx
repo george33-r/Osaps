@@ -152,7 +152,7 @@ export function OrderDetail() {
               )}
             </div>
           )}
-          {o.status === 'disputed' && <p className="notice">An Aṣọlà team member will review this and contact both of you. Nothing is decided automatically.</p>}
+          {o.status === 'disputed' && <p className="notice">An Osapa team member will review this and contact both of you. Nothing is decided automatically.</p>}
         </section>
 
         <aside className="request-layout__side">
@@ -174,7 +174,7 @@ export function OrderDetail() {
               {o.viewer_role === 'tailor' && o.tailor_payout ? (
                 <>
                   <div><dt>Tailoring price</dt><dd>{o.tailor_payout.gross.formatted}</dd></div>
-                  <div><dt>Aṣọlà commission</dt><dd>−{o.tailor_payout.commission.formatted}</dd></div>
+                  <div><dt>Osapa commission</dt><dd>−{o.tailor_payout.commission.formatted}</dd></div>
                   <div className="terms__total"><dt>You receive</dt><dd>{o.tailor_payout.net.formatted}</dd></div>
                 </>
               ) : (
@@ -186,7 +186,7 @@ export function OrderDetail() {
                 </>
               )}
             </dl>
-            <p className="muted">Payment status: {o.payment_status === 'unpaid' ? 'not paid through Aṣọlà. In-app payment is not available yet.' : o.payment_status}</p>
+            <p className="muted">Payment status: {o.payment_status === 'unpaid' ? 'not paid through Osapa. In-app payment is not available yet.' : o.payment_status}</p>
             {o.viewer_role === 'tailor' && o.customer?.phone && <p>Customer phone: {o.customer.phone}</p>}
           </section>
         </aside>
@@ -203,7 +203,7 @@ export function OrderDetail() {
         >
           <p className="muted">
             {pending?.status === 'disputed'
-              ? 'Tell us what went wrong. A person on the Aṣọlà team reviews every report.'
+              ? 'Tell us what went wrong. A person on the Osapa team reviews every report.'
               : 'Say why you are cancelling. The other side will see this.'}
           </p>
           <Field label="Reason" error={dialogError ?? undefined}>

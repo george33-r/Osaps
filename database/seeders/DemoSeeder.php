@@ -28,17 +28,17 @@ class DemoSeeder extends Seeder
 
         $password = 'demo-pass-123';
 
-        $this->demoUser(['email' => 'customer@demo.asola.test'], [
+        $this->demoUser(['email' => 'customer@demo.osapa.test'], [
             'name' => 'Amaka Demo', 'password' => $password, 'city' => 'Abuja', 'role' => 'customer',
         ]);
-        $this->demoUser(['email' => 'admin@demo.asola.test'], [
+        $this->demoUser(['email' => 'admin@demo.osapa.test'], [
             'name' => 'Admin Demo', 'password' => $password, 'city' => 'Abuja', 'role' => 'admin',
         ]);
 
         $this->seedTailors($password);
         $this->seedFabrics($password);
 
-        $this->command?->info("Demo accounts (password: {$password}): customer@demo.asola.test, tailor1@demo.asola.test, admin@demo.asola.test");
+        $this->command?->info("Demo accounts (password: {$password}): customer@demo.osapa.test, tailor1@demo.osapa.test, admin@demo.osapa.test");
     }
 
     /** Roles are not mass-assignable, so demo users are written with forceFill. */
@@ -68,7 +68,7 @@ class DemoSeeder extends Seeder
         ];
 
         foreach ($tailors as $i => [$name, $city, $cities, $specialties, $tags, $from, $bio]) {
-            $user = $this->demoUser(['email' => 'tailor'.($i + 1).'@demo.asola.test'], [
+            $user = $this->demoUser(['email' => 'tailor'.($i + 1).'@demo.osapa.test'], [
                 'name' => $name, 'password' => $password, 'city' => $city, 'role' => 'tailor',
             ]);
             $profile = TailorProfile::query()->firstOrNew(['user_id' => $user->id]);
@@ -98,7 +98,7 @@ class DemoSeeder extends Seeder
         ];
         $vendorModels = [];
         foreach ($vendors as $i => [$name, $city, $market]) {
-            $user = $this->demoUser(['email' => 'vendor'.($i + 1).'@demo.asola.test'], [
+            $user = $this->demoUser(['email' => 'vendor'.($i + 1).'@demo.osapa.test'], [
                 'name' => $name, 'password' => $password, 'city' => $city, 'role' => 'fabric_vendor',
             ]);
             $vendor = FabricVendor::query()->firstOrNew(['user_id' => $user->id]);

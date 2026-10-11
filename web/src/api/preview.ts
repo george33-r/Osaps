@@ -117,12 +117,12 @@ const tailors: Tailor[] = tailorRows.map(([name, city, cities, specs, tags, from
 }))
 
 const users: Record<string, User> = {
-  customer: { id: 1, name: 'Amaka Demo', email: 'customer@demo.asola.test', phone: null, role: 'customer', city: 'Abuja' },
-  tailor: { id: 2, name: 'Ọ̀ṣọ́ Atelier', email: 'tailor1@demo.asola.test', phone: null, role: 'tailor', city: 'Abuja', has_tailor_profile: true },
+  customer: { id: 1, name: 'Amaka Demo', email: 'customer@demo.osapa.test', phone: null, role: 'customer', city: 'Abuja' },
+  tailor: { id: 2, name: 'Ọ̀ṣọ́ Atelier', email: 'tailor1@demo.osapa.test', phone: null, role: 'tailor', city: 'Abuja', has_tailor_profile: true },
 }
 let current: User | null = null
 try {
-  const saved = sessionStorage.getItem('asola-preview-user')
+  const saved = sessionStorage.getItem('osapa-preview-user')
   if (saved && users[saved]) current = users[saved]!
 } catch {
   /* storage unavailable — stay signed out */
@@ -204,7 +204,7 @@ function viewOffer(o: OfferRow, role: 'customer' | 'tailor', all?: OfferRow[]): 
       lines: [
         { key: 'tailoring', label: 'Tailoring', amount: o.amount },
         ...(fee > 0 ? [{ key: 'delivery', label: 'Delivery', amount: money(fee) }] : []),
-        { key: 'service_fee', label: 'Aṣọlà service fee', amount: money(service) },
+        { key: 'service_fee', label: 'Osapa service fee', amount: money(service) },
       ],
       total: money(o.amount.amount_minor + fee + service),
       within_budget: req.budget_max ? o.amount.amount_minor <= req.budget_max.amount_minor : null,
@@ -247,7 +247,7 @@ function score(req: JobRequest, t: Tailor) {
   const reasons: string[] = []
   if (spec === 1) reasons.push(`Specialises in ${GARMENTS[req.garment_category]?.toLowerCase() ?? req.garment_category}.`)
   if (loc === 1) reasons.push(`Serves ${req.city}.`)
-  reasons.push('New on Aṣọlà — limited order history so far.')
+  reasons.push('New on Osapa — limited order history so far.')
   if (portfolio > 0 && req.style_tags.length) reasons.push('Has portfolio work in a similar style.')
   return { score: Math.round(total), new_vendor: true, reasons, factors: {} }
 }
@@ -255,7 +255,7 @@ function score(req: JobRequest, t: Tailor) {
 export const previewApi: Api = {
   meta: () =>
     delay<Meta>({
-      brand: { name: 'Aṣọlà', tagline: 'From fabric to finished outfit — your style, your budget, your choice.' },
+      brand: { name: 'Osapa', tagline: 'From fabric to finished outfit — your style, your budget, your choice.' },
       currency: 'NGN',
       garment_categories: Object.entries(GARMENTS).map(([key, label]) => ({ key, label })),
       fabric_categories: Object.entries(FABRIC_CATS).map(([key, label]) => ({ key, label })),
@@ -270,19 +270,19 @@ export const previewApi: Api = {
     if (input.password !== input.password_confirmation) fail('Passwords do not match.', 422, 'validation_failed', { password: ['The passwords do not match.'] })
     const role = input.role === 'tailor' ? 'tailor' : 'customer'
     current = users[role]!
-    try { sessionStorage.setItem('asola-preview-user', role) } catch { /* ignore */ }
+    try { sessionStorage.setItem('osapa-preview-user', role) } catch { /* ignore */ }
     return delay(current)
   },
   login: async (email) => {
     const found = Object.entries(users).find(([, u]) => u.email === email)
     if (!found) fail('Those details do not match an account.', 422, 'validation_failed', { email: ['Those details do not match an account.'] })
     current = found![1]
-    try { sessionStorage.setItem('asola-preview-user', found![0]) } catch { /* ignore */ }
+    try { sessionStorage.setItem('osapa-preview-user', found![0]) } catch { /* ignore */ }
     return delay(current)
   },
   logout: async () => {
     current = null
-    try { sessionStorage.removeItem('asola-preview-user') } catch { /* ignore */ }
+    try { sessionStorage.removeItem('osapa-preview-user') } catch { /* ignore */ }
   },
 
   fabrics: (f) => {
@@ -466,7 +466,7 @@ export const previewApi: Api = {
     const service = feeFor(o.amount.amount_minor)
     const now = new Date().toISOString()
     const order = {
-      reference: 'ASL-' + Math.random().toString(36).slice(2, 10).toUpperCase(), status: 'confirmed' as OrderStatus,
+      reference: 'OSP-' + Math.random().toString(36).slice(2, 10).toUpperCase(), status: 'confirmed' as OrderStatus,
       status_label: ORDER_LABELS.confirmed, viewer_role: 'customer' as const,
       spec: {
         title: r.title, garment_category: r.garment_category, description: r.description, style_tags: r.style_tags,
@@ -527,8 +527,8 @@ export const previewApi: Api = {
 export function previewSwitchUser(role: 'customer' | 'tailor' | null) {
   current = role ? users[role]! : null
   try {
-    if (role) sessionStorage.setItem('asola-preview-user', role)
-    else sessionStorage.removeItem('asola-preview-user')
+    if (role) sessionStorage.setItem('osapa-preview-user', role)
+    else sessionStorage.removeItem('osapa-preview-user')
   } catch {
     /* ignore */
   }

@@ -9,7 +9,7 @@
 return [
 
     'brand' => [
-        'name' => env('BRAND_NAME', 'Aṣọlà'),
+        'name' => env('BRAND_NAME', 'Osapa'),
         'tagline' => env('BRAND_TAGLINE', 'From fabric to finished outfit — your style, your budget, your choice.'),
     ],
 

@@ -352,7 +352,7 @@ class NegotiationService
     private function newReference(): string
     {
         do {
-            $ref = 'ASL-'.strtoupper(Str::random(8));
+            $ref = 'OSP-'.strtoupper(Str::random(8));
         } while (Order::query()->where('reference', $ref)->exists());
 
         return $ref;

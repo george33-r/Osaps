@@ -202,7 +202,7 @@ function OfferCard({ offer, request, onChanged }: { offer: Offer; request: JobRe
           ))}
           <div className="terms__total"><dt>Total</dt><dd>{offer.cost_breakdown?.total.formatted}</dd></div>
         </dl>
-        <p className="muted">Paying through Aṣọlà is not available yet. Your order is confirmed now, and you arrange payment with the tailor.</p>
+        <p className="muted">Paying through Osapa is not available yet. Your order is confirmed now, and you arrange payment with the tailor.</p>
         <div className="dialog__actions">
           <Button
             busy={busy}
@@ -351,7 +351,7 @@ export function RequestDetail() {
             <p>{r.description}</p>
             {r.style_tags.length > 0 && <p className="muted">Style: {r.style_tags.join(', ')}</p>}
             <dl className="terms terms--compact">
-              <div><dt>Fabric</dt><dd>{r.fabric_status === 'own_fabric' ? 'You have it' : r.fabric_status === 'need_advice' ? 'Advice wanted' : r.fabric?.name ?? 'Buying on Aṣọlà'}</dd></div>
+              <div><dt>Fabric</dt><dd>{r.fabric_status === 'own_fabric' ? 'You have it' : r.fabric_status === 'need_advice' ? 'Advice wanted' : r.fabric?.name ?? 'Buying on Osapa'}</dd></div>
               <div><dt>Fitting</dt><dd>{r.fitting_required ? 'Wanted' : 'Not needed'}</dd></div>
             </dl>
             {r.status === 'open' && (
@@ -364,7 +364,7 @@ export function RequestDetail() {
           {r.status === 'open' && matches.data && matches.data.length > 0 && (
             <section className="matches">
               <h2 className="brief__title">Tailors who fit this request</h2>
-              <p className="muted matches__how">Ranked by what they make, where they work and their Aṣọlà record. Not by price or payment.</p>
+              <p className="muted matches__how">Ranked by what they make, where they work and their Osapa record. Not by price or payment.</p>
               <ol className="matches__list">
                 {matches.data.slice(0, 4).map((t) => (
                   <li key={t.slug}>

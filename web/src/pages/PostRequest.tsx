@@ -209,7 +209,7 @@ export default function PostRequest() {
               <p className="estimate__title">If a tailor accepts {mode === 'budget' ? 'your price' : 'your maximum'}</p>
               <dl>
                 <div><dt>Tailoring</dt><dd>{formatNaira(estimate.tailoring)}</dd></div>
-                <div><dt>Aṣọlà service fee</dt><dd>{formatNaira(estimate.fee)}</dd></div>
+                <div><dt>Osapa service fee</dt><dd>{formatNaira(estimate.fee)}</dd></div>
                 <div className="estimate__total"><dt>You would pay</dt><dd>{formatNaira(estimate.total)}</dd></div>
               </dl>
               <p className="estimate__note">Plus delivery, if the tailor charges for it. Each offer shows its own full total.</p>

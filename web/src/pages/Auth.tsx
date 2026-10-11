@@ -47,7 +47,7 @@ export function SignIn() {
           Sign in
         </Button>
         <p className="muted">
-          New to Aṣọlà? <Link to={`/register${params.get('next') ? `?next=${encodeURIComponent(params.get('next')!)}` : ''}`}>Create an account</Link>
+          New to Osapa? <Link to={`/register${params.get('next') ? `?next=${encodeURIComponent(params.get('next')!)}` : ''}`}>Create an account</Link>
         </p>
       </form>
     </div>

@@ -1,4 +1,4 @@
-# Aṣọlà API v1
+# Osapa API v1
 
 One versioned API serves the web app and future iOS/Android apps. Base path: `/api/v1`.
 Breaking changes go to `/api/v2`; v1 stays stable for shipped mobile builds.
@@ -21,7 +21,7 @@ Breaking changes go to `/api/v2`; v1 stays stable for shipped mobile builds.
 | 429 | `rate_limited` | Slow down; respect `Retry-After` |
 
 - **Pagination**: list endpoints return Laravel's `{ data, links, meta }`; use `meta.current_page` / `meta.last_page`.
-- **Public IDs**: job requests use ULIDs (`id`), orders use references (`ASL-XXXXXXXX`). Sequential IDs are not exposed for these.
+- **Public IDs**: job requests use ULIDs (`id`), orders use references (`OSP-XXXXXXXX`). Sequential IDs are not exposed for these.
 - **`actions`** on offers and orders list what the *current viewer* may do next. They drive UI only; the server re-checks every transition.
 
 ## Authentication
@@ -105,7 +105,7 @@ Authorization: Bearer 12|Jq9...
 POST /api/v1/offers/42/accept
 Authorization: Bearer 12|Jq9...
 ```
-→ `201 { "data": { "reference": "ASL-7KQ2M9XD", "status": "confirmed", "costs": { "total": { "amount_minor": 3075000, ... } }, "payment_status": "unpaid", "actions": [ ... ] } }`
+→ `201 { "data": { "reference": "OSP-7KQ2M9XD", "status": "confirmed", "costs": { "total": { "amount_minor": 3075000, ... } }, "payment_status": "unpaid", "actions": [ ... ] } }`
 
 A network retry of the same accept returns `200` with the same `reference`, so mobile clients can safely retry on timeout.
 

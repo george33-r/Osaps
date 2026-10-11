@@ -95,7 +95,7 @@ async function http<T>(method: string, path: string, body?: unknown): Promise<T>
       body: body === undefined ? undefined : JSON.stringify(body),
     })
   } catch {
-    throw new ApiError('Could not reach Aṣọlà. Check your connection and try again.', 0, 'network')
+    throw new ApiError('Could not reach Osapa. Check your connection and try again.', 0, 'network')
   }
 
   if (res.status === 204) return undefined as T

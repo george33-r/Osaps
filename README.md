@@ -1,8 +1,8 @@
-# Aṣọlà
+# Osapa
 
 From fabric to finished outfit — your style, your budget, your choice.
 
-A marketplace where customers post an outfit request (naming their own price or asking for open offers), tailors respond and negotiate, and an accepted offer becomes an order with locked terms and a tracked timeline. Fabric discovery is built in. "Aṣọlà" is a working brand name, configurable via `BRAND_NAME`.
+A marketplace where customers post an outfit request (naming their own price or asking for open offers), tailors respond and negotiate, and an accepted offer becomes an order with locked terms and a tracked timeline. Fabric discovery is built in. "Osapa" is a working brand name, configurable via `BRAND_NAME`.
 
 Progress and what is verified: **[CHECKLIST.md](CHECKLIST.md)**. API contract for web and mobile: **[docs/API.md](docs/API.md)**.
 
@@ -29,7 +29,7 @@ npm --prefix web run build          # outputs public/spa
 php artisan serve                   # http://localhost:8000
 ```
 
-Demo accounts (local only, password `demo-pass-123`): `customer@demo.asola.test`, `tailor1@demo.asola.test` … `tailor6@`, `admin@demo.asola.test`.
+Demo accounts (local only, password `demo-pass-123`): `customer@demo.osapa.test`, `tailor1@demo.osapa.test` … `tailor6@`, `admin@demo.osapa.test`.
 
 ### Developing the frontend
 

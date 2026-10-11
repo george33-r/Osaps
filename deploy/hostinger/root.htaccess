@@ -1,0 +1,23 @@
+# Osapa — goes in the folder your (sub)domain serves, e.g. public_html/as/
+# The app code and settings (.env) live in this folder too, so this file:
+#   1. sends every request into the public_html/ subfolder, where index.php is
+#   2. refuses to serve settings, archives, docs or code directly
+
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Keep the Authorization header (mobile bearer tokens)
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # Everything that is not already inside public_html/ goes there
+    RewriteCond %{REQUEST_URI} !^/public_html/
+    RewriteRule ^(.*)$ public_html/$1 [L]
+</IfModule>
+
+# Second line of defence: never serve these even if rewriting is switched off
+<FilesMatch "(^\.|\.(env|zip|md|lock|log|sql|xml|yml|yaml)$|^(artisan|composer\.json)$)">
+    Require all denied
+</FilesMatch>

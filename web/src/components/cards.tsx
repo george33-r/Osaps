@@ -44,7 +44,7 @@ export function TrustLine({ tailor }: { tailor: Tailor }) {
       {tailor.verified ? <Badge tone="good">Verified</Badge> : <Badge tone="muted">Not yet verified</Badge>}
       <span className="trust__record">
         {r.is_new
-          ? 'New on Aṣọlà'
+          ? 'New on Osapa'
           : `${r.completed_orders} completed orders${r.on_time_rate !== null ? `, ${Math.round(r.on_time_rate * 100)}% on time` : ''}`}
       </span>
     </p>

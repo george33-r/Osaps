@@ -234,7 +234,7 @@ export function FabricDetail() {
                 {f.vendor.city}
               </p>
               <p className="vendor-box__note">
-                For now, buy this fabric from the vendor in person. Ordering and paying for fabric through Aṣọlà is not available yet.
+                For now, buy this fabric from the vendor in person. Ordering and paying for fabric through Osapa is not available yet.
               </p>
             </div>
           )}

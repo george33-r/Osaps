@@ -299,7 +299,7 @@ export function TailorJob() {
             <dl className="terms terms--compact">
               <div><dt>Price</dt><dd>{r.mode === 'budget' && r.budget_max ? `${r.budget_max.formatted} (customer's price)` : r.budget_max ? `Open, up to ${r.budget_max.formatted}` : 'Open offers'}</dd></div>
               <div><dt>Needed by</dt><dd>{formatDate(r.needed_by)}</dd></div>
-              <div><dt>Fabric</dt><dd>{r.fabric_status === 'own_fabric' ? 'Customer has it' : r.fabric_status === 'need_advice' ? 'Wants your advice' : r.fabric?.name ?? 'Buying on Aṣọlà'}</dd></div>
+              <div><dt>Fabric</dt><dd>{r.fabric_status === 'own_fabric' ? 'Customer has it' : r.fabric_status === 'need_advice' ? 'Wants your advice' : r.fabric?.name ?? 'Buying on Osapa'}</dd></div>
               <div><dt>Fitting</dt><dd>{r.fitting_required ? 'Wanted' : 'Not needed'}</dd></div>
             </dl>
           </section>
@@ -353,7 +353,7 @@ export function TailorProfileEdit() {
 
   return (
     <div className="page page--form">
-      <PageHeader title="Your tailor profile" intro="Customers see this when you send an offer. Verification by the Aṣọlà team comes after you sign up." />
+      <PageHeader title="Your tailor profile" intro="Customers see this when you send an offer. Verification by the Osapa team comes after you sign up." />
       <form className="form form--wide" onSubmit={submit} noValidate>
         {error && <p className="form__error" role="alert">{Object.keys(error.fieldErrors).length ? 'Please fix the highlighted fields.' : error.message}</p>}
         <Field label="Business name" error={error?.field('business_name')}>

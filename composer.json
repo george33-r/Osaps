@@ -1,7 +1,7 @@
 {
-    "name": "asola/marketplace",
+    "name": "osapa/marketplace",
     "type": "project",
-    "description": "Aṣọlà — AI-assisted African fashion marketplace: fabric to finished outfit.",
+    "description": "Osapa — AI-assisted African fashion marketplace: fabric to finished outfit.",
     "license": "proprietary",
     "require": {
         "php": "^8.2",

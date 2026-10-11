@@ -32,12 +32,12 @@ function PreviewBanner() {
 
 export function Logo() {
   return (
-    <Link to="/" className="logo" aria-label="Aṣọlà home">
+    <Link to="/" className="logo" aria-label="Osapa home">
       <svg viewBox="0 0 28 28" className="logo__mark" aria-hidden>
         <rect width="28" height="28" rx="3" fill="currentColor" />
-        <path d="M7 21 14 6l7 15M9.6 16h8.8" stroke="var(--gold-500)" strokeWidth="2.2" fill="none" />
+        <circle cx="14" cy="14" r="6.6" stroke="var(--gold-500)" strokeWidth="2.4" fill="none" />
       </svg>
-      <span className="logo__word">Aṣọlà</span>
+      <span className="logo__word">Osapa</span>
     </Link>
   )
 }
