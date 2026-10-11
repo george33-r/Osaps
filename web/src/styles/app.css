@@ -95,6 +95,16 @@ dl, dd { margin: 0; }
 .logo { display: inline-flex; flex: none; }
 .logo img { height: 40px; width: auto; }
 .logo--large img { height: clamp(96px, 14vw, 160px); }
+/* The logo in its original colours, on a white varsity patch so the black crown and outlines stay visible on indigo. */
+.logo {
+  background: #fff; padding: 2px 9px 1px; border-radius: 14px; rotate: -2.5deg;
+  box-shadow: 0 10px 28px -12px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.5);
+  transition: rotate 400ms var(--ease), scale 400ms var(--ease);
+}
+.logo:hover { rotate: 0deg; scale: 1.05; }
+.logo img { height: 42px; }
+.logo--large { padding: 14px 22px 10px; border-radius: 26px; rotate: -3.5deg; }
+.logo--large img { height: clamp(88px, 12vw, 140px); }
 .site-header__tools { margin-left: auto; display: flex; align-items: center; gap: var(--s-1); }
 .icon-btn { width: 44px; height: 44px; display: grid; place-items: center; background: none; border: 0; border-radius: 50%; cursor: pointer; color: var(--ink); }
 .icon-btn:hover { background: color-mix(in srgb, var(--cowrie) 10%, transparent); }
@@ -815,4 +825,101 @@ fieldset.segmented { margin: 0; }
 .hero__cloth:has(> svg)::after, .hero__stage:has(> .hero__photo)::after {
   content: ''; position: absolute; inset: 0;
   background: linear-gradient(20deg, rgba(13, 22, 64, 0.92) 18%, rgba(13, 22, 64, 0.55) 52%, rgba(13, 22, 64, 0.15) 80%);
+}
+
+/* =========================================================================
+   Floating depth: pointer tilt, magnetic buttons, hero orbs, scroll parallax.
+   ========================================================================= */
+html, body { overflow-x: clip; }
+
+/* Pointer tilt (set by usePointerDepth in Layout) */
+.fabric-card__cloth {
+  transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  transition: transform 600ms var(--ease), box-shadow 600ms var(--ease);
+  box-shadow: 0 18px 40px -26px rgba(0, 0, 0, 0.7);
+}
+.fabric-card__cloth::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0; mix-blend-mode: soft-light;
+  background: radial-gradient(circle at var(--gx, 50%) var(--gy, 50%), rgba(255, 255, 255, 0.75), transparent 55%);
+  transition: opacity 400ms var(--ease);
+}
+.fabric-card.is-tilting .fabric-card__cloth { transition-duration: 90ms; box-shadow: 0 50px 70px -36px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.08); }
+.fabric-card.is-tilting .fabric-card__cloth::after { opacity: 1; }
+.maker-card { transform: perspective(1000px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transition: transform 600ms var(--ease), background-color var(--dur), border-color var(--dur), box-shadow 600ms var(--ease); }
+.maker-card.is-tilting { transition-duration: 90ms, var(--dur), var(--dur), 300ms; box-shadow: 0 40px 60px -34px rgba(0, 0, 0, 0.85); }
+
+/* Magnetic primary buttons */
+.btn { translate: var(--mx, 0px) var(--my, 0px); transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease), border-color var(--dur) var(--ease), transform 160ms var(--ease), translate 350ms var(--ease), box-shadow 350ms var(--ease); }
+.btn--primary { box-shadow: 0 14px 30px -14px color-mix(in srgb, var(--red) 85%, transparent); }
+.btn--primary:hover:not(:disabled) { box-shadow: 0 22px 44px -16px color-mix(in srgb, var(--red) 95%, transparent); }
+
+/* Hero: floating fabric orbs that follow the pointer at different depths */
+.hero__orbs { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+.hero__inner { position: relative; z-index: 1; }
+.hero__orb {
+  --d: 40; --size: 120px; --t: 6s;
+  position: absolute; width: var(--size); height: var(--size); padding: 0; border: 0; border-radius: 50%; overflow: hidden;
+  pointer-events: auto; cursor: pointer; background: var(--night-2);
+  translate: calc(var(--px, 0) * var(--d) * 1px) calc(var(--py, 0) * var(--d) * 1px);
+  transition: translate 900ms var(--ease), scale 400ms var(--ease);
+  box-shadow: 0 40px 70px -24px rgba(2, 4, 18, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+.hero__orb svg { width: 100%; height: 100%; }
+.hero__orb::after {
+  content: ''; position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
+  background:
+    radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0) 30%),
+    radial-gradient(circle at 70% 78%, rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0) 62%);
+}
+.hero__orb:hover { scale: 1.12; }
+.hero__orb--1 { --d: 46; --size: clamp(72px, 9vw, 132px); --t: 7s; right: 9%; top: 17%; }
+.hero__orb--2 { --d: 80; --size: clamp(44px, 5vw, 70px); --t: 5s; right: 27%; top: 11%; }
+.hero__orb--3 { --d: 26; --size: clamp(56px, 6.5vw, 92px); --t: 8.5s; right: 3.5%; top: 44%; }
+@media (max-width: 40rem) {
+  .hero__orb--1 { right: 6%; top: 15%; }
+  .hero__orb--2 { right: 34%; top: 12%; }
+  .hero__orb--3 { right: 4%; top: 31%; }
+}
+.hero__title { translate: calc(var(--px, 0) * -14px) calc(var(--py, 0) * -8px); transition: translate 900ms var(--ease); }
+.hero__now { translate: calc(var(--px, 0) * 10px) calc(var(--py, 0) * 8px); transition: translate 900ms var(--ease); box-shadow: 0 40px 80px -30px rgba(2, 4, 18, 0.9); }
+.site-header.is-scrolled .site-header__inner { box-shadow: 0 24px 50px -28px rgba(0, 0, 0, 0.9); }
+.invite__panel, .edit__panel { box-shadow: var(--shadow-float); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .hero__orb { animation: bob var(--t) ease-in-out infinite alternate, orb-in 1200ms var(--ease) 500ms both; }
+  .hero__orb--2 { animation-delay: -2s, 700ms; }
+  .hero__orb--3 { animation-delay: -4s, 850ms; }
+  .hero__now { animation: hover-soft 7s ease-in-out infinite alternate; }
+  .logo--large { animation: hover-soft 6s ease-in-out infinite alternate; }
+  @keyframes bob { from { transform: translateY(-14px) rotate(-8deg); } to { transform: translateY(14px) rotate(8deg); } }
+  @keyframes hover-soft { from { transform: translateY(-6px); } to { transform: translateY(6px); } }
+  @keyframes orb-in { from { opacity: 0; scale: 0.3; } }
+
+  /* Scroll-driven parallax (Chrome, Edge; others simply show everything in place) */
+  @supports (animation-timeline: view()) {
+    .rail > *, .makers__grid > *, .grid--fabrics > *, .ideas__list > *, .process__step, .grid--makers > * {
+      --drift: 36px;
+      animation: rise-in linear both, drift linear both;
+      animation-timeline: view(), view();
+      animation-range: entry 0% entry 80%, cover 0% cover 100%;
+    }
+    .rail > :nth-child(even), .makers__grid > :nth-child(even), .grid--fabrics > :nth-child(3n + 2), .process__step:nth-child(even) { --drift: 90px; }
+    .grid--fabrics > :nth-child(3n) { --drift: 60px; }
+    @keyframes rise-in { from { opacity: 0; scale: 0.88; } }
+    @keyframes drift { from { translate: 0 var(--drift); } to { translate: 0 calc(var(--drift) * -1); } }
+
+    .edit__title { animation: slide-x linear both; animation-timeline: view(); animation-range: cover 0% cover 100%; }
+    @keyframes slide-x { from { translate: 9vw 0; } to { translate: -5vw 0; } }
+
+    .invite__panel, .edit__panel { animation: tilt-in linear both; animation-timeline: view(); animation-range: entry 0% cover 45%; }
+    .edit__panel { --tilt: 2.5deg; }
+    .invite__panel { --tilt: -3deg; }
+    @keyframes tilt-in { from { rotate: var(--tilt); scale: 0.9; translate: 0 80px; } }
+
+    .edit__drape svg { animation: zoom-pan linear both; animation-timeline: view(); animation-range: cover 0% cover 100%; }
+    @keyframes zoom-pan { from { scale: 1.25; translate: 0 -6%; } to { scale: 1.05; translate: 0 6%; } }
+
+    .process__num { animation: lift linear both; animation-timeline: view(); animation-range: cover 0% cover 100%; }
+    @keyframes lift { from { translate: 0 60px; rotate: -6deg; } to { translate: 0 -40px; rotate: 4deg; } }
+  }
 }

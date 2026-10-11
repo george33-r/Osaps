@@ -31,8 +31,8 @@ export function Logo({ large = false }: { large?: boolean }) {
   return (
     <Link to="/" className={`logo ${large ? 'logo--large' : ''}`} aria-label="OSAPS home">
       <picture>
-        <source srcSet={`${import.meta.env.BASE_URL}brand/osaps-logo-night.webp`} type="image/webp" />
-        <img src={`${import.meta.env.BASE_URL}brand/osaps-logo-night.png`} alt="OSAPS" width={243} height={160} />
+        <source srcSet={`${import.meta.env.BASE_URL}brand/${large ? 'osaps-logo-large' : 'osaps-logo'}.webp`} type="image/webp" />
+        <img src={`${import.meta.env.BASE_URL}brand/osaps-logo.png`} alt="OSAPS" width={243} height={160} />
       </picture>
     </Link>
   )
@@ -206,8 +206,57 @@ function Footer() {
   )
 }
 
+/**
+ * Pointer-driven depth, delegated from the document so every card gets it for free:
+ * [data-tilt] elements lean toward the pointer with a moving sheen, and .btn--primary / [data-magnetic]
+ * elements drift a little toward it. Off for touch screens and for reduced motion.
+ */
+function usePointerDepth() {
+  useEffect(() => {
+    const fine = window.matchMedia('(hover: hover) and (pointer: fine)').matches
+    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (!fine || still) return
+    let tilted: HTMLElement | null = null
+    let pulled: HTMLElement | null = null
+    const reset = (el: HTMLElement | null, kind: 'tilt' | 'pull') => {
+      if (!el) return
+      if (kind === 'tilt') { el.style.removeProperty('--rx'); el.style.removeProperty('--ry'); el.classList.remove('is-tilting') }
+      else { el.style.removeProperty('--mx'); el.style.removeProperty('--my') }
+    }
+    const onMove = (e: PointerEvent) => {
+      const t = e.target as Element | null
+      const tilt = t?.closest<HTMLElement>('[data-tilt]') ?? null
+      if (tilt !== tilted) { reset(tilted, 'tilt'); tilted = tilt }
+      if (tilt) {
+        const r = tilt.getBoundingClientRect()
+        const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height
+        tilt.style.setProperty('--rx', `${(0.5 - y) * 10}deg`)
+        tilt.style.setProperty('--ry', `${(x - 0.5) * 12}deg`)
+        tilt.style.setProperty('--gx', `${x * 100}%`)
+        tilt.style.setProperty('--gy', `${y * 100}%`)
+        tilt.classList.add('is-tilting')
+      }
+      const pull = t?.closest<HTMLElement>('.btn--primary, [data-magnetic]') ?? null
+      if (pull !== pulled) { reset(pulled, 'pull'); pulled = pull }
+      if (pull) {
+        const r = pull.getBoundingClientRect()
+        pull.style.setProperty('--mx', `${(e.clientX - r.left - r.width / 2) * 0.22}px`)
+        pull.style.setProperty('--my', `${(e.clientY - r.top - r.height / 2) * 0.32}px`)
+      }
+    }
+    const onLeave = () => { reset(tilted, 'tilt'); reset(pulled, 'pull'); tilted = pulled = null }
+    document.addEventListener('pointermove', onMove, { passive: true })
+    document.documentElement.addEventListener('pointerleave', onLeave)
+    return () => {
+      document.removeEventListener('pointermove', onMove)
+      document.documentElement.removeEventListener('pointerleave', onLeave)
+    }
+  }, [])
+}
+
 export function Layout() {
   const { pathname } = useLocation()
+  usePointerDepth()
   return (
     <>
       <a href="#main" className="skip-link">Skip to content</a>

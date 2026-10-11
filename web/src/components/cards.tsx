@@ -13,7 +13,7 @@ const STOCK: Record<Fabric['stock_status'], string | null> = {
 export function FabricCard({ fabric, feature = false }: { fabric: Fabric; feature?: boolean }) {
   const stock = STOCK[fabric.stock_status]
   return (
-    <Link to={`/fabrics/${fabric.slug}`} className={`fabric-card ${feature ? 'fabric-card--feature' : ''} ${fabric.stock_status === 'out_of_stock' ? 'is-soldout' : ''}`}>
+    <Link to={`/fabrics/${fabric.slug}`} data-tilt className={`fabric-card ${feature ? 'fabric-card--feature' : ''} ${fabric.stock_status === 'out_of_stock' ? 'is-soldout' : ''}`}>
       <div className="fabric-card__cloth">
         {fabric.image_url ? (
           <img src={fabric.image_url} alt={fabric.name} loading="lazy" decoding="async" />
@@ -64,7 +64,7 @@ export function Monogram({ name, large = false }: { name: string; large?: boolea
 /** A maker, presented by craft first: what they make, where, and an honest track record. */
 export function TailorCard({ tailor }: { tailor: Tailor }) {
   return (
-    <Link to={`/tailors/${tailor.slug}`} className="maker-card">
+    <Link to={`/tailors/${tailor.slug}`} data-tilt className="maker-card">
       <Monogram name={tailor.business_name} />
       <div className="maker-card__text">
         <span className="label">{tailor.specialties.slice(0, 3).map((s) => s.label).join(', ')}</span>

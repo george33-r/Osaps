@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState, type PointerEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { api, type Fabric } from '../api'
 import { FabricCard, TailorCard } from '../components/cards'
@@ -30,9 +30,19 @@ function Hero({ fabrics }: { fabrics: Fabric[] }) {
   }, [fabrics])
   const [i, setI] = useState(0)
   const current = picks[i] ?? picks[0]
+  const hero = useRef<HTMLElement>(null)
+  // Pointer position as CSS variables (-1…1); floating layers read them at different depths.
+  const onMove = (e: PointerEvent<HTMLElement>) => {
+    const el = hero.current
+    if (!el || e.pointerType !== 'mouse') return
+    const r = el.getBoundingClientRect()
+    el.style.setProperty('--px', (((e.clientX - r.left) / r.width) * 2 - 1).toFixed(3))
+    el.style.setProperty('--py', (((e.clientY - r.top) / r.height) * 2 - 1).toFixed(3))
+  }
+  const orbs = picks.map((f, n) => ({ f, n })).filter(({ n }) => n !== i).slice(0, 3)
 
   return (
-    <section className="hero" aria-labelledby="hero-title">
+    <section className="hero" aria-labelledby="hero-title" ref={hero} onPointerMove={onMove}>
       <div className="hero__stage">
         {campaign.campaign_image ? (
           <img className="hero__photo" src={campaign.campaign_image} alt={campaign.campaign_caption ?? 'OSAPS campaign'} fetchPriority="high" />
@@ -44,6 +54,16 @@ function Hero({ fabrics }: { fabrics: Fabric[] }) {
           />
         ) : null}
       </div>
+
+      {!campaign.campaign_image && orbs.length > 0 && (
+        <div className="hero__orbs" aria-hidden>
+          {orbs.map(({ f, n }, k) => (
+            <button key={f.id} type="button" tabIndex={-1} className={`hero__orb hero__orb--${k + 1}`} onClick={() => setI(n)} title={`Show ${f.name}`}>
+              <Swatch pattern={f.pattern} colors={f.colors} scale={0.9} />
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="hero__inner">
         <h1 id="hero-title" className="hero__title">Your next masterpiece begins with fabric.</h1>
