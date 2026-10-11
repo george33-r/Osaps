@@ -1,0 +1,22 @@
+<?php
+
+namespace App\Http\Resources;
+
+use Illuminate\Http\Request;
+
+/** The signed-in user's own account. Never used to show other people. */
+class UserResource extends ApiResource
+{
+    public function toArray(Request $request): array
+    {
+        return [
+            'id' => $this->id,
+            'name' => $this->name,
+            'email' => $this->email,
+            'phone' => $this->phone,
+            'role' => $this->role,
+            'city' => $this->city,
+            'has_tailor_profile' => $this->when($this->isTailor(), fn () => $this->tailorProfile()->exists()),
+        ];
+    }
+}
