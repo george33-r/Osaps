@@ -46,7 +46,8 @@ return [
     'occasions' => [
         'wedding_guest' => 'Wedding guest', 'traditional_wedding' => 'Traditional wedding', 'own_wedding' => 'My own wedding',
         'naming_ceremony' => 'Naming ceremony', 'church_mosque' => 'Church or mosque', 'work' => 'Work',
-        'party' => 'Party or birthday', 'everyday' => 'Everyday', 'family_event' => 'Family event (aṣọ-ẹbí)', 'other' => 'Something else',
+        'party' => 'Party or birthday', 'everyday' => 'Everyday', 'family_event' => 'Family event (aṣọ-ẹbí)',
+        'festival' => 'Festival (Durbar, Ojude Oba, Iri Ji)', 'december' => 'Detty December', 'other' => 'Something else',
     ],
 
     'fees' => [

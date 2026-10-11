@@ -252,8 +252,9 @@ export default function Stylist() {
                 {q.allow_text && (
                   <form className="consultation__text" onSubmit={sendText}>
                     <label htmlFor="stylist-text" className="label">Or tell me in your own words</label>
+                    {turn?.source === 'ai' && <p className="privacy-note" id="stylist-privacy">What you type here is sent to our AI provider to understand it. Please leave out phone numbers and addresses.</p>}
                     <div className="consultation__row">
-                      <input id="stylist-text" className="input" value={text} onChange={(e) => setText(e.target.value)} maxLength={500} placeholder={q.slot === 'occasion' ? 'My sister’s traditional wedding in December' : 'Write your answer'} />
+                      <input id="stylist-text" aria-describedby={turn?.source === 'ai' ? 'stylist-privacy' : undefined} className="input" value={text} onChange={(e) => setText(e.target.value)} maxLength={500} placeholder={q.slot === 'occasion' ? 'My sister’s traditional wedding in December' : 'Write your answer'} />
                       <Button type="submit" variant="secondary" busy={busy} disabled={text.trim().length < 2}>Send</Button>
                     </div>
                   </form>

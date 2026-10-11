@@ -107,6 +107,15 @@ final class AiSafetyTest extends TestCase
         $this->assertSame(null, $r['max_price_naira']);
     }
 
+    public function test_reads_festival_and_detty_december_occasions(): void
+    {
+        $this->assertSame('festival', KeywordInterpreter::read('agbada for Ojude Oba this year')['occasion']);
+        $this->assertSame('festival', KeywordInterpreter::read('babban riga for the Durbar in Kano')['occasion']);
+        $this->assertSame('december', KeywordInterpreter::read('something loud for Detty December in Lagos')['occasion']);
+        // A wedding in December is still a wedding first.
+        $this->assertSame('wedding_guest', KeywordInterpreter::read('wedding guest outfit in December')['occasion']);
+    }
+
     public function test_small_numbers_are_not_money(): void
     {
         $this->assertSame(null, KeywordInterpreter::read('fabric for a family of 6')['budget_naira']);

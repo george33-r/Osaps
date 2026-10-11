@@ -55,6 +55,8 @@ final class KeywordInterpreter
         'party' => ['party', 'birthday', 'dinner', 'evening'],
         'family_event' => ['family', 'aso ebi', 'aso-ebi', 'asoebi', 'matching'],
         'everyday' => ['everyday', 'casual', 'daily'],
+        'festival' => ['festival', 'durbar', 'ojude oba', 'iri ji', 'new yam', 'carnival'],
+        'december' => ['detty december', 'detty', 'december', 'christmas', 'new year'],
     ];
 
     private const GARMENT_WORDS = [

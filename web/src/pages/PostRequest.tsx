@@ -80,7 +80,7 @@ function Inspiration({ onBrief }: { onBrief: (b: InspirationBriefResult) => void
         <p className="inspiration__title">Have an inspiration photo?</p>
         <p className="muted">
           {meta?.features.ai_assistant
-            ? 'Your stylist reads the visible details and drafts the description for you to edit. The photo is not stored.'
+            ? 'Your stylist reads the visible details and drafts the description for you to edit. The photo is sent to our AI provider to be read, and OSAPS does not store it.'
             : 'Photo reading switches on when the AI stylist is enabled. For now, describe the look in words.'}
         </p>
         <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" id="inspiration-file" onChange={(e) => choose(e.target.files?.[0])} />

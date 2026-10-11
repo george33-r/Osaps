@@ -923,3 +923,162 @@ html, body { overflow-x: clip; }
     @keyframes lift { from { translate: 0 60px; rotate: -6deg; } to { translate: 0 -40px; rotate: 4deg; } }
   }
 }
+
+/* =========================================================================
+   Culture layer: greetings, cowries, the woven word band, three cultures,
+   the festival calendar and the diaspora panel.
+   ========================================================================= */
+.privacy-note { margin: 0 0 var(--s-2); font-size: var(--t-xs); color: var(--ink-faint); }
+
+/* Hero greetings */
+.hero__welcome { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s-1) var(--s-4); margin: 0; font-family: var(--font-display); font-stretch: 110%; font-weight: 650; font-size: clamp(1rem, 0.6vw + 0.85rem, 1.35rem); }
+.hero__welcome span { color: var(--gold); text-shadow: 0 1px 18px rgba(5, 9, 32, 0.8); }
+.hero__welcome span + span::before { content: ''; display: inline-block; width: 6px; height: 6px; margin-right: var(--s-4); border-radius: 50%; background: var(--red); vertical-align: 0.2em; }
+.hero__welcome .hero__welcome-en { color: var(--cowrie); font-family: var(--font-ui); font-stretch: 100%; font-weight: 500; }
+
+/* Floating cowries */
+.hero__cowries { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+.hero__cowrie { position: absolute; width: var(--w, 40px); height: auto; filter: drop-shadow(0 18px 24px rgba(2, 4, 18, 0.7)); translate: calc(var(--px, 0) * var(--d, 30) * 1px) calc(var(--py, 0) * var(--d, 30) * 1px); transition: translate 900ms var(--ease); }
+.hero__cowrie--1 { --w: 46px; --d: 60; left: 46%; top: 16%; rotate: -24deg; }
+.hero__cowrie--2 { --w: 30px; --d: 90; left: 6%; top: 18%; rotate: 32deg; }
+.hero__cowrie--3 { --w: 38px; --d: 40; right: 30%; bottom: 34%; rotate: 70deg; }
+@media (max-width: 40rem) { .hero__cowrie--1 { left: 60%; top: 34%; } .hero__cowrie--3 { display: none; } }
+
+/* The woven word band */
+.culture-band {
+  position: relative; overflow: hidden; margin-top: calc(var(--s-6) * -1); rotate: -1.6deg; scale: 1.04; z-index: 2;
+  box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.9);
+}
+.culture-band__track { display: flex; width: max-content; gap: var(--s-6); padding: var(--s-3) 0; white-space: nowrap; }
+.culture-band__track:first-of-type {
+  background:
+    repeating-linear-gradient(90deg, transparent 0 46px, rgba(0, 0, 0, 0.28) 46px 48px, transparent 48px 70px, rgba(242, 190, 69, 0.55) 70px 72px, transparent 72px 92px),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.05) 0 2px, transparent 2px 5px),
+    var(--red);
+}
+.culture-band__track:last-of-type {
+  background:
+    repeating-linear-gradient(90deg, transparent 0 30px, rgba(13, 22, 64, 0.3) 30px 32px, transparent 32px 54px, rgba(184, 20, 31, 0.5) 54px 56px, transparent 56px 80px),
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.05) 0 2px, transparent 2px 5px),
+    var(--gold);
+}
+.culture-band__word { display: inline-flex; align-items: center; gap: var(--s-6); font-family: var(--font-display); font-stretch: 125%; font-weight: 820; font-size: clamp(1.4rem, 2.6vw, 2.5rem); letter-spacing: -0.02em; color: #fff; }
+.culture-band__track:last-of-type .culture-band__word { color: var(--night); }
+.culture-band__cowrie { width: 18px; height: auto; flex: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .culture-band__track { animation: band 60s linear infinite; }
+  .culture-band__track:last-of-type { animation-direction: reverse; animation-duration: 75s; }
+  @keyframes band { to { translate: -50% 0; } }
+}
+
+/* Three cultures */
+.cultures { max-width: var(--page); margin: 0 auto; padding: var(--s-9) var(--gutter) 0; }
+.cultures__head { display: grid; gap: var(--s-4); margin-bottom: var(--s-7); }
+.cultures__head .section-title { font-size: var(--t-3xl); max-width: 14ch; }
+.cultures__lede { color: var(--ink-soft); max-width: 46ch; font-size: var(--t-md); }
+.cultures__grid { display: grid; gap: var(--s-5); }
+@media (min-width: 60rem) {
+  .cultures__head { grid-template-columns: 1fr 24rem; align-items: end; }
+  .cultures__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; }
+  .culture--yoruba { margin-top: var(--s-8); }
+  .culture--igbo { margin-top: var(--s-6); }
+}
+.culture, .festival {
+  display: flex; flex-direction: column; overflow: hidden; background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r-panel);
+  transform: perspective(1100px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  transition: transform 600ms var(--ease), box-shadow 600ms var(--ease);
+  box-shadow: 0 30px 60px -34px rgba(0, 0, 0, 0.85);
+}
+.culture.is-tilting, .festival.is-tilting { transition-duration: 90ms, 300ms; box-shadow: 0 50px 80px -36px rgba(0, 0, 0, 0.95); }
+.culture__art { position: relative; aspect-ratio: 5 / 4; overflow: hidden; }
+.culture__art svg { position: absolute; inset: 0; width: 100%; height: 100%; transition: transform 1200ms var(--ease); }
+.culture:hover .culture__art svg { transform: scale(1.08) rotate(1deg); }
+.culture__art::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 40%, rgba(7, 12, 38, 0.85)); }
+.culture__greeting { position: absolute; left: var(--s-5); bottom: var(--s-3); z-index: 1; margin: 0; font-family: var(--font-display); font-stretch: 130%; font-weight: 850; font-size: clamp(1.9rem, 2.6vw, 2.6rem); line-height: 1; letter-spacing: -0.03em; color: #fff; text-shadow: 0 2px 20px rgba(0, 0, 0, 0.6); }
+.culture__text { display: grid; gap: var(--s-3); padding: var(--s-5) var(--s-5) var(--s-6); }
+.culture__people { margin: 0; font-size: var(--t-xs); color: var(--gold); font-weight: 600; }
+.culture__name { font-family: var(--font-display); font-stretch: 125%; font-weight: 820; font-size: var(--t-2xl); line-height: 0.95; letter-spacing: -0.03em; }
+.culture__text > p { color: var(--ink-soft); font-size: var(--t-sm); margin: 0; }
+.culture__wear { display: flex; flex-wrap: wrap; gap: var(--s-1); list-style: none; margin: 0; padding: 0; }
+.culture__wear li { padding: 3px 12px; border-radius: var(--r-pill); background: color-mix(in srgb, var(--cowrie) 9%, transparent); border: 1px solid var(--rule); font-size: var(--t-xs); font-weight: 600; }
+.culture__links { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-4); margin-top: var(--s-2); }
+.culture__note { font-size: var(--t-xs) !important; color: var(--ink-faint) !important; }
+
+/* Festival calendar */
+.festivals { position: relative; margin-top: var(--s-9); padding: var(--s-9) 0; background: var(--night-ink); overflow: hidden; isolation: isolate; }
+.festivals::before { content: ''; position: absolute; inset: 0; z-index: -1; opacity: 0.08; background: repeating-linear-gradient(90deg, var(--gold) 0 2px, transparent 2px 38px, var(--red) 38px 40px, transparent 40px 76px); }
+.festivals__head { max-width: var(--page); margin: 0 auto var(--s-7); padding: 0 var(--gutter); display: grid; gap: var(--s-4); }
+.festivals__head .section-title { font-size: var(--t-3xl); }
+.festivals__count { margin: 0; font-size: var(--t-md); color: var(--ink-soft); max-width: 50ch; }
+.festivals__count strong { display: inline-block; margin-right: var(--s-2); font-family: var(--font-display); font-stretch: 80%; font-weight: 850; font-size: var(--t-2xl); line-height: 1; color: var(--gold); }
+@media (min-width: 60rem) { .festivals__head { grid-template-columns: 1fr auto; align-items: end; } .festivals__count { text-align: right; } }
+.festivals__rail {
+  display: grid; grid-auto-flow: column; grid-auto-columns: min(80vw, 21rem); gap: var(--s-5);
+  overflow-x: auto; scroll-snap-type: x mandatory; padding: var(--s-5) var(--gutter) var(--s-7); scrollbar-width: none;
+}
+.festivals__rail::-webkit-scrollbar { display: none; }
+.festival { scroll-snap-align: center; }
+.festival:nth-child(odd) { rotate: -1.6deg; }
+.festival:nth-child(even) { rotate: 1.4deg; translate: 0 26px; }
+.festival__art { height: 120px; overflow: hidden; position: relative; }
+.festival__art svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.festival--detty .festival__art { background: var(--red); }
+.festival--detty .festival__art svg { mix-blend-mode: soft-light; }
+.festival__text { display: grid; gap: var(--s-2); padding: var(--s-5); }
+.festival__when { margin: 0; font-size: var(--t-xs); font-weight: 700; color: var(--gold); }
+.festival__name { font-family: var(--font-display); font-stretch: 120%; font-weight: 820; font-size: var(--t-xl); line-height: 1; letter-spacing: -0.02em; }
+.festival__where { margin: 0; font-size: var(--t-sm); color: var(--ink-soft); }
+.festival__text > p:not(.festival__when):not(.festival__where) { font-size: var(--t-sm); margin: 0; }
+.festivals__note { max-width: var(--page); margin: 0 auto; padding: 0 var(--gutter); font-size: var(--t-xs); color: var(--ink-faint); }
+.festivals__cowrie { position: absolute; z-index: -1; width: var(--w); height: auto; opacity: 0.9; filter: drop-shadow(0 14px 20px rgba(0, 0, 0, 0.7)); }
+.festivals__cowrie--1 { --w: 54px; right: 8%; top: 7%; rotate: 30deg; }
+.festivals__cowrie--2 { --w: 32px; left: 4%; top: 38%; rotate: -50deg; }
+.festivals__cowrie--3 { --w: 40px; right: 34%; bottom: 6%; rotate: 100deg; }
+
+/* Diaspora panel: the one light surface on the page, like stepping into daylight */
+.diaspora { padding: var(--s-9) var(--s-3) 0; }
+.diaspora__panel {
+  --ink: var(--night); --ink-soft: #3c4677; --ink-faint: #59628f; --rule: rgba(13, 22, 64, 0.14); --rule-strong: rgba(13, 22, 64, 0.3);
+  max-width: calc(var(--page) + 2rem); margin: 0 auto; display: grid; gap: var(--s-7);
+  padding: var(--s-7) var(--s-5); border-radius: var(--r-panel); background: var(--cowrie); color: var(--night);
+  box-shadow: var(--shadow-float); position: relative; overflow: hidden; isolation: isolate;
+}
+.diaspora__panel::before { content: ''; position: absolute; right: -60px; top: -60px; width: 260px; height: 260px; z-index: -1; border-radius: 50%; background: radial-gradient(circle, rgba(242, 190, 69, 0.45), transparent 70%); }
+.diaspora__panel a:not(.btn) { color: var(--night); }
+.diaspora__greetings { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-5); list-style: none; margin: 0 0 var(--s-5); padding: 0; }
+.diaspora__greetings li { display: grid; }
+.diaspora__greetings span { font-family: var(--font-display); font-stretch: 120%; font-weight: 800; font-size: var(--t-lg); color: var(--red-deep); }
+.diaspora__greetings small { font-size: var(--t-xs); color: var(--ink-faint); }
+.diaspora__title { font-family: var(--font-display); font-stretch: 128%; font-weight: 850; font-size: clamp(2.2rem, 3.4vw + 0.8rem, 3.8rem); line-height: 0.92; letter-spacing: -0.035em; max-width: 15ch; }
+.lagos-clock { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--s-3); margin: var(--s-6) 0 0; }
+.lagos-clock__time { font-family: var(--font-display); font-stretch: 75%; font-weight: 850; font-size: clamp(3rem, 6vw, 5rem); line-height: 0.9; color: var(--red-deep); font-variant-numeric: tabular-nums; }
+.lagos-clock__label { font-size: var(--t-sm); color: var(--ink-soft); max-width: 22ch; }
+.diaspora__steps { list-style: none; counter-reset: step; margin: 0; padding: 0; display: grid; gap: var(--s-4); align-content: start; }
+.diaspora__steps li { counter-increment: step; display: grid; grid-template-columns: 2.6rem 1fr; gap: var(--s-3); font-size: var(--t-md); color: var(--ink-soft); }
+.diaspora__steps li::before { content: counter(step); font-family: var(--font-display); font-stretch: 75%; font-weight: 850; font-size: 2.2rem; line-height: 1; color: var(--red-deep); }
+.diaspora__steps strong { color: var(--night); }
+.diaspora__markets { grid-column: 1 / -1; }
+.diaspora__markets .label { color: var(--ink-soft); }
+.diaspora__markets ul { display: flex; flex-wrap: wrap; gap: var(--s-2); list-style: none; margin: 0; padding: 0; }
+.diaspora__markets li { display: grid; padding: var(--s-2) var(--s-4); border-radius: var(--r-input); background: #fff; border: 1px solid var(--rule); }
+.diaspora__markets li span { font-weight: 700; }
+.diaspora__markets li small { color: var(--ink-faint); font-size: var(--t-xs); }
+.diaspora__actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: var(--s-3); }
+.diaspora .btn--secondary { --bg: transparent; --fg: var(--night); --bd: rgba(13, 22, 64, 0.35); backdrop-filter: none; }
+.diaspora .btn--secondary:hover:not(:disabled) { --bg: var(--night); --fg: var(--cowrie); --bd: var(--night); }
+.diaspora :focus-visible { outline-color: var(--red-deep); }
+@media (min-width: 60rem) { .diaspora__panel { grid-template-columns: 1.1fr 1fr; padding: var(--s-8); } }
+
+@media (prefers-reduced-motion: no-preference) {
+  .hero__cowrie { animation: bob 7s ease-in-out infinite alternate; }
+  .hero__cowrie--2 { animation-duration: 5.5s; animation-delay: -2s; }
+  .hero__cowrie--3 { animation-duration: 8s; animation-delay: -4s; }
+  .festivals__cowrie { animation: bob 9s ease-in-out infinite alternate; }
+  .festivals__cowrie--2 { animation-delay: -3s; }
+  @supports (animation-timeline: view()) {
+    .culture, .festival { animation: rise-in linear both; animation-timeline: view(); animation-range: entry 0% entry 70%; }
+    .culture-band { animation: band-tilt linear both; animation-timeline: view(); animation-range: cover 0% cover 100%; }
+    @keyframes band-tilt { from { rotate: -3deg; } to { rotate: 0.5deg; } }
+    .diaspora__panel { animation: tilt-in linear both; animation-timeline: view(); animation-range: entry 0% cover 40%; --tilt: 2deg; }
+  }
+}

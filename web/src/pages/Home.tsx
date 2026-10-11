@@ -3,10 +3,12 @@ import { Link } from 'react-router-dom'
 import { api, type Fabric } from '../api'
 import { FabricCard, TailorCard } from '../components/cards'
 import { ClothStage } from '../components/ClothStage'
+import { Cowrie, GREETINGS } from '../components/Culture'
 import { DrapedCloth, Swatch } from '../components/Swatch'
 import { ButtonLink, Skeleton } from '../components/ui'
 import { useSession } from '../lib/session'
 import { useAsync } from '../lib/useAsync'
+import { CultureBand, Cultures, Diaspora, Festivals } from './HomeCulture'
 
 const STEPS = [
   ['Discover the fabric', 'Ankara, aṣọ-òkè, lace and adire from market vendors, with real prices and stock.'],
@@ -65,7 +67,19 @@ function Hero({ fabrics }: { fabrics: Fabric[] }) {
         </div>
       )}
 
+      <div className="hero__cowries" aria-hidden>
+        <Cowrie className="hero__cowrie hero__cowrie--1" />
+        <Cowrie className="hero__cowrie hero__cowrie--2" />
+        <Cowrie className="hero__cowrie hero__cowrie--3" />
+      </div>
+
       <div className="hero__inner">
+        <p className="hero__welcome">
+          {GREETINGS.map((g) => (
+            <span key={g.lang} lang={g.lang === 'Yorùbá' ? 'yo' : g.lang === 'Hausa' ? 'ha' : 'ig'} title={`Welcome, in ${g.lang}`}>{g.word}</span>
+          ))}
+          <span className="hero__welcome-en">Welcome home.</span>
+        </p>
         <h1 id="hero-title" className="hero__title">Your next masterpiece begins with fabric.</h1>
         <div className="hero__foot">
           <div className="hero__intro">
@@ -182,12 +196,16 @@ export default function Home() {
     <div className="home">
       <Hero fabrics={rack.data?.data ?? []} />
 
+      <CultureBand />
+
       <Edit
         category="ankara"
         title="The Ankara Edit"
         short="Ankara"
         lede="Bold wax prints for wedding guests, family occasions and everyday elegance, chosen for colour that holds and patterns that photograph beautifully."
       />
+
+      <Cultures />
       <Edit
         category="aso_oke"
         panel
@@ -195,6 +213,8 @@ export default function Home() {
         short="aṣọ-òkè"
         lede="Hand-woven on narrow looms in strips, then joined. The cloth of ceremonies, from agbada to gele."
       />
+
+      <Festivals />
       <Edit
         category="lace"
         title="Lace Worth Celebrating"
@@ -203,6 +223,8 @@ export default function Home() {
       />
 
       <StylistInvite />
+
+      <Diaspora fabrics={rack.data?.data ?? []} />
 
       <section className="process" id="process" aria-labelledby="process-title">
         <h2 id="process-title" className="section-title">How OSAPS works</h2>

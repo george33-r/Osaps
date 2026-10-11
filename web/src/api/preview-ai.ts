@@ -10,7 +10,7 @@ import { GARMENTS, FABRIC_CATS, delay, fabrics, fail, money, tailors } from './p
 export const OCCASIONS: Record<string, string> = {
   wedding_guest: 'Wedding guest', traditional_wedding: 'Traditional wedding', own_wedding: 'My own wedding',
   naming_ceremony: 'Naming ceremony', church_mosque: 'Church or mosque', work: 'Work', party: 'Party or birthday',
-  everyday: 'Everyday', family_event: 'Family event (aṣọ-ẹbí)', other: 'Something else',
+  everyday: 'Everyday', family_event: 'Family event (aṣọ-ẹbí)', festival: 'Festival (Durbar, Ojude Oba, Iri Ji)', december: 'Detty December', other: 'Something else',
 }
 const COLORS = ['navy', 'indigo', 'gold', 'terracotta', 'emerald', 'burgundy', 'cream', 'black', 'white', 'orange', 'royal_blue', 'purple', 'green', 'red', 'brown', 'pink', 'silver']
 const NEEDS: Record<string, string> = { fabric_and_tailoring: 'Fabric and tailoring', tailoring_only: 'Tailoring only — I have fabric', fabric_only: 'Fabric only' }
@@ -26,7 +26,7 @@ const YARDS: Record<string, number> = { agbada: 10, senator: 5, kaftan: 5, buba_
 const WORDS = {
   cat: { aso_oke: ['aso oke', 'aso-oke', 'asooke', 'sanyan', 'alaari'], ankara: ['ankara', 'wax print'], adire: ['adire', 'tie dye', 'tie-dye'], lace: ['lace', 'guipure'], senator: ['senator'], suiting: ['suiting', 'wool'], george: ['george'], damask: ['damask', 'brocade'] } as Record<string, string[]>,
   color: { burgundy: ['burgundy', 'wine', 'maroon', 'oxblood'], navy: ['navy'], royal_blue: ['royal blue'], indigo: ['indigo'], gold: ['gold', 'golden', 'champagne'], emerald: ['emerald'], green: ['green'], cream: ['cream', 'ivory', 'off white', 'beige'], white: ['white'], black: ['black', 'charcoal'], purple: ['purple', 'lilac'], orange: ['orange', 'coral'], red: ['red'], pink: ['pink'], brown: ['brown'], terracotta: ['terracotta', 'rust'], silver: ['silver', 'grey', 'gray'] } as Record<string, string[]>,
-  occasion: { own_wedding: ['my wedding', 'bride', 'groom'], traditional_wedding: ['traditional wedding', 'introduction'], wedding_guest: ['wedding'], naming_ceremony: ['naming'], church_mosque: ['church', 'mosque', 'eid', 'sallah'], work: ['work', 'office'], party: ['party', 'birthday', 'dinner'], family_event: ['family', 'aso ebi', 'asoebi'], everyday: ['everyday', 'casual'] } as Record<string, string[]>,
+  occasion: { own_wedding: ['my wedding', 'bride', 'groom'], traditional_wedding: ['traditional wedding', 'introduction'], wedding_guest: ['wedding'], naming_ceremony: ['naming'], church_mosque: ['church', 'mosque', 'eid', 'sallah'], work: ['work', 'office'], party: ['party', 'birthday', 'dinner'], family_event: ['family', 'aso ebi', 'asoebi'], everyday: ['everyday', 'casual'], festival: ['festival', 'durbar', 'ojude oba', 'iri ji', 'new yam'], december: ['detty', 'december', 'christmas'] } as Record<string, string[]>,
   garment: { agbada: ['agbada'], senator: ['senator'], kaftan: ['kaftan'], iro_buba: ['iro'], gown: ['gown', 'dress'], skirt_blouse: ['skirt', 'blouse'], suit: ['suit'], kids: ['kids', 'children'] } as Record<string, string[]>,
 }
 
