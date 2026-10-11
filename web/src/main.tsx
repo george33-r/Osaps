@@ -1,7 +1,4 @@
-import '@fontsource/bodoni-moda/400.css'
-import '@fontsource/bodoni-moda/400-italic.css'
-import '@fontsource/bodoni-moda/500.css'
-import '@fontsource/bodoni-moda/600.css'
+import '@fontsource-variable/anybody/standard.css'
 import '@fontsource-variable/hanken-grotesk'
 import './styles/tokens.css'
 import './styles/app.css'

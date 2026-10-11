@@ -274,3 +274,20 @@ export function DrapedCloth({
     </svg>
   )
 }
+
+/**
+ * One seamless repeat of a listing's pattern, used as the texture for the live cloth.
+ * `data-size` carries the tile's natural size so the renderer can keep the print to scale.
+ */
+export function PatternTile({ pattern, colors }: Pick<SwatchProps, 'pattern' | 'colors'>) {
+  const a = hex(colors[0], '#2a3170')
+  const b = hex(colors[1], colors.length === 1 ? shade(a, 40) : '#c49a3a')
+  const c = hex(colors[2], colors.length >= 2 ? shade(b, -30) : shade(a, -30))
+  const draw = PATTERNS[pattern ?? 'plain'] ?? PATTERNS.plain!
+  const { size, body } = draw(a, b, c)
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox={`0 0 ${size} ${size}`} width="512" height="512" data-size={size} aria-hidden>
+      {body}
+    </svg>
+  )
+}

@@ -31,8 +31,8 @@ export function Logo({ large = false }: { large?: boolean }) {
   return (
     <Link to="/" className={`logo ${large ? 'logo--large' : ''}`} aria-label="OSAPS home">
       <picture>
-        <source srcSet={`${import.meta.env.BASE_URL}brand/${large ? 'osaps-logo-large' : 'osaps-logo'}.webp`} type="image/webp" />
-        <img src={`${import.meta.env.BASE_URL}brand/osaps-logo.png`} alt="OSAPS" width={large ? 240 : 92} height={large ? 158 : 61} />
+        <source srcSet={`${import.meta.env.BASE_URL}brand/osaps-logo-night.webp`} type="image/webp" />
+        <img src={`${import.meta.env.BASE_URL}brand/osaps-logo-night.png`} alt="OSAPS" width={243} height={160} />
       </picture>
     </Link>
   )
@@ -107,7 +107,7 @@ function Header() {
     : []
 
   return (
-    <header className={`site-header ${scrolled ? 'is-scrolled' : ''}`}>
+    <header className={`site-header ${scrolled ? 'is-scrolled' : ''} ${location.pathname === '/' ? 'site-header--over' : ''}`}>
       <div className="site-header__inner">
         <Logo />
         <nav className={`site-nav ${menu ? 'is-open' : ''}`} id="site-nav" aria-label="Main">
@@ -172,6 +172,7 @@ function Footer() {
         <div className="site-footer__brand">
           <Logo large />
           <p className="site-footer__statement">Discover the fabric. Imagine the outfit. Meet your maker. Wear your story.</p>
+          <p className="site-footer__made">Made in Nigeria, for everyone who dresses for the occasion.</p>
         </div>
         <nav className="site-footer__cols" aria-label="Footer">
           <div>
@@ -200,19 +201,19 @@ function Footer() {
       </div>
       <div className="site-footer__base">
         <span>© {new Date().getFullYear()} OSAPS</span>
-        <span>Made in Nigeria</span>
       </div>
     </footer>
   )
 }
 
 export function Layout() {
+  const { pathname } = useLocation()
   return (
     <>
       <a href="#main" className="skip-link">Skip to content</a>
       <PreviewBanner />
       <Header />
-      <main id="main" className="site-main">
+      <main id="main" className={`site-main ${pathname === '/' ? 'site-main--flush' : ''}`}>
         <Outlet />
       </main>
       <Footer />

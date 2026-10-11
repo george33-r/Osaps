@@ -1,68 +1,68 @@
 /*
- * OSAPS design tokens — an African couture house, editorial and warm.
+ * OSAPS design tokens — "Lagos after dark".
  *
- * Ivory paper, espresso ink, the logo's oxblood for primary actions, antique gold for fine
- * details only (it is too light for small text on ivory), emerald and indigo as quiet support.
- * Every text pair below has been checked at WCAG AA (4.5:1) or better.
+ * The page is the indigo of an adire dye vat at night. The logo's varsity red drives every primary
+ * action; aṣọ-òkè metallic gold marks focus, numerals and the AI. Cowrie white carries the text.
+ * Contrast (WCAG): cowrie on night 15.5:1 · haze on night 8.5:1 · haze-2 on night 6.4:1 ·
+ * white on action red 5.1:1 · gold on night 10.1:1 · status colours ≥ 5.4:1 on night-2.
  */
 :root {
+  color-scheme: dark;
+
   /* Palette */
-  --ivory: #f8f4ec;
-  --paper: #fffcf7;
-  --linen: #efe7da;
-  --sand: #e3d8c6;
-  --espresso: #211916;
-  --espresso-900: #17110f;
-  --stone: #665c53;          /* secondary text — 5.9:1 on ivory */
-  --stone-light: #a89c8e;    /* text on espresso — 6.4:1 */
-  --oxblood: #8e1b22;        /* primary action — white text 9.0:1; text on ivory 8.2:1 */
-  --oxblood-deep: #6f141a;
-  --burgundy: #762b3a;
-  --gold: #a98545;           /* rules, hairlines, ornaments only */
-  --gold-text: #7e6230;      /* gold-toned small text — 5.2:1 on ivory */
-  --gold-light: #c9a86a;     /* gold on espresso — 7.6:1 */
-  --emerald: #315b4b;
-  --indigo: #23305a;
+  --night: #0d1640;        /* page */
+  --night-2: #15225a;      /* raised surfaces */
+  --night-3: #1e2f73;      /* strong surfaces, hover */
+  --night-ink: #070c26;    /* deepest shadow */
+  --cowrie: #f6f1e7;       /* text */
+  --haze: #a9b4e0;         /* secondary text */
+  --haze-2: #8f9bd0;       /* tertiary text, placeholders */
+  --red: #d81f2a;          /* logo red, primary action */
+  --red-deep: #b8141f;
+  --red-text: #ff6b6b;     /* red as text on night */
+  --gold: #f2be45;         /* aṣọ-òkè metallic */
+  --leaf: #5fd3a5;
+  --amber: #ffb36b;
 
   /* Semantic */
-  --bg: var(--ivory);
-  --surface: var(--paper);
-  --surface-sunk: var(--linen);
-  --ink: var(--espresso);
-  --ink-soft: var(--stone);
-  --rule: color-mix(in srgb, var(--espresso) 14%, transparent);
-  --rule-strong: color-mix(in srgb, var(--espresso) 32%, transparent);
-  --action: var(--oxblood);
-  --action-hover: var(--oxblood-deep);
+  --bg: var(--night);
+  --surface: var(--night-2);
+  --surface-sunk: color-mix(in srgb, var(--night-ink) 55%, var(--night));
+  --ink: var(--cowrie);
+  --ink-soft: var(--haze);
+  --ink-faint: var(--haze-2);
+  --rule: color-mix(in srgb, var(--cowrie) 12%, transparent);
+  --rule-strong: color-mix(in srgb, var(--cowrie) 26%, transparent);
+  --glass: color-mix(in srgb, var(--night) 62%, transparent);
+  --action: var(--red);
+  --action-hover: var(--red-deep);
   --focus: var(--gold);
 
-  --ok: var(--emerald);
-  --ok-bg: #e2ece6;
-  --wait: #8a4b14;
-  --wait-bg: #f4e6d4;
-  --alert: var(--oxblood);
-  --alert-bg: #f4dcdc;
-  --info: var(--indigo);
-  --info-bg: #e3e5ee;
-  --mute: var(--stone);
-  --mute-bg: var(--linen);
+  --ok: var(--leaf);
+  --ok-bg: color-mix(in srgb, var(--leaf) 14%, transparent);
+  --wait: var(--amber);
+  --wait-bg: color-mix(in srgb, var(--amber) 14%, transparent);
+  --alert: var(--red-text);
+  --alert-bg: color-mix(in srgb, var(--red-text) 14%, transparent);
+  --info: var(--haze);
+  --info-bg: color-mix(in srgb, var(--haze) 14%, transparent);
+  --mute: var(--haze-2);
+  --mute-bg: color-mix(in srgb, var(--cowrie) 8%, transparent);
 
-  /* Type: Bodoni Moda for display (high-contrast Didone), Hanken Grotesk for the interface. */
-  --font-display: 'Bodoni Moda', 'Didot', 'Bodoni 72', Georgia, serif;
+  /* Type: Anybody (variable width 50–150) for display, Hanken Grotesk for reading. */
+  --font-display: 'Anybody Variable', 'Anybody', system-ui, sans-serif;
   --font-ui: 'Hanken Grotesk Variable', 'Hanken Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
 
-  --t-micro: 0.72rem;   /* uppercase editorial labels */
-  --t-xs: 0.8rem;
-  --t-sm: 0.875rem;
+  --t-xs: 0.8125rem;
+  --t-sm: 0.9rem;
   --t-base: 1rem;
   --t-md: 1.125rem;
   --t-lg: 1.375rem;
-  --t-xl: 1.75rem;
-  --t-2xl: clamp(1.9rem, 2.4vw + 1rem, 2.6rem);
-  --t-3xl: clamp(2.4rem, 4vw + 1rem, 3.8rem);
-  --t-hero: clamp(3rem, 7.2vw + 0.6rem, 6.6rem);
-
-  --tracking-label: 0.16em;
+  --t-xl: clamp(1.5rem, 1vw + 1.2rem, 1.9rem);
+  --t-2xl: clamp(1.9rem, 2.4vw + 1rem, 2.9rem);
+  --t-3xl: clamp(2.4rem, 4.4vw + 1rem, 4.6rem);
+  --t-hero: clamp(2.9rem, 7.4vw + 0.4rem, 8.4rem);
+  --t-giant: clamp(3.4rem, 12vw, 12.5rem);
 
   /* Space (4px base) */
   --s-1: 0.25rem;
@@ -75,23 +75,21 @@
   --s-8: 4.5rem;
   --s-9: 7rem;
 
-  /* Shape: crisp by default. Only inputs and chips soften. */
-  --r-0: 0;
-  --r-1: 2px;
-  --r-input: 3px;
+  /* Shape: hierarchy, not one radius for everything. */
+  --r-media: 22px;
+  --r-panel: 28px;
+  --r-input: 14px;
   --r-pill: 999px;
-  --shadow-float: 0 18px 50px -28px rgba(33, 25, 22, 0.45);
+  --shadow-float: 0 30px 80px -30px rgba(3, 6, 22, 0.85);
 
-  --page: 82rem;
-  --gutter: clamp(1.1rem, 4.2vw, 3rem);
-  --header-h: 4.5rem;
+  --page: 86rem;
+  --gutter: clamp(1rem, 4vw, 3rem);
+  --header-h: 5rem;
 
-  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
-  --dur: 220ms;
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dur: 240ms;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :root {
-    --dur: 0ms;
-  }
+  :root { --dur: 0ms; }
 }
