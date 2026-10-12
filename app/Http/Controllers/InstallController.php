@@ -26,6 +26,12 @@ class InstallController extends Controller
         abort_unless(InstallLedger::tokenIsStrong($expected) && hash_equals($expected, $token), 404);
 
         $lockPath = storage_path('app/installed.lock');
+        // A copied site can be missing empty folders; create the ones Laravel writes to.
+        foreach (['app', 'app/public', 'framework/cache/data', 'framework/sessions', 'framework/views', 'logs'] as $dir) {
+            if (! is_dir(storage_path($dir))) {
+                @mkdir(storage_path($dir), 0755, true);
+            }
+        }
         $ledger = InstallLedger::fromLock(is_file($lockPath) ? (string) file_get_contents($lockPath) : null);
         if ($ledger->wasUsed($token)) {
             return $this->text("This install link has already been used.\n\nTo run it again, put a new INSTALL_TOKEN in .env, visit the new link once, then delete the line.", 410);
