@@ -9,6 +9,11 @@ use App\Http\Controllers\Api\V1\OfferController;
 use App\Http\Controllers\Api\V1\OfferMessageController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\TailorController;
+use App\Http\Controllers\Api\V1\FabricOrderController;
+use App\Http\Controllers\Api\V1\PaystackWebhookController;
+use App\Http\Controllers\Api\V1\PriceOfferController;
+use App\Http\Controllers\Api\V1\ShopController;
+use App\Http\Controllers\Api\V1\VendorFabricController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -33,6 +38,9 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::get('fabrics/{slug}/ideas', [AiController::class, 'fabricIdeas'])->name('fabric-ideas');
         Route::post('inspiration', [AiController::class, 'inspiration'])->middleware('auth:sanctum')->name('inspiration');
     });
+
+    // Paystack server-to-server callback. No session or CSRF: it is authenticated by its HMAC signature.
+    Route::post('webhooks/paystack', PaystackWebhookController::class)->middleware('throttle:webhooks')->name('webhooks.paystack');
 
     Route::middleware('throttle:auth')->group(function () {
         Route::post('auth/register', [AuthController::class, 'register'])->name('auth.register');
@@ -72,6 +80,36 @@ Route::prefix('v1')->name('v1.')->group(function () {
 
         // Vendor contact (signed-in only)
         Route::get('fabrics/{slug}/contact', [FabricController::class, 'contact'])->name('fabrics.contact');
+
+
+        // Fabric shop: inDrive-style price offers
+        Route::get('price-offers', [PriceOfferController::class, 'mine'])->name('price-offers.mine');
+        Route::get('price-offers/{priceOffer}', [PriceOfferController::class, 'show'])->name('price-offers.show');
+        Route::get('vendor/price-offers', [PriceOfferController::class, 'vendor'])->name('vendor.price-offers');
+        Route::middleware('throttle:marketplace-writes')->group(function () {
+            Route::post('fabrics/{slug}/price-offers', [PriceOfferController::class, 'store'])->name('price-offers.store');
+            Route::post('price-offers/{priceOffer}/accept', [PriceOfferController::class, 'accept'])->name('price-offers.accept');
+            Route::post('price-offers/{priceOffer}/counter', [PriceOfferController::class, 'counter'])->name('price-offers.counter');
+            Route::post('price-offers/{priceOffer}/decline', [PriceOfferController::class, 'decline'])->name('price-offers.decline');
+            Route::post('price-offers/{priceOffer}/withdraw', [PriceOfferController::class, 'withdraw'])->name('price-offers.withdraw');
+        });
+
+        // Fabric shop: cart, checkout and orders
+        Route::post('shop/quote', [ShopController::class, 'quote'])->middleware('throttle:shop-quotes')->name('shop.quote');
+        Route::post('checkouts', [ShopController::class, 'store'])->middleware('throttle:marketplace-writes')->name('checkouts.store');
+        Route::get('checkouts/{checkout}', [ShopController::class, 'show'])->name('checkouts.show');
+        Route::post('checkouts/{checkout}/verify', [ShopController::class, 'verify'])->middleware('throttle:shop-quotes')->name('checkouts.verify');
+        Route::post('checkouts/{checkout}/cancel', [ShopController::class, 'cancel'])->name('checkouts.cancel');
+        Route::get('fabric-orders', [FabricOrderController::class, 'index'])->name('fabric-orders.index');
+        Route::get('fabric-orders/{fabricOrder}', [FabricOrderController::class, 'show'])->name('fabric-orders.show');
+        Route::post('fabric-orders/{fabricOrder}/transitions', [FabricOrderController::class, 'transition'])->middleware('throttle:marketplace-writes')->name('fabric-orders.transition');
+
+        // Vendor workspace
+        Route::get('vendor/fabric-orders', [FabricOrderController::class, 'vendor'])->name('vendor.fabric-orders');
+        Route::get('vendor/fabrics', [VendorFabricController::class, 'index'])->name('vendor.fabrics');
+        Route::put('me/vendor-profile', [VendorFabricController::class, 'upsertProfile'])->middleware('throttle:marketplace-writes')->name('me.vendor-profile');
+        Route::post('vendor/fabrics', [VendorFabricController::class, 'store'])->middleware('throttle:marketplace-writes')->name('vendor.fabrics.store');
+        Route::patch('vendor/fabrics/{fabric}', [VendorFabricController::class, 'update'])->middleware('throttle:marketplace-writes')->name('vendor.fabrics.update');
 
         // Orders
         Route::get('orders', [OrderController::class, 'index'])->name('orders.index');

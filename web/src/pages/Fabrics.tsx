@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api, ApiError, type Fabric, type FabricFilters, type FabricIdea, type VendorContact } from '../api'
+import { BuyBox } from '../components/ShopKit'
 import { FabricCard } from '../components/cards'
 import { COLOR_HEX, DrapedCloth, Swatch } from '../components/Swatch'
 import { Badge, Button, ButtonLink, EmptyState, ErrorState, Label, PageHeader, Skeleton, SourceNote, errorMessage } from '../components/ui'
@@ -194,7 +195,9 @@ function VendorPanel({ fabric }: { fabric: Fabric }) {
       <Label>Sold by</Label>
       <h2 id="vendor-title" className="vendor__name">{fabric.vendor.business_name}</h2>
       <p className="vendor__where">{fabric.vendor.market ? `${fabric.vendor.market}, ` : ''}{fabric.vendor.city}</p>
-      <p className="vendor__model">You buy this fabric directly from the vendor. Paying through OSAPS, with purchase protection, is not available yet.</p>
+      <p className="vendor__model">{fabric.purchase_mode === 'checkout'
+        ? 'Pay on OSAPS and the vendor only ships once your payment is confirmed. You can still ask them a question first.'
+        : 'You buy this fabric directly from the vendor. Paying through OSAPS is not switched on yet.'}</p>
       {contact ? (
         <div className="vendor__contact">
           {contact.whatsapp && <a className="btn btn--primary" href={`https://wa.me/${contact.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(`Hello, I saw ${fabric.name} on OSAPS.`)}`} target="_blank" rel="noopener noreferrer">Message on WhatsApp</a>}
@@ -299,8 +302,9 @@ export function FabricDetail() {
             {f.pattern && <div><dt>Pattern</dt><dd>{humanise(f.pattern)}</dd></div>}
             <div><dt>Minimum order</dt><dd>{f.min_order_quantity} {f.unit}{f.min_order_quantity > 1 ? 's' : ''}</dd></div>
           </dl>
+          <BuyBox fabric={f} />
           <div className="product__actions">
-            <ButtonLink to="/requests/new" state={{ draft: { fabric_status: 'buying_on_platform', fabric_id: f.id } }}>Have a tailor make something with this</ButtonLink>
+            <ButtonLink variant={f.purchase_mode === 'checkout' ? 'secondary' : 'primary'} to="/requests/new" state={{ draft: { fabric_status: 'buying_on_platform', fabric_id: f.id } }}>Have a tailor make something with this</ButtonLink>
           </div>
           <VendorPanel fabric={f} />
         </div>

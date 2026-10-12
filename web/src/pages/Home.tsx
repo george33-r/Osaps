@@ -104,11 +104,44 @@ function Hero() {
         <div className="hero__intro">
           <p className="hero__lede">Discover extraordinary textiles, meet exceptional makers, and create an outfit that feels entirely yours.</p>
           <div className="hero__actions">
-            <ButtonLink to="/stylist">Create your look</ButtonLink>
-            <ButtonLink to="/fabrics" variant="secondary">Explore fabrics</ButtonLink>
+            <ButtonLink to="/fabrics">Shop fabric</ButtonLink>
+            <ButtonLink to="/stylist" variant="secondary">Get a look made</ButtonLink>
           </div>
         </div>
       </div>
+    </section>
+  )
+}
+
+/** Two ways in: just buy fabric (at the list price or your own), or have something made. */
+function ShopModes() {
+  const { meta } = useSession()
+  const hold = meta?.shop?.offer_hold_hours ?? 48
+  return (
+    <section className="modes" aria-labelledby="modes-title">
+      <h2 id="modes-title" className="sr-only">Shop or get it made</h2>
+      <Link to="/fabrics" className="mode mode--shop" data-tilt>
+        <span className="mode__kicker">Just shopping?</span>
+        <span className="mode__title">Buy fabric. Or name your price.</span>
+        <span className="mode__steps">
+          <span><b>1</b> Pick a fabric and how many yards</span>
+          <span><b>2</b> Pay the list price, or offer yours</span>
+          <span><b>3</b> The vendor accepts, counters or declines</span>
+        </span>
+        <span className="mode__fine">An agreed price is held for you for {hold} hours. Pay by card, transfer or USSD.</span>
+        <span className="mode__cta">Shop fabric →</span>
+      </Link>
+      <Link to="/stylist" className="mode mode--make" data-tilt>
+        <span className="mode__kicker">Want it made?</span>
+        <span className="mode__title">Tailors make you an offer.</span>
+        <span className="mode__steps">
+          <span><b>1</b> Tell the stylist the occasion</span>
+          <span><b>2</b> Post your request and budget</span>
+          <span><b>3</b> Compare tailors' offers and pick one</span>
+        </span>
+        <span className="mode__fine">Accepting locks the price. Follow every stage to delivery.</span>
+        <span className="mode__cta">Start with the stylist →</span>
+      </Link>
     </section>
   )
 }
@@ -195,6 +228,8 @@ export default function Home() {
       <Hero />
 
       <CultureBand />
+
+      <ShopModes />
 
       <Edit
         category="ankara"

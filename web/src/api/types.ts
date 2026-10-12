@@ -16,6 +16,7 @@ export interface User {
   role: Role
   city: string | null
   has_tailor_profile?: boolean
+  has_vendor_profile?: boolean
 }
 
 export interface KeyLabel {
@@ -34,6 +35,16 @@ export interface Meta {
   colors: string[]
   fees: { customer_service_fee_bps: number; customer_service_fee_cap_minor: number }
   offer_rules: { expiry_hours: number; max_counter_rounds_per_side: number }
+  shop?: {
+    service_fee_bps: number
+    service_fee_cap_minor: number
+    delivery_fee_per_vendor_minor: number
+    checkout_hold_minutes: number
+    offer_floor_bps: number
+    offer_response_hours: number
+    offer_hold_hours: number
+    offer_max_rounds: number
+  }
   features: { payments: boolean; ai_assistant: boolean; disputes: boolean }
 }
 
@@ -57,6 +68,10 @@ export interface Fabric {
   is_demo: boolean
   vendor?: { business_name: string; slug: string; city: string; market: string | null; verified: boolean }
   purchase_mode: 'contact_vendor' | 'checkout'
+  /** Lowest price per unit a buyer may offer. */
+  offer_floor?: MoneyValue
+  /** Quick-pick offer prices, highest first. */
+  offer_suggestions?: MoneyValue[]
 }
 
 export interface MatchResult {
@@ -385,4 +400,166 @@ export interface InspirationBriefResult {
   aesthetic: string | null
   confidence: 'low' | 'medium' | 'high'
   caveat: string
+}
+
+// ---------------------------------------------------------------- Fabric shop
+
+export type PriceOfferStatus = 'awaiting_vendor' | 'awaiting_buyer' | 'accepted' | 'declined' | 'withdrawn' | 'expired' | 'used'
+export type PriceOfferAction = 'accept' | 'decline' | 'counter' | 'withdraw' | 'add_to_cart'
+
+export interface PriceOffer {
+  id: number
+  status: PriceOfferStatus
+  status_label: string
+  your_side: 'buyer' | 'vendor'
+  your_turn: boolean
+  actions: PriceOfferAction[]
+  quantity: number
+  list_unit: MoneyValue
+  unit: MoneyValue
+  buyer_unit: MoneyValue
+  vendor_unit: MoneyValue | null
+  floor_unit: MoneyValue
+  total: MoneyValue
+  saving: MoneyValue
+  rounds_left: number
+  note: string | null
+  respond_by: string | null
+  hold_until: string | null
+  created_at: string | null
+  fabric?: {
+    id: number
+    slug: string
+    name: string
+    unit: string
+    category_label: string
+    colors: string[]
+    pattern: string | null
+    image_url: string | null
+    vendor: { business_name: string; market: string | null; city: string } | null
+  }
+  buyer_name: string | null
+  history?: { by: 'buyer' | 'vendor' | 'system'; action: string; unit: MoneyValue | null; at: string | null }[]
+}
+
+export interface CartItemInput {
+  fabric_id: number
+  quantity: number
+  price_offer_id?: number | null
+}
+
+export type Fulfilment = 'delivery' | 'pickup'
+
+export interface ShopProblem {
+  fabric_id: number
+  code: string
+  message: string
+}
+
+export interface QuoteLine {
+  fabric_id: number
+  name: string
+  unit: string
+  quantity: number
+  unit_price: MoneyValue
+  list_unit_price: MoneyValue
+  line_total: MoneyValue
+  saving: MoneyValue
+  price_offer_id: number | null
+}
+
+export interface ShopQuote {
+  ok: boolean
+  vendors: { vendor_id: number; vendor_name: string; subtotal: MoneyValue; delivery: MoneyValue; total: MoneyValue; lines: QuoteLine[] }[]
+  subtotal: MoneyValue
+  delivery: MoneyValue
+  service_fee: MoneyValue
+  total: MoneyValue
+  blocking: ShopProblem[]
+  notices: ShopProblem[]
+}
+
+export interface CheckoutInput {
+  items: CartItemInput[]
+  fulfilment: Fulfilment
+  expected_total_minor: number
+  contact: { name: string; phone: string }
+  address?: { line1: string; line2?: string; city: string; state: string; landmark?: string } | null
+}
+
+export type FabricOrderStatus = 'pending_payment' | 'paid' | 'packed' | 'out_for_delivery' | 'ready_for_pickup' | 'delivered' | 'completed' | 'cancelled'
+
+export interface FabricOrder {
+  reference: string
+  checkout_reference: string | null
+  status: FabricOrderStatus
+  status_label: string
+  fulfilment: Fulfilment
+  milestones: { status: FabricOrderStatus; label: string }[]
+  next: { status: FabricOrderStatus; label: string }[]
+  subtotal: MoneyValue
+  delivery: MoneyValue
+  service_fee: MoneyValue | null
+  total: MoneyValue | null
+  vendor_payout: MoneyValue | null
+  vendor?: { business_name: string; market: string | null; city: string }
+  deliver_to: { name: string | null; phone: string | null; address: Record<string, string> | null } | null
+  items?: {
+    fabric_id: number
+    slug: string | null
+    name: string
+    unit: string
+    quantity: number
+    unit_price: MoneyValue
+    list_unit_price: MoneyValue
+    line_total: MoneyValue
+    negotiated: boolean
+    colors: string[] | null
+    pattern: string | null
+  }[]
+  events?: { to: FabricOrderStatus; label: string; by: string; note: string | null; at: string | null }[]
+  created_at: string | null
+}
+
+export interface Checkout {
+  reference: string
+  payment_status: 'pending' | 'paid' | 'expired' | 'cancelled' | 'needs_refund'
+  fulfilment: Fulfilment
+  subtotal: MoneyValue
+  delivery: MoneyValue
+  service_fee: MoneyValue
+  total: MoneyValue
+  expires_at: string | null
+  paid_at: string | null
+  authorization_url?: string
+  orders?: FabricOrder[]
+}
+
+export interface VendorListing extends Fabric {
+  status: 'active' | 'draft' | 'archived'
+  stock_quantity: number
+  reserved_quantity: number
+}
+
+export interface VendorProfileInput {
+  business_name: string
+  city: string
+  market?: string | null
+  phone?: string | null
+  whatsapp?: string | null
+}
+
+export interface NewListing {
+  name: string
+  category: string
+  description?: string | null
+  primary_color: string
+  colors?: string[]
+  pattern?: string | null
+  material?: string | null
+  unit: string
+  price_minor: number
+  stock_quantity: number
+  min_order_quantity?: number
+  status?: 'active' | 'draft'
 }

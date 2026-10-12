@@ -34,6 +34,28 @@ class AppServiceProvider extends ServiceProvider
             default => new \App\Ai\Providers\UnavailableProvider,
         });
 
+        $this->app->singleton(\App\Domain\Shop\PriceOfferRules::class, fn () => new \App\Domain\Shop\PriceOfferRules(
+            floorBps: (int) config('marketplace.shop.offers.floor_bps'),
+            responseHours: (int) config('marketplace.shop.offers.response_hours'),
+            holdHours: (int) config('marketplace.shop.offers.hold_hours'),
+            maxRoundsPerSide: (int) config('marketplace.shop.offers.max_rounds_per_side'),
+            maxLivePerBuyer: (int) config('marketplace.shop.offers.max_live_per_buyer'),
+        ));
+
+        $this->app->singleton(\App\Domain\Shop\CartPricing::class, fn () => new \App\Domain\Shop\CartPricing(
+            serviceFeeBps: (int) config('marketplace.shop.service_fee_bps'),
+            serviceFeeCapMinor: (int) config('marketplace.shop.service_fee_cap_minor'),
+            deliveryFeePerVendorMinor: (int) config('marketplace.shop.delivery_fee_per_vendor_minor'),
+            currency: (string) config('marketplace.currency', 'NGN'),
+        ));
+
+        $this->app->singleton(\App\Payments\PaymentGateway::class, fn () => new \App\Payments\PaystackGateway(
+            secret: config('payments.paystack.secret_key'),
+            baseUrl: (string) config('payments.paystack.base_url'),
+            timeout: (int) config('payments.paystack.timeout'),
+            channels: array_values((array) config('payments.paystack.channels')),
+        ));
+
         $this->app->singleton(TailorScorer::class, fn () => new TailorScorer(config('marketplace.matching.weights')));
     }
 
@@ -54,6 +76,12 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('ai', fn (Request $r) => Limit::perMinute(12)->by($r->user()?->id ?: $r->ip()));
 
         // Spam protection for marketplace writes (posting requests, offers, counters).
+        // Cart re-pricing happens as the buyer edits quantities; generous but bounded.
+        RateLimiter::for('shop-quotes', fn (Request $r) => Limit::perMinute(60)->by($r->user()?->id ?: $r->ip()));
+
+        // Paystack webhooks come from a handful of Paystack IPs.
+        RateLimiter::for('webhooks', fn (Request $r) => Limit::perMinute(300)->by($r->ip()));
+
         RateLimiter::for('marketplace-writes', fn (Request $r) => Limit::perMinute(20)->by($r->user()?->id ?: $r->ip()));
     }
 }

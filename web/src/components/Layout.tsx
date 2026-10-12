@@ -2,18 +2,19 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'rea
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useSession } from '../lib/session'
 import { StylistFab } from './StylistFab'
+import { CartIcon } from './ShopKit'
 
 function PreviewBanner() {
   const { user, refresh } = useSession()
   const navigate = useNavigate()
   if (import.meta.env.MODE !== 'preview') return null
-  const switchTo = async (role: 'customer' | 'tailor' | null) => {
+  const switchTo = async (role: 'customer' | 'tailor' | 'fabric_vendor' | null) => {
     if (import.meta.env.MODE === 'preview') {
       const { previewSwitchUser } = await import('../api/preview')
       previewSwitchUser(role)
     }
     await refresh()
-    navigate(role === 'tailor' ? '/tailor/inbox' : role === 'customer' ? '/requests' : '/')
+    navigate(role === 'tailor' ? '/tailor/inbox' : role === 'fabric_vendor' ? '/vendor' : role === 'customer' ? '/fabrics' : '/')
   }
   return (
     <div className="preview-banner" role="note">
@@ -22,6 +23,7 @@ function PreviewBanner() {
         View as:
         <button aria-pressed={user?.role === 'customer'} onClick={() => switchTo('customer')}>Customer</button>
         <button aria-pressed={user?.role === 'tailor'} onClick={() => switchTo('tailor')}>Tailor</button>
+        <button aria-pressed={user?.role === 'fabric_vendor'} onClick={() => switchTo('fabric_vendor')}>Vendor</button>
         <button aria-pressed={!user} onClick={() => switchTo(null)}>Visitor</button>
       </span>
     </div>
@@ -95,15 +97,21 @@ function Header() {
   }, [])
 
   const primary = [
-    { to: '/fabrics', label: 'Fabrics' },
+    { to: '/fabrics', label: 'Shop fabric' },
     { to: '/tailors', label: 'Tailors' },
-    ...(user?.role === 'tailor' ? [{ to: '/tailor/inbox', label: 'Job inbox' }] : [{ to: '/requests/new', label: 'Create an outfit' }]),
+    ...(user?.role === 'tailor'
+      ? [{ to: '/tailor/inbox', label: 'Job inbox' }]
+      : user?.role === 'fabric_vendor'
+        ? [{ to: '/vendor', label: 'My shop' }]
+        : [{ to: '/requests/new', label: 'Get it made' }]),
   ]
   const account = user
     ? [
         ...(user.role === 'customer' ? [{ to: '/requests', label: 'My requests' }] : []),
         ...(user.role === 'tailor' ? [{ to: '/tailor/profile', label: 'My profile' }] : []),
-        { to: '/orders', label: 'Orders' },
+        { to: '/offers', label: 'My offers' },
+        { to: '/shop/orders', label: 'Fabric orders' },
+        { to: '/orders', label: 'Tailoring orders' },
       ]
     : []
 
@@ -154,6 +162,7 @@ function Header() {
           <button className="icon-btn" onClick={() => setSearch((s) => !s)} aria-expanded={search} aria-label="Search fabric">
             <SearchIcon />
           </button>
+          <CartIcon />
           <button className="icon-btn site-header__menu" aria-expanded={menu} aria-controls="site-nav" onClick={() => setMenu((m) => !m)}>
             <span className="sr-only">Menu</span>
             <span className="burger" aria-hidden />
@@ -178,7 +187,7 @@ function Footer() {
         <nav className="site-footer__cols" aria-label="Footer">
           <div>
             <p className="label">Discover</p>
-            <Link to="/fabrics">Fabrics</Link>
+            <Link to="/fabrics">Shop fabric</Link>
             <Link to="/tailors">Tailors</Link>
             <Link to="/stylist">AI stylist</Link>
           </div>
@@ -190,6 +199,7 @@ function Footer() {
           <div>
             <p className="label">For makers</p>
             <Link to="/register?role=tailor">Join as a tailor</Link>
+            <Link to="/register?role=fabric_vendor">Sell fabric on OSAPS</Link>
           </div>
           {(meta?.support.email || meta?.support.whatsapp) && (
             <div>

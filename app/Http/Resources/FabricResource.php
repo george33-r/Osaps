@@ -37,8 +37,10 @@ class FabricResource extends ApiResource
                 'market' => $this->vendor->market,
                 'verified' => $this->vendor->verification_status === 'verified',
             ]),
-            // Phase 1: discovery only. On-platform fabric checkout arrives with payments (Phase 4).
-            'purchase_mode' => 'contact_vendor',
+            // Buy on OSAPS once payments are switched on; until then, contact the vendor.
+            'purchase_mode' => app(\App\Payments\PaymentGateway::class)->enabled() ? 'checkout' : 'contact_vendor',
+            'offer_floor' => app(\App\Domain\Shop\PriceOfferRules::class)->floor(\App\Domain\Money\Money::minor($this->price_minor))->toArray(),
+            'offer_suggestions' => array_map(fn ($m) => $m->toArray(), app(\App\Domain\Shop\PriceOfferRules::class)->suggestions(\App\Domain\Money\Money::minor($this->price_minor))),
         ];
     }
 }

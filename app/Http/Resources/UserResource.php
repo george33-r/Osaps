@@ -17,6 +17,7 @@ class UserResource extends ApiResource
             'role' => $this->role,
             'city' => $this->city,
             'has_tailor_profile' => $this->when($this->isTailor(), fn () => $this->tailorProfile()->exists()),
+            'has_vendor_profile' => $this->when($this->role === 'fabric_vendor', fn () => $this->fabricVendor()->exists()),
         ];
     }
 }

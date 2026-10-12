@@ -19,6 +19,17 @@ import type {
   InspirationBriefResult,
   OfferMessage,
   VendorContact,
+  PriceOffer,
+  CartItemInput,
+  Fulfilment,
+  ShopQuote,
+  CheckoutInput,
+  Checkout,
+  FabricOrder,
+  FabricOrderStatus,
+  VendorListing,
+  VendorProfileInput,
+  NewListing,
 } from './types'
 
 /** One error shape for every failure: what the server said, or what the network did. */
@@ -78,6 +89,34 @@ export interface Api {
   orders(): Promise<Paginated<Order>>
   order(reference: string): Promise<Order>
   transition(reference: string, status: OrderStatus, note: string | null): Promise<Order>
+
+  // Fabric shop — inDrive-style price offers
+  makePriceOffer(slug: string, quantity: number, unitPriceMinor: number, note?: string | null): Promise<PriceOffer>
+  myPriceOffers(): Promise<PriceOffer[]>
+  vendorPriceOffers(): Promise<{ data: PriceOffer[]; is_vendor: boolean }>
+  priceOffer(id: number): Promise<PriceOffer>
+  /** Sends the price the user saw; refused with `offer_changed` if the other side just changed it. */
+  acceptPriceOffer(id: number, expectedUnitMinor: number): Promise<PriceOffer>
+  counterPriceOffer(id: number, unitPriceMinor: number): Promise<PriceOffer>
+  declinePriceOffer(id: number): Promise<PriceOffer>
+  withdrawPriceOffer(id: number): Promise<PriceOffer>
+
+  // Fabric shop — cart, checkout, orders
+  quote(items: CartItemInput[], fulfilment: Fulfilment): Promise<ShopQuote>
+  createCheckout(input: CheckoutInput): Promise<Checkout>
+  checkout(reference: string): Promise<Checkout>
+  verifyCheckout(reference: string): Promise<Checkout>
+  cancelCheckout(reference: string): Promise<Checkout>
+  fabricOrders(): Promise<FabricOrder[]>
+  fabricOrder(reference: string): Promise<FabricOrder>
+  transitionFabricOrder(reference: string, status: FabricOrderStatus, note?: string | null): Promise<FabricOrder>
+
+  // Vendor workspace
+  vendorFabricOrders(): Promise<{ data: FabricOrder[]; is_vendor: boolean }>
+  vendorListings(): Promise<VendorListing[]>
+  updateListing(id: number, patch: { price_minor?: number; stock_quantity?: number; status?: 'active' | 'draft' | 'archived' }): Promise<VendorListing>
+  createListing(input: NewListing): Promise<VendorListing>
+  saveVendorProfile(input: VendorProfileInput): Promise<VendorProfileInput & { slug: string; verified: boolean }>
 }
 
 function readCookie(name: string): string | null {
@@ -193,4 +232,30 @@ export const httpApi: Api = {
   orders: () => http('GET', '/orders'),
   order: (ref) => data(http('GET', `/orders/${encodeURIComponent(ref)}`)),
   transition: (ref, status, note) => data(http('POST', `/orders/${encodeURIComponent(ref)}/transitions`, { status, note })),
+
+  makePriceOffer: (slug, quantity, unit_price_minor, note) => data(http('POST', `/fabrics/${encodeURIComponent(slug)}/price-offers`, { quantity, unit_price_minor, note: note ?? null })),
+  myPriceOffers: () => data(http('GET', '/price-offers')),
+  vendorPriceOffers: () =>
+    http<{ data: PriceOffer[]; meta: { is_vendor: boolean } }>('GET', '/vendor/price-offers').then((r) => ({ data: r.data, is_vendor: r.meta.is_vendor })),
+  priceOffer: (id) => data(http('GET', `/price-offers/${id}`)),
+  acceptPriceOffer: (id, expected) => data(http('POST', `/price-offers/${id}/accept`, { expected_unit_price_minor: expected })),
+  counterPriceOffer: (id, unit_price_minor) => data(http('POST', `/price-offers/${id}/counter`, { unit_price_minor })),
+  declinePriceOffer: (id) => data(http('POST', `/price-offers/${id}/decline`)),
+  withdrawPriceOffer: (id) => data(http('POST', `/price-offers/${id}/withdraw`)),
+
+  quote: (items, fulfilment) => data(http('POST', '/shop/quote', { items, fulfilment })),
+  createCheckout: (input) => data(http('POST', '/checkouts', input)),
+  checkout: (ref) => data(http('GET', `/checkouts/${encodeURIComponent(ref)}`)),
+  verifyCheckout: (ref) => data(http('POST', `/checkouts/${encodeURIComponent(ref)}/verify`)),
+  cancelCheckout: (ref) => data(http('POST', `/checkouts/${encodeURIComponent(ref)}/cancel`)),
+  fabricOrders: () => data(http('GET', '/fabric-orders')),
+  fabricOrder: (ref) => data(http('GET', `/fabric-orders/${encodeURIComponent(ref)}`)),
+  transitionFabricOrder: (ref, status, note) => data(http('POST', `/fabric-orders/${encodeURIComponent(ref)}/transitions`, { status, note: note ?? null })),
+
+  vendorFabricOrders: () =>
+    http<{ data: FabricOrder[]; meta: { is_vendor: boolean } }>('GET', '/vendor/fabric-orders').then((r) => ({ data: r.data, is_vendor: r.meta.is_vendor })),
+  vendorListings: () => data(http('GET', '/vendor/fabrics')),
+  updateListing: (id, patch) => data(http('PATCH', `/vendor/fabrics/${id}`, patch)),
+  createListing: (input) => data(http('POST', '/vendor/fabrics', input)),
+  saveVendorProfile: (input) => data(http('PUT', '/me/vendor-profile', input)),
 }

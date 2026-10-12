@@ -22,6 +22,9 @@ export function StylistFab() {
   }, [open])
 
   if (pathname.startsWith('/stylist')) return null
+  // Out of the way while buying or running a shop; just an icon on fabric pages so it never covers the buy box.
+  if (/^\/(cart|checkout|vendor|offers|shop)(\/|$)/.test(pathname)) return null
+  const compact = pathname.startsWith('/fabrics/')
 
   const close = () => {
     setOpen(false)
@@ -36,7 +39,7 @@ export function StylistFab() {
   const occasions = meta?.occasions.filter((o) => ['wedding_guest', 'traditional_wedding', 'own_wedding', 'festival', 'december', 'family_event'].includes(o.key)) ?? []
 
   return (
-    <div className={`fab ${open ? 'is-open' : ''}`} onKeyDown={(e) => e.key === 'Escape' && open && close()}>
+    <div className={`fab ${open ? 'is-open' : ''} ${compact && !open ? 'fab--compact' : ''}`} onKeyDown={(e) => e.key === 'Escape' && open && close()}>
       {open && (
         <section className="fab__panel" role="dialog" aria-modal="false" aria-labelledby="fab-title">
           <header className="fab__head">
@@ -81,7 +84,7 @@ export function StylistFab() {
           <path d="M12 2.5l1.9 5.1 5.1 1.9-5.1 1.9L12 16.5l-1.9-5.1L5 9.5l5.1-1.9z" fill="currentColor" />
           <path d="M18.5 14l.9 2.4 2.4.9-2.4.9-.9 2.4-.9-2.4-2.4-.9 2.4-.9z" fill="currentColor" opacity="0.8" />
         </svg>
-        <span className="fab__label">{open ? 'Close' : 'Ask the stylist'}</span>
+        <span className={`fab__label ${compact && !open ? 'sr-only' : ''}`}>{open ? 'Close' : 'Ask the stylist'}</span>
       </button>
     </div>
   )

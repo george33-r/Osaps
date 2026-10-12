@@ -42,7 +42,7 @@ export function SignIn() {
     try {
       const user = await api.login(String(form.get('email')), String(form.get('password')))
       setUser(user)
-      navigate(safeNext(params.get('next'), user.role === 'tailor' ? '/tailor/inbox' : '/requests'), { replace: true })
+      navigate(safeNext(params.get('next'), user.role === 'tailor' ? '/tailor/inbox' : user.role === 'fabric_vendor' ? '/vendor' : '/fabrics'), { replace: true })
     } catch (err) {
       setError(err instanceof ApiError ? err : new ApiError('Could not sign in.', 0, 'unknown'))
     } finally {
@@ -75,7 +75,8 @@ export function Register() {
   const { setUser } = useSession()
   const navigate = useNavigate()
   const [params] = useSearchParams()
-  const [role, setRole] = useState(params.get('role') === 'tailor' ? 'tailor' : 'customer')
+  const initialRole = params.get('role')
+  const [role, setRole] = useState(initialRole === 'tailor' || initialRole === 'fabric_vendor' ? initialRole : 'customer')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<ApiError | null>(null)
 
@@ -94,7 +95,7 @@ export function Register() {
         role,
       })
       setUser(user)
-      navigate(safeNext(params.get('next'), role === 'tailor' ? '/tailor/inbox' : '/requests/new'), { replace: true })
+      navigate(safeNext(params.get('next'), role === 'tailor' ? '/tailor/inbox' : role === 'fabric_vendor' ? '/vendor' : '/fabrics'), { replace: true })
     } catch (err) {
       setError(err instanceof ApiError ? err : new ApiError('Could not create the account.', 0, 'unknown'))
     } finally {
@@ -103,21 +104,25 @@ export function Register() {
   }
 
   return (
-    <AuthFrame title="Create your account" intro="Have outfits made by tailors you choose, or take tailoring work as a maker.">
+    <AuthFrame title="Create your account" intro="Shop fabric, name your price, have outfits made, or sell as a vendor or tailor.">
       <form className="form" onSubmit={submit} noValidate>
         <fieldset className="segmented" aria-label="I want to">
           <legend className="field__label">I want to</legend>
           <label className={`segmented__option ${role === 'customer' ? 'is-on' : ''}`}>
             <input type="radio" name="role" value="customer" checked={role === 'customer'} onChange={() => setRole('customer')} />
-            Get outfits made
+            Shop and get outfits made
           </label>
           <label className={`segmented__option ${role === 'tailor' ? 'is-on' : ''}`}>
             <input type="radio" name="role" value="tailor" checked={role === 'tailor'} onChange={() => setRole('tailor')} />
             Take tailoring work
           </label>
+          <label className={`segmented__option ${role === 'fabric_vendor' ? 'is-on' : ''}`}>
+            <input type="radio" name="role" value="fabric_vendor" checked={role === 'fabric_vendor'} onChange={() => setRole('fabric_vendor')} />
+            Sell fabric
+          </label>
         </fieldset>
         {error && Object.keys(error.fieldErrors).length === 0 && <p className="form__error" role="alert">{error.message}</p>}
-        <Field label={role === 'tailor' ? 'Your name or business name' : 'Your name'} error={error?.field('name')}>
+        <Field label={role !== 'customer' ? 'Your name or business name' : 'Your name'} error={error?.field('name')}>
           {(p) => <input {...p} name="name" autoComplete="name" required className="input" />}
         </Field>
         <Field label="Email" error={error?.field('email')}>

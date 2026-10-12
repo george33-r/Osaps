@@ -29,8 +29,19 @@ class MetaController extends Controller
                 'expiry_hours' => config('marketplace.offers.expiry_hours'),
                 'max_counter_rounds_per_side' => config('marketplace.offers.max_counter_rounds_per_side'),
             ],
+            'shop' => [
+                'service_fee_bps' => config('marketplace.shop.service_fee_bps'),
+                'service_fee_cap_minor' => config('marketplace.shop.service_fee_cap_minor'),
+                'delivery_fee_per_vendor_minor' => config('marketplace.shop.delivery_fee_per_vendor_minor'),
+                'checkout_hold_minutes' => config('marketplace.shop.checkout_hold_minutes'),
+                'offer_floor_bps' => config('marketplace.shop.offers.floor_bps'),
+                'offer_response_hours' => config('marketplace.shop.offers.response_hours'),
+                'offer_hold_hours' => config('marketplace.shop.offers.hold_hours'),
+                'offer_max_rounds' => config('marketplace.shop.offers.max_rounds_per_side'),
+            ],
             'features' => [
-                'payments' => false,
+                // True once a Paystack secret key is set on the server. The key itself is never sent.
+                'payments' => app(\App\Payments\PaymentGateway::class)->enabled(),
                 'ai_assistant' => app(\App\Ai\AiGateway::class)->available(),
                 'disputes' => (bool) config('marketplace.disputes_enabled'),
             ],

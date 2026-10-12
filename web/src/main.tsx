@@ -11,6 +11,7 @@ import { Skeleton } from './components/ui'
 import Home from './pages/Home'
 import { SessionProvider } from './lib/session'
 import { ToastProvider } from './lib/toast'
+import { CartProvider } from './lib/cart'
 
 // Route-level code splitting keeps the first load small on mobile data.
 const FabricCatalogue = lazy(() => import('./pages/Fabrics').then((m) => ({ default: m.FabricCatalogue })))
@@ -28,6 +29,14 @@ const TailorJob = lazy(() => import('./pages/Tailor').then((m) => ({ default: m.
 const TailorProfileEdit = lazy(() => import('./pages/Tailor').then((m) => ({ default: m.TailorProfileEdit })))
 const OrderList = lazy(() => import('./pages/Orders').then((m) => ({ default: m.OrderList })))
 const OrderDetail = lazy(() => import('./pages/Orders').then((m) => ({ default: m.OrderDetail })))
+const CartPage = lazy(() => import('./pages/Shop').then((m) => ({ default: m.CartPage })))
+const CheckoutPage = lazy(() => import('./pages/Shop').then((m) => ({ default: m.CheckoutPage })))
+const CheckoutComplete = lazy(() => import('./pages/Shop').then((m) => ({ default: m.CheckoutComplete })))
+const PreviewPay = lazy(() => import('./pages/Shop').then((m) => ({ default: m.PreviewPay })))
+const MyOffers = lazy(() => import('./pages/Shop').then((m) => ({ default: m.MyOffers })))
+const FabricOrderList = lazy(() => import('./pages/Shop').then((m) => ({ default: m.FabricOrderList })))
+const FabricOrderDetail = lazy(() => import('./pages/Shop').then((m) => ({ default: m.FabricOrderDetail })))
+const VendorHub = lazy(() => import('./pages/Vendor').then((m) => ({ default: m.VendorHub })))
 
 const page = (el: ReactNode) => <Suspense fallback={<div className="page"><Skeleton lines={6} /></div>}>{el}</Suspense>
 const customer = (el: ReactNode) => page(<RequireRole role="customer">{el}</RequireRole>)
@@ -78,6 +87,14 @@ const router = createBrowserRouter(
             { path: 'tailor/profile', element: tailor(<TailorProfileEdit />) },
             { path: 'orders', element: signedIn(<OrderList />) },
             { path: 'orders/:reference', element: signedIn(<OrderDetail />) },
+            { path: 'cart', element: page(<CartPage />) },
+            { path: 'checkout', element: signedIn(<CheckoutPage />) },
+            { path: 'checkout/complete', element: signedIn(<CheckoutComplete />) },
+            { path: 'checkout/preview-pay/:reference', element: signedIn(<PreviewPay />) },
+            { path: 'offers', element: signedIn(<MyOffers />) },
+            { path: 'shop/orders', element: signedIn(<FabricOrderList />) },
+            { path: 'shop/orders/:reference', element: signedIn(<FabricOrderDetail />) },
+            { path: 'vendor', element: signedIn(<VendorHub />) },
             { path: '*', element: <NotFound /> },
           ],
         },
@@ -91,7 +108,9 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <SessionProvider>
       <ToastProvider>
-        <RouterProvider router={router} />
+        <CartProvider>
+          <RouterProvider router={router} />
+        </CartProvider>
       </ToastProvider>
     </SessionProvider>
   </StrictMode>,

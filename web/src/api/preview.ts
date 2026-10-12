@@ -8,6 +8,7 @@
  */
 import { ApiError, type Api } from './client'
 import { OCCASIONS, previewAi } from './preview-ai'
+import { makePreviewShop, offerFloor, offerSuggestions, SHOP } from './preview-shop'
 import type {
   Fabric,
   JobRequest,
@@ -90,7 +91,9 @@ export const fabrics: Fabric[] = fabricRows.map(([name, cat, primary, colors, pa
   image_url: null,
   is_demo: true,
   vendor: vendors[v]!,
-  purchase_mode: 'contact_vendor',
+  purchase_mode: 'checkout',
+  offer_floor: money(offerFloor(naira * 100)),
+  offer_suggestions: offerSuggestions(naira * 100).map(money),
 }))
 
 type T = [string, string, string[], string[], string[], number, string]
@@ -120,6 +123,7 @@ export const tailors: Tailor[] = tailorRows.map(([name, city, cities, specs, tag
 const users: Record<string, User> = {
   customer: { id: 1, name: 'Amaka Demo', email: 'customer@demo.osaps.test', phone: null, role: 'customer', city: 'Abuja' },
   tailor: { id: 2, name: 'Ọ̀ṣọ́ Atelier', email: 'tailor1@demo.osaps.test', phone: null, role: 'tailor', city: 'Abuja', has_tailor_profile: true },
+  fabric_vendor: { id: 3, name: 'Bola Balogun', email: 'vendor1@demo.osaps.test', phone: null, role: 'fabric_vendor', city: 'Lagos', has_vendor_profile: true },
 }
 let current: User | null = null
 try {
@@ -256,7 +260,18 @@ function score(req: JobRequest, t: Tailor) {
   return { score: Math.round(total), new_vendor: true, reasons, factors: {} }
 }
 
+const shop = makePreviewShop({
+  fabrics,
+  vendorSlugOf: (u) => (u.role === 'fabric_vendor' ? 'balogun-bolts' : null),
+  user: () => current,
+  money,
+  delay,
+  fail: fail as never,
+})
+export const previewSimulatePayment = shop.simulatePayment
+
 export const previewApi: Api = {
+  ...shop.api,
   meta: () =>
     delay<Meta>({
       brand: { name: 'OSAPS', tagline: 'From fabric to finished outfit — your style, your budget, your choice.' },
@@ -269,12 +284,13 @@ export const previewApi: Api = {
       colors: ['navy', 'indigo', 'gold', 'terracotta', 'emerald', 'burgundy', 'cream', 'black', 'white', 'orange', 'royal_blue', 'purple'],
       fees: { customer_service_fee_bps: FEE_BPS, customer_service_fee_cap_minor: FEE_CAP },
       offer_rules: { expiry_hours: EXPIRY_HOURS, max_counter_rounds_per_side: MAX_ROUNDS },
-      features: { payments: false, ai_assistant: false, disputes: false },
+      shop: SHOP,
+      features: { payments: true, ai_assistant: false, disputes: false },
     }),
   me: () => delay(current),
   register: async (input) => {
     if (input.password !== input.password_confirmation) fail('Passwords do not match.', 422, 'validation_failed', { password: ['The passwords do not match.'] })
-    const role = input.role === 'tailor' ? 'tailor' : 'customer'
+    const role = input.role === 'tailor' ? 'tailor' : input.role === 'fabric_vendor' ? 'fabric_vendor' : 'customer'
     current = users[role]!
     try { sessionStorage.setItem('osaps-preview-user', role) } catch { /* ignore */ }
     return delay(current)
@@ -561,7 +577,7 @@ export const previewApi: Api = {
 }
 
 /** Lets the preview banner switch who you are, so both sides of a negotiation can be reviewed. */
-export function previewSwitchUser(role: 'customer' | 'tailor' | null) {
+export function previewSwitchUser(role: 'customer' | 'tailor' | 'fabric_vendor' | null) {
   current = role ? users[role]! : null
   try {
     if (role) sessionStorage.setItem('osaps-preview-user', role)

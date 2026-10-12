@@ -11,7 +11,7 @@ class FabricVendor extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['business_name', 'slug', 'city', 'market', 'phone', 'whatsapp', 'contact_note'];
+    protected $fillable = ['business_name', 'city', 'market', 'phone', 'whatsapp', 'contact_note'];
 
     /** Contact details are never part of public listings. */
     protected $hidden = ['phone', 'whatsapp'];

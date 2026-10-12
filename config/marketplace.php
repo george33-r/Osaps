@@ -64,6 +64,26 @@ return [
         'min_explanation_length' => 15,
     ],
 
+
+    // Fabric-only shopping. Placeholder values — confirm with the business before launch.
+    'shop' => [
+        'service_fee_bps' => (int) env('SHOP_SERVICE_FEE_BPS', 250),
+        'service_fee_cap_minor' => (int) env('SHOP_SERVICE_FEE_CAP_MINOR', 500_000),
+        'vendor_commission_bps' => (int) env('SHOP_VENDOR_COMMISSION_BPS', 500),
+        // Flat delivery charge per vendor in a checkout. Pickup at the vendor's market is free.
+        'delivery_fee_per_vendor_minor' => (int) env('SHOP_DELIVERY_FEE_MINOR', 300_000),
+        // How long stock is held while the buyer pays.
+        'checkout_hold_minutes' => (int) env('SHOP_CHECKOUT_HOLD_MINUTES', 60),
+        'offers' => [
+            // Lowest offer allowed, as a share of the list price (7000 = 70%).
+            'floor_bps' => (int) env('SHOP_OFFER_FLOOR_BPS', 7_000),
+            'response_hours' => (int) env('SHOP_OFFER_RESPONSE_HOURS', 24),
+            'hold_hours' => (int) env('SHOP_OFFER_HOLD_HOURS', 48),
+            'max_rounds_per_side' => (int) env('SHOP_OFFER_MAX_ROUNDS', 3),
+            'max_live_per_buyer' => (int) env('SHOP_OFFER_MAX_LIVE', 10),
+        ],
+    ],
+
     'requests' => [
         'open_days' => (int) env('REQUEST_OPEN_DAYS', 7),
         'max_open_per_customer' => (int) env('REQUEST_MAX_OPEN_PER_CUSTOMER', 10),
