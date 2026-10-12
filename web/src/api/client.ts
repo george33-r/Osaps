@@ -30,6 +30,14 @@ import type {
   VendorListing,
   VendorProfileInput,
   NewListing,
+  AsoEbiGroup,
+  NewAsoEbi,
+  JoinAsoEbi,
+  AppNotification,
+  Measurements,
+  LiveSession,
+  TryOnResult,
+  VendorProfile,
 } from './types'
 
 /** One error shape for every failure: what the server said, or what the network did. */
@@ -102,7 +110,7 @@ export interface Api {
   withdrawPriceOffer(id: number): Promise<PriceOffer>
 
   // Fabric shop — cart, checkout, orders
-  quote(items: CartItemInput[], fulfilment: Fulfilment): Promise<ShopQuote>
+  quote(items: CartItemInput[], fulfilment: Fulfilment, country?: string | null): Promise<ShopQuote>
   createCheckout(input: CheckoutInput): Promise<Checkout>
   checkout(reference: string): Promise<Checkout>
   verifyCheckout(reference: string): Promise<Checkout>
@@ -116,7 +124,36 @@ export interface Api {
   vendorListings(): Promise<VendorListing[]>
   updateListing(id: number, patch: { price_minor?: number; stock_quantity?: number; status?: 'active' | 'draft' | 'archived' }): Promise<VendorListing>
   createListing(input: NewListing): Promise<VendorListing>
-  saveVendorProfile(input: VendorProfileInput): Promise<VendorProfileInput & { slug: string; verified: boolean }>
+  saveVendorProfile(input: VendorProfileInput): Promise<VendorProfile>
+  vendorProfile(): Promise<VendorProfile>
+  addListingMedia(fabricId: number, file: File): Promise<VendorListing>
+  removeListingMedia(fabricId: number, mediaId: number): Promise<VendorListing>
+
+  // Aṣọ-ẹbí group orders
+  asoEbi(code: string): Promise<AsoEbiGroup>
+  myAsoEbi(): Promise<AsoEbiGroup[]>
+  createAsoEbi(slug: string, input: NewAsoEbi): Promise<AsoEbiGroup>
+  quoteAsoEbi(code: string, yards: number): Promise<ShopQuote>
+  joinAsoEbi(code: string, input: JoinAsoEbi): Promise<Checkout>
+  closeAsoEbi(code: string): Promise<AsoEbiGroup>
+  reopenAsoEbi(code: string): Promise<AsoEbiGroup>
+  cancelAsoEbi(code: string): Promise<AsoEbiGroup>
+
+  // Account
+  updateMe(input: { name?: string; phone?: string | null; city?: string | null; whatsapp_opt_in?: boolean; currency?: string | null }): Promise<User>
+  notifications(): Promise<{ data: AppNotification[]; unread: number }>
+  markNotificationsRead(ids?: number[]): Promise<void>
+  measurements(): Promise<Measurements>
+  saveMeasurements(input: { unit: 'cm' | 'in'; values: Record<string, number | string>; notes?: string | null; share_with_tailors: boolean }): Promise<Measurements>
+
+  // Live market
+  live(): Promise<LiveSession[]>
+  myLive(): Promise<LiveSession[]>
+  createLive(input: { title: string; platform: LiveSession['platform']; url: string; starts_at: string; ends_at?: string | null; fabric_ids?: number[] }): Promise<LiveSession>
+  deleteLive(id: number): Promise<void>
+
+  // Try-on
+  tryOn(photo: File, fabricId: number, garment: string): Promise<TryOnResult>
 }
 
 function readCookie(name: string): string | null {
@@ -243,7 +280,7 @@ export const httpApi: Api = {
   declinePriceOffer: (id) => data(http('POST', `/price-offers/${id}/decline`)),
   withdrawPriceOffer: (id) => data(http('POST', `/price-offers/${id}/withdraw`)),
 
-  quote: (items, fulfilment) => data(http('POST', '/shop/quote', { items, fulfilment })),
+  quote: (items, fulfilment, country) => data(http('POST', '/shop/quote', { items, fulfilment, country: country ?? null })),
   createCheckout: (input) => data(http('POST', '/checkouts', input)),
   checkout: (ref) => data(http('GET', `/checkouts/${encodeURIComponent(ref)}`)),
   verifyCheckout: (ref) => data(http('POST', `/checkouts/${encodeURIComponent(ref)}/verify`)),
@@ -258,4 +295,41 @@ export const httpApi: Api = {
   updateListing: (id, patch) => data(http('PATCH', `/vendor/fabrics/${id}`, patch)),
   createListing: (input) => data(http('POST', '/vendor/fabrics', input)),
   saveVendorProfile: (input) => data(http('PUT', '/me/vendor-profile', input)),
+  vendorProfile: () => data(http('GET', '/me/vendor-profile')),
+  addListingMedia: (id, file) => {
+    const form = new FormData()
+    form.append('file', file)
+    return data(http('POST', `/vendor/fabrics/${id}/media`, form))
+  },
+  removeListingMedia: (id, mediaId) => data(http('DELETE', `/vendor/fabrics/${id}/media/${mediaId}`)),
+
+  asoEbi: (code) => data(http('GET', `/aso-ebi/${encodeURIComponent(code)}`)),
+  myAsoEbi: () => data(http('GET', '/aso-ebi')),
+  createAsoEbi: (slug, input) => data(http('POST', `/fabrics/${encodeURIComponent(slug)}/aso-ebi`, input)),
+  quoteAsoEbi: (code, yards) => data(http('POST', `/aso-ebi/${encodeURIComponent(code)}/quote`, { yards })),
+  joinAsoEbi: (code, input) => data(http('POST', `/aso-ebi/${encodeURIComponent(code)}/join`, input)),
+  closeAsoEbi: (code) => data(http('POST', `/aso-ebi/${encodeURIComponent(code)}/close`)),
+  reopenAsoEbi: (code) => data(http('POST', `/aso-ebi/${encodeURIComponent(code)}/reopen`)),
+  cancelAsoEbi: (code) => data(http('POST', `/aso-ebi/${encodeURIComponent(code)}/cancel`)),
+
+  updateMe: (input) => data(http('PUT', '/me', input)),
+  notifications: () =>
+    http<{ data: AppNotification[]; meta: { unread: number } }>('GET', '/notifications').then((r) => ({ data: r.data, unread: r.meta.unread })),
+  markNotificationsRead: (ids) => http('POST', '/notifications/read', { ids: ids ?? null }).then(() => undefined),
+  measurements: () => data(http('GET', '/me/measurements')),
+  saveMeasurements: (input) => data(http('PUT', '/me/measurements', input)),
+
+  live: () => data(http('GET', '/live')),
+  myLive: () => data(http('GET', '/vendor/live')),
+  createLive: (input) => data(http('POST', '/vendor/live', input)),
+  deleteLive: (id) => http('DELETE', `/vendor/live/${id}`).then(() => undefined),
+
+  tryOn: (photo, fabricId, garment) => {
+    const form = new FormData()
+    form.append('photo', photo)
+    form.append('fabric_id', String(fabricId))
+    form.append('garment', garment)
+    form.append('consent', '1')
+    return data(http('POST', '/ai/try-on', form))
+  },
 }

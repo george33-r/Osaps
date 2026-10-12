@@ -2,12 +2,17 @@
 
 namespace App\Services;
 
+use App\Domain\AsoEbi\AsoEbiRules;
+use App\Domain\Diaspora\ShippingZones;
 use App\Domain\Payments\ChargeCheck;
+use App\Domain\Shop\PayoutRules;
 use App\Domain\Shop\CartLine;
 use App\Domain\Shop\CartPricing;
 use App\Domain\Shop\FabricOrderStatus;
 use App\Domain\Shop\PriceOfferStatus;
 use App\Domain\Support\DomainRuleViolation;
+use App\Models\AsoEbiGroup;
+use App\Models\AsoEbiShare;
 use App\Models\Checkout;
 use App\Models\Fabric;
 use App\Models\FabricOrder;
@@ -33,19 +38,52 @@ class CheckoutService
         private readonly CartPricing $pricing,
         private readonly PaymentGateway $gateway,
         private readonly ShopOfferService $offers,
+        private readonly Notifier $notifier,
+        private readonly ShippingZones $zones,
+        private readonly AsoEbiRules $asoEbi,
+        private readonly PayoutRules $payouts,
     ) {}
+
+    /** Per-vendor delivery charge for this way of receiving fabric (international is priced by country). */
+    private function deliveryFee(string $fulfilment, ?string $country): ?int
+    {
+        if ($fulfilment !== 'international') {
+            return null;
+        }
+        if ($country === null || $country === '') {
+            throw new DomainRuleViolation('Choose the country to ship to.', 'country_required');
+        }
+
+        return $this->zones->feeFor($country);
+    }
 
     /**
      * @param  list<array{fabric_id:int, quantity:int, price_offer_id?:int|null}>  $items
      * @return array<string,mixed>
      */
-    public function quote(User $buyer, array $items, string $fulfilment): array
+    public function quote(User $buyer, array $items, string $fulfilment, ?string $country = null): array
+    {
+        $this->sweep();
+        $fabrics = Fabric::query()->with('vendor')->whereIn('id', array_column($items, 'fabric_id'))->get()->keyBy('id');
+
+        return $this->pricing->quote($this->lines($buyer, $items, $fabrics), $fulfilment, $this->deliveryFee($fulfilment, $country));
+    }
+
+    /** What one guest pays to join an aṣọ-ẹbí group. */
+    public function quoteShare(User $guest, AsoEbiGroup $group, int $yards): array
+    {
+        $this->sweep();
+        $fabric = Fabric::query()->with('vendor')->findOrFail($group->fabric_id);
+
+        return $this->pricing->quote([$this->shareLine($guest, $group, $fabric, $yards)], AsoEbiRules::guestFulfilment($group->fulfilment));
+    }
+
+    /** Housekeeping that also runs from cron: lapse unpaid checkouts, stale offers, quiet deliveries. */
+    public function sweep(): void
     {
         $this->releaseExpired();
         $this->offers->expireStale();
-        $fabrics = Fabric::query()->with('vendor')->whereIn('id', array_column($items, 'fabric_id'))->get()->keyBy('id');
-
-        return $this->pricing->quote($this->lines($buyer, $items, $fabrics), $fulfilment);
+        $this->autoCompleteDelivered();
     }
 
     /**
@@ -53,82 +91,141 @@ class CheckoutService
      * @param  array{name:string, phone:string, email:string}  $contact
      * @param  array<string,string>|null  $address
      */
-    public function create(User $buyer, array $items, string $fulfilment, array $contact, ?array $address, int $expectedTotalMinor, string $callbackUrl): Checkout
+    public function create(User $buyer, array $items, string $fulfilment, array $contact, ?array $address, int $expectedTotalMinor, string $callbackUrl, ?string $country = null, ?string $arrivalDate = null): Checkout
     {
-        if (! $this->gateway->enabled()) {
-            throw new DomainRuleViolation('Online payment is not switched on yet. Please check back soon.', 'payments_disabled');
-        }
-        $this->releaseExpired();
-        $this->offers->expireStale();
+        $this->assertPayments();
+        $this->sweep();
+        $fee = $this->deliveryFee($fulfilment, $country);
         // Starting again (e.g. after backing out of the Paystack page) replaces any earlier unpaid
-        // checkout, so its stock and agreed prices are free for this one.
-        foreach (Checkout::query()->where('customer_id', $buyer->id)->where('payment_status', Checkout::PENDING)->get() as $old) {
+        // cart checkout, so its stock and agreed prices are free for this one.
+        foreach (Checkout::query()->where('customer_id', $buyer->id)->whereNull('aso_ebi_group_id')->where('payment_status', Checkout::PENDING)->get() as $old) {
             $this->cancel($old, 'customer', 'Replaced by a newer checkout.', $buyer);
         }
 
-        $checkout = DB::transaction(function () use ($buyer, $items, $fulfilment, $contact, $address, $expectedTotalMinor) {
+        $checkout = DB::transaction(function () use ($buyer, $items, $fulfilment, $contact, $address, $expectedTotalMinor, $fee, $country, $arrivalDate) {
             // Lock in id order so two checkouts for the same fabrics cannot deadlock.
             $ids = array_values(array_unique(array_map('intval', array_column($items, 'fabric_id'))));
             sort($ids);
             $fabrics = Fabric::query()->with('vendor')->whereIn('id', $ids)->orderBy('id')->lockForUpdate()->get()->keyBy('id');
 
-            $quote = $this->pricing->quote($this->lines($buyer, $items, $fabrics, forCheckout: true), $fulfilment);
-            if (! $quote['ok']) {
-                throw new DomainRuleViolation($quote['blocking'][0]['message'] ?? 'Your cart needs attention.', 'cart_invalid');
-            }
-            if ($quote['total'] !== $expectedTotalMinor) {
-                throw new DomainRuleViolation('Prices or delivery changed since you looked. Review the new total before paying.', 'cart_changed');
-            }
+            $quote = $this->pricing->quote($this->lines($buyer, $items, $fabrics, forCheckout: true), $fulfilment, $fee);
 
-            $checkout = new Checkout;
-            $checkout->reference = $this->newReference();
-            $checkout->customer_id = $buyer->id;
-            $checkout->fulfilment = $fulfilment;
-            $checkout->contact = $contact;
-            $checkout->address = $fulfilment === 'delivery' ? $address : null;
-            $checkout->subtotal_minor = $quote['subtotal'];
-            $checkout->delivery_minor = $quote['delivery'];
-            $checkout->service_fee_minor = $quote['service_fee'];
-            $checkout->total_minor = $quote['total'];
-            $checkout->currency = $this->pricing->currency;
-            $checkout->payment_status = Checkout::PENDING;
-            $checkout->expires_at = now()->addMinutes((int) config('marketplace.shop.checkout_hold_minutes', 60));
-            $checkout->save();
+            return $this->persist($buyer, $quote, $fulfilment, $contact, $address, $expectedTotalMinor, [
+                'ship_country' => $fulfilment === 'international' ? strtoupper((string) $country) : null,
+                'arrival_date' => $fulfilment === 'arrival' ? $arrivalDate : null,
+            ]);
+        });
 
-            $fees = CartPricing::allocate($quote['service_fee'], array_column($quote['vendors'], 'subtotal'));
-            $commissionBps = (int) config('marketplace.shop.vendor_commission_bps', 500);
+        return $this->startPayment($checkout, $buyer, $callbackUrl);
+    }
 
-            foreach ($quote['vendors'] as $i => $v) {
-                $order = new FabricOrder;
-                $order->reference = 'FAB-'.strtoupper(Str::random(8));
-                $order->checkout_id = $checkout->id;
-                $order->customer_id = $buyer->id;
-                $order->fabric_vendor_id = $v['vendor_id'];
-                $order->status = FabricOrderStatus::PENDING_PAYMENT;
-                $order->fulfilment = $fulfilment;
-                $order->subtotal_minor = $v['subtotal'];
-                $order->delivery_minor = $v['delivery'];
-                $order->service_fee_minor = $fees[$i];
-                $order->total_minor = $v['subtotal'] + $v['delivery'] + $fees[$i];
-                $order->vendor_commission_minor = intdiv($v['subtotal'] * $commissionBps + 5_000, 10_000);
-                $order->save();
-                $order->events()->create(['actor_id' => $buyer->id, 'actor_role' => 'customer', 'from_status' => null, 'to_status' => FabricOrderStatus::PENDING_PAYMENT, 'note' => null]);
+    /** One guest pays their share of an aṣọ-ẹbí group. */
+    public function createForShare(User $guest, AsoEbiGroup $group, int $yards, bool $showName, array $contact, ?array $address, int $expectedTotalMinor, string $callbackUrl): Checkout
+    {
+        $this->assertPayments();
+        $this->sweep();
+        foreach (Checkout::query()->where('customer_id', $guest->id)->where('aso_ebi_group_id', $group->id)->where('payment_status', Checkout::PENDING)->get() as $old) {
+            $this->cancel($old, 'customer', 'Replaced by a newer payment for the same aṣọ-ẹbí.', $guest);
+        }
 
-                foreach ($v['lines'] as $line) {
-                    $order->items()->create([
-                        'fabric_id' => $line['fabric_id'], 'price_offer_id' => $line['price_offer_id'],
-                        'name' => $line['name'], 'unit' => $line['unit'], 'quantity' => $line['quantity'],
-                        'list_unit_minor' => $line['list_unit_minor'], 'unit_minor' => $line['unit_minor'],
-                        'line_total_minor' => $line['line_total_minor'],
-                    ]);
-                    // Hold the stock while the buyer pays.
-                    Fabric::query()->whereKey($line['fabric_id'])->increment('reserved_quantity', $line['quantity']);
-                }
-            }
+        $checkout = DB::transaction(function () use ($guest, $group, $yards, $showName, $contact, $address, $expectedTotalMinor) {
+            // Lock the group first, so two guests cannot both claim the last of the bulk price.
+            $group = AsoEbiGroup::query()->lockForUpdate()->findOrFail($group->id);
+            $fabric = Fabric::query()->with('vendor')->lockForUpdate()->findOrFail($group->fabric_id);
+            $this->asoEbi->assertCanJoin($group->status, \DateTimeImmutable::createFromMutable($group->deadline_at->toDateTime()), new \DateTimeImmutable, $yards, (int) $fabric->min_order_quantity);
+
+            $fulfilment = AsoEbiRules::guestFulfilment($group->fulfilment);
+            $quote = $this->pricing->quote([$this->shareLine($guest, $group, $fabric, $yards)], $fulfilment);
+            $checkout = $this->persist($guest, $quote, $fulfilment, $contact, $fulfilment === 'delivery' ? $address : null, $expectedTotalMinor, ['aso_ebi_group_id' => $group->id]);
+
+            $share = new AsoEbiShare(['yards' => $yards, 'show_name' => $showName]);
+            $share->aso_ebi_group_id = $group->id;
+            $share->guest_id = $guest->id;
+            $share->checkout_id = $checkout->id;
+            $share->status = 'pending';
+            $share->save();
 
             return $checkout;
         });
 
+        return $this->startPayment($checkout, $guest, $callbackUrl);
+    }
+
+    private function assertPayments(): void
+    {
+        if (! $this->gateway->enabled()) {
+            throw new DomainRuleViolation('Online payment is not switched on yet. Please check back soon.', 'payments_disabled');
+        }
+    }
+
+    /**
+     * Write the checkout, one order per vendor and their lines, and hold the stock.
+     *
+     * @param  array<string,mixed>  $quote
+     * @param  array<string,mixed>  $extra
+     */
+    private function persist(User $buyer, array $quote, string $fulfilment, array $contact, ?array $address, int $expectedTotalMinor, array $extra): Checkout
+    {
+        if (! $quote['ok']) {
+            throw new DomainRuleViolation($quote['blocking'][0]['message'] ?? 'Your cart needs attention.', 'cart_invalid');
+        }
+        if ($quote['total'] !== $expectedTotalMinor) {
+            throw new DomainRuleViolation('Prices or delivery changed since you looked. Review the new total before paying.', 'cart_changed');
+        }
+
+        $checkout = new Checkout;
+        $checkout->forceFill($extra);
+        $checkout->reference = $this->newReference();
+        $checkout->customer_id = $buyer->id;
+        $checkout->fulfilment = $fulfilment;
+        $checkout->contact = $contact;
+        $checkout->address = $fulfilment === 'pickup' ? null : $address;
+        $checkout->subtotal_minor = $quote['subtotal'];
+        $checkout->delivery_minor = $quote['delivery'];
+        $checkout->service_fee_minor = $quote['service_fee'];
+        $checkout->total_minor = $quote['total'];
+        $checkout->currency = $this->pricing->currency;
+        $checkout->payment_status = Checkout::PENDING;
+        $checkout->expires_at = now()->addMinutes((int) config('marketplace.shop.checkout_hold_minutes', 60));
+        $checkout->save();
+
+        $fees = CartPricing::allocate($quote['service_fee'], array_column($quote['vendors'], 'subtotal'));
+        $commissionBps = (int) config('marketplace.shop.vendor_commission_bps', 500);
+
+        foreach ($quote['vendors'] as $i => $v) {
+            $order = new FabricOrder;
+            $order->reference = 'FAB-'.strtoupper(Str::random(8));
+            $order->checkout_id = $checkout->id;
+            $order->customer_id = $buyer->id;
+            $order->fabric_vendor_id = $v['vendor_id'];
+            $order->aso_ebi_group_id = $extra['aso_ebi_group_id'] ?? null;
+            $order->status = FabricOrderStatus::PENDING_PAYMENT;
+            $order->fulfilment = $fulfilment;
+            $order->subtotal_minor = $v['subtotal'];
+            $order->delivery_minor = $v['delivery'];
+            $order->service_fee_minor = $fees[$i];
+            $order->total_minor = $v['subtotal'] + $v['delivery'] + $fees[$i];
+            $order->vendor_commission_minor = intdiv($v['subtotal'] * $commissionBps + 5_000, 10_000);
+            $order->save();
+            $order->events()->create(['actor_id' => $buyer->id, 'actor_role' => 'customer', 'from_status' => null, 'to_status' => FabricOrderStatus::PENDING_PAYMENT, 'note' => null]);
+
+            foreach ($v['lines'] as $line) {
+                $order->items()->create([
+                    'fabric_id' => $line['fabric_id'], 'price_offer_id' => $line['price_offer_id'],
+                    'name' => $line['name'], 'unit' => $line['unit'], 'quantity' => $line['quantity'],
+                    'list_unit_minor' => $line['list_unit_minor'], 'unit_minor' => $line['unit_minor'],
+                    'line_total_minor' => $line['line_total_minor'],
+                ]);
+                // Hold the stock while the buyer pays.
+                Fabric::query()->whereKey($line['fabric_id'])->increment('reserved_quantity', $line['quantity']);
+            }
+        }
+
+        return $checkout;
+    }
+
+    private function startPayment(Checkout $checkout, User $buyer, string $callbackUrl): Checkout
+    {
         try {
             $url = $this->gateway->initialize(
                 reference: $checkout->reference,
@@ -197,6 +294,7 @@ class CheckoutService
                     foreach ($orders as $order) {
                         $this->moveOrder($order, FabricOrderStatus::CANCELLED, null, 'system', 'Paid after the stock hold ended and the fabric had sold out. A refund is due.', force: true);
                     }
+                    AsoEbiShare::query()->where('checkout_id', $checkout->id)->update(['status' => 'cancelled']);
                     Log::warning('Checkout paid after stock ran out; refund needed', ['reference' => $reference]);
 
                     return $checkout;
@@ -229,6 +327,22 @@ class CheckoutService
 
             foreach ($orders as $order) {
                 $this->moveOrder($order, FabricOrderStatus::PAID, null, 'system', 'Payment confirmed by Paystack.', force: $order->status !== FabricOrderStatus::PENDING_PAYMENT);
+                $order->loadMissing('vendor', 'items');
+                $this->notifier->notify($order->vendor?->user_id, 'order_paid', 'New paid order '.$order->reference,
+                    $order->items->map(fn ($i) => "{$i->quantity} × {$i->name}")->implode(', ').'. Pack it and mark it packed.', '/vendor?tab=orders');
+            }
+            $this->notifier->notify($checkout->customer_id, 'payment_confirmed', 'Payment confirmed', 'We received '.\App\Domain\Money\Money::minor($checkout->total_minor)->format().'. Your vendor is packing your fabric.', '/shop/orders');
+
+            $share = AsoEbiShare::query()->where('checkout_id', $checkout->id)->lockForUpdate()->first();
+            if ($share !== null && $share->status !== 'paid') {
+                $share->status = 'paid';
+                $share->save();
+                $group = AsoEbiGroup::query()->find($share->aso_ebi_group_id);
+                if ($group !== null) {
+                    $paid = $group->shares()->where('status', 'paid')->count();
+                    $this->notifier->notify($group->organizer_id, 'aso_ebi_paid', "{$paid} of {$group->target_guests} paid for {$group->title}",
+                        ($share->show_name ? (strtok((string) $checkout->contact['name'], ' ') ?: 'A guest') : 'A guest')." paid for {$share->yards} yards.", '/aso-ebi/'.$group->code);
+                }
             }
 
             return $checkout;
@@ -249,6 +363,7 @@ class CheckoutService
             foreach ($checkout->orders()->lockForUpdate()->get() as $order) {
                 $this->moveOrder($order, FabricOrderStatus::CANCELLED, $actor, $role, $reason);
             }
+            AsoEbiShare::query()->where('checkout_id', $checkout->id)->where('status', 'pending')->update(['status' => 'cancelled']);
 
             return $checkout;
         });
@@ -287,6 +402,21 @@ class CheckoutService
                 throw new DomainRuleViolation('To cancel a paid order, contact OSAPS support.', 'cancel_needs_support');
             }
             $this->moveOrder($order, $to, $user, $role, $note);
+            if ($role === 'vendor') {
+                $what = match ($to) {
+                    FabricOrderStatus::PACKED => 'Your fabric is packed.',
+                    FabricOrderStatus::OUT_FOR_DELIVERY => 'Your fabric is on its way.',
+                    FabricOrderStatus::READY_FOR_PICKUP => 'Your fabric is ready to collect.',
+                    FabricOrderStatus::DELIVERED => 'The vendor marked your fabric as delivered. Confirm when you have it.',
+                    default => null,
+                };
+                if ($what !== null) {
+                    $this->notifier->notify($order->customer_id, 'order_update', $what, 'Order '.$order->reference.' from '.$order->vendor?->business_name.'.', '/shop/orders/'.$order->reference);
+                }
+            }
+            if ($to === FabricOrderStatus::COMPLETED) {
+                $this->notifier->notify($order->vendor?->user_id, 'payout_releasable', 'Order '.$order->reference.' completed', 'The buyer confirmed receipt. Your payout is released for payment.', '/vendor?tab=orders');
+            }
 
             return $order->fresh(['items', 'events', 'vendor', 'checkout']);
         });
@@ -302,8 +432,60 @@ class CheckoutService
             FabricOrderStatus::assert($from, $to, $role);
         }
         $order->status = $to;
+        if ($to === FabricOrderStatus::DELIVERED) {
+            $order->delivered_at = now();
+        }
+        if ($to === FabricOrderStatus::COMPLETED) {
+            $order->completed_at = now();
+        }
+        if ($order->payout_status !== PayoutRules::PAID) {
+            $order->payout_status = PayoutRules::forStatus($to);
+        }
         $order->save();
         $order->events()->create(['actor_id' => $actor?->id, 'actor_role' => $role, 'from_status' => $from, 'to_status' => $to, 'note' => $note]);
+    }
+
+    /** Complete orders the buyer has not confirmed some days after delivery, releasing the vendor's payout. */
+    public function autoCompleteDelivered(): int
+    {
+        $n = 0;
+        $cutoff = now()->subDays($this->payouts->autoCompleteDays);
+        $due = FabricOrder::query()->where('status', FabricOrderStatus::DELIVERED)->where('delivered_at', '<=', $cutoff)->limit(100)->pluck('id');
+        foreach ($due as $id) {
+            DB::transaction(function () use ($id, &$n) {
+                $order = FabricOrder::query()->with('vendor')->lockForUpdate()->find($id);
+                $deliveredAt = $order?->delivered_at ? \DateTimeImmutable::createFromMutable($order->delivered_at->toDateTime()) : null;
+                if ($order === null || ! $this->payouts->shouldAutoComplete($order->status, $deliveredAt, new \DateTimeImmutable)) {
+                    return;
+                }
+                $this->moveOrder($order, FabricOrderStatus::COMPLETED, null, 'system', "Completed automatically {$this->payouts->autoCompleteDays} days after delivery.");
+                $this->notifier->notify($order->vendor?->user_id, 'payout_releasable', 'Order '.$order->reference.' completed', 'No problems reported since delivery. Your payout is released for payment.', '/vendor?tab=orders');
+                $n++;
+            });
+        }
+
+        return $n;
+    }
+
+    /** The single line a guest buys when paying their aṣọ-ẹbí share, at the group's bulk price if it still applies. */
+    private function shareLine(User $guest, AsoEbiGroup $group, Fabric $fabric, int $yards): CartLine
+    {
+        $committed = (int) $group->shares()->whereIn('status', ['paid', 'pending'])->sum('yards');
+        $deal = $this->asoEbi->dealApplies($group->deal_unit_minor, $group->deal_quantity, $committed, $yards) ? $group->deal_unit_minor : null;
+
+        return new CartLine(
+            fabricId: $fabric->id,
+            vendorId: (int) $fabric->fabric_vendor_id,
+            vendorName: (string) ($fabric->vendor?->business_name ?? 'Vendor'),
+            fabricName: $fabric->name,
+            unit: $fabric->unit,
+            quantity: $yards,
+            listUnitMinor: (int) $fabric->price_minor,
+            available: $fabric->availableQuantity(),
+            minQuantity: (int) $fabric->min_order_quantity,
+            listed: $fabric->status === 'active' && $fabric->vendor?->user_id !== $guest->id,
+            fixedUnitMinor: $deal,
+        );
     }
 
     private function release(Checkout $checkout): void

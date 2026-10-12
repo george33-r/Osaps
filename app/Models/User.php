@@ -32,6 +32,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'whatsapp_opt_in' => 'boolean',
         ];
     }
 
@@ -58,6 +59,11 @@ class User extends Authenticatable
     public function fabricVendor(): HasOne
     {
         return $this->hasOne(FabricVendor::class);
+    }
+
+    public function measurements(): HasOne
+    {
+        return $this->hasOne(UserMeasurement::class);
     }
 
     public function jobRequests(): HasMany

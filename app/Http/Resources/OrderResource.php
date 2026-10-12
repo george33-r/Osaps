@@ -51,6 +51,12 @@ class OrderResource extends ApiResource
             'tailor' => $this->whenLoaded('tailor', fn () => $this->tailor->tailorProfile
                 ? ['business_name' => $this->tailor->tailorProfile->business_name, 'slug' => $this->tailor->tailorProfile->slug]
                 : ['business_name' => $this->tailor->name]),
+            // Saved measurements, if the customer chose to share them with the tailor they hire.
+            'measurements' => $this->when(($isTailor || $role === 'admin') && $this->relationLoaded('customer') && $this->customer->relationLoaded('measurements'), function () {
+                $m = $this->customer->measurements;
+
+                return $m && $m->share_with_tailors ? ['values' => $m->values, 'notes' => $m->notes, 'labels' => collect(\App\Domain\Measurements\MeasurementSet::FIELDS)->map(fn ($f) => $f[0])] : null;
+            }),
             // Contact details are shared between the two parties only once an order exists.
             'customer' => $this->whenLoaded('customer', fn () => $isTailor || $role === 'admin'
                 ? ['name' => $this->customer->name, 'phone' => $this->customer->phone, 'city' => $this->customer->city]

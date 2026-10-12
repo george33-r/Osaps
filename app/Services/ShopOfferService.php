@@ -19,7 +19,31 @@ use Illuminate\Support\Facades\DB;
  */
 class ShopOfferService
 {
-    public function __construct(private readonly PriceOfferRules $rules) {}
+    public function __construct(private readonly PriceOfferRules $rules, private readonly Notifier $notifier) {}
+
+    /** Tell the other side what just happened. */
+    private function tell(PriceOffer $offer, string $actorSide, string $action): void
+    {
+        $offer->loadMissing('fabric', 'vendor');
+        $name = $offer->fabric?->name ?? 'your fabric';
+        $price = \App\Domain\Money\Money::minor($offer->unit_minor)->format();
+        if ($actorSide === 'buyer') {
+            $title = match ($action) {
+                'open' => "New offer: {$price} per {$offer->fabric?->unit} for {$name}",
+                'counter' => "Buyer raised to {$price} for {$name}",
+                'accept' => "Buyer accepted {$price} for {$name}",
+                default => "Buyer declined your counter on {$name}",
+            };
+            $this->notifier->notify($offer->vendor?->user_id, 'price_offer', $title, "{$offer->quantity} {$offer->fabric?->unit}s. Answer within 24 hours.", '/vendor?tab=offers');
+        } else {
+            $title = match ($action) {
+                'counter' => "Vendor countered: {$price} for {$name}",
+                'accept' => "Deal! {$price} per {$offer->fabric?->unit} for {$name}",
+                default => "The vendor declined your offer on {$name}",
+            };
+            $this->notifier->notify($offer->buyer_id, 'price_offer', $title, $action === 'accept' ? 'Your price is held for 48 hours. Pay to lock it in.' : null, '/offers');
+        }
+    }
 
     /** Which side of this offer the user is on, or null if neither. */
     public function sideOf(User $user, PriceOffer $offer): ?string
@@ -63,6 +87,7 @@ class ShopOfferService
             $offer->respond_by = $this->rules->respondBy(new DateTimeImmutable);
             $offer->save();
             $offer->rounds()->create(['author_role' => 'buyer', 'author_id' => $buyer->id, 'action' => 'open', 'unit_minor' => $unitMinor]);
+            $this->tell($offer, 'buyer', 'open');
 
             return $offer;
         });
@@ -82,6 +107,7 @@ class ShopOfferService
             $offer->respond_by = null;
             $offer->save();
             $offer->rounds()->create(['author_role' => $side, 'author_id' => $user->id, 'action' => 'accept', 'unit_minor' => $offer->unit_minor]);
+            $this->tell($offer, $side, 'accept');
         });
     }
 
@@ -108,6 +134,7 @@ class ShopOfferService
             $offer->respond_by = $this->rules->respondBy(new DateTimeImmutable);
             $offer->save();
             $offer->rounds()->create(['author_role' => $side, 'author_id' => $user->id, 'action' => 'counter', 'unit_minor' => $unitMinor]);
+            $this->tell($offer, $side, 'counter');
         });
     }
 
@@ -119,6 +146,7 @@ class ShopOfferService
             $offer->respond_by = null;
             $offer->save();
             $offer->rounds()->create(['author_role' => $side, 'author_id' => $user->id, 'action' => 'decline', 'unit_minor' => null]);
+            $this->tell($offer, $side, 'decline');
         });
     }
 

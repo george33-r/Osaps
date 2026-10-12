@@ -26,5 +26,7 @@ final class CartLine
         public readonly ?int $offerQuantity = null,
         /** True only if the offer is accepted, unexpired, unused, owned by this buyer and for this fabric. */
         public readonly bool $offerUsable = false,
+        /** A price fixed by an aṣọ-ẹbí group deal. Like an offer, it can only lower the price. */
+        public readonly ?int $fixedUnitMinor = null,
     ) {}
 }

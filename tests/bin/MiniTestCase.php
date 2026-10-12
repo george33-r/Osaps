@@ -64,6 +64,11 @@ abstract class TestCase
         }
     }
 
+    public static function assertNull(mixed $actual, string $message = ''): void
+    {
+        self::assertTrue($actual === null, $message ?: 'expected null, got '.var_export($actual, true));
+    }
+
     public static function assertTrue(mixed $condition, string $message = ''): void
     {
         self::assertSame(true, $condition, $message);

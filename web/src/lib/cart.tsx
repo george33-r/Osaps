@@ -29,6 +29,9 @@ interface Cart {
   count: number
   fulfilment: Fulfilment
   setFulfilment: (f: Fulfilment) => void
+  /** Destination country for international shipping (ISO code). */
+  country: string | null
+  setCountry: (c: string | null) => void
   addFabric: (f: Fabric, quantity: number) => void
   addOffer: (o: PriceOffer) => void
   setQuantity: (fabricId: number, quantity: number) => void
@@ -40,15 +43,19 @@ interface Cart {
 const KEY = 'osaps-cart-v1'
 const Ctx = createContext<Cart | null>(null)
 
-function load(): { lines: CartLine[]; fulfilment: Fulfilment } {
+const FULFILMENTS: Fulfilment[] = ['delivery', 'pickup', 'arrival', 'international']
+
+function load(): { lines: CartLine[]; fulfilment: Fulfilment; country: string | null } {
   try {
     const raw = localStorage.getItem(KEY)
-    if (!raw) return { lines: [], fulfilment: 'delivery' }
-    const parsed = JSON.parse(raw) as { lines?: CartLine[]; fulfilment?: Fulfilment }
+    if (!raw) return { lines: [], fulfilment: 'delivery', country: null }
+    const parsed = JSON.parse(raw) as { lines?: CartLine[]; fulfilment?: Fulfilment; country?: string | null }
     const lines = Array.isArray(parsed.lines) ? parsed.lines.filter((l) => typeof l?.fabric_id === 'number' && l.quantity > 0).slice(0, 30) : []
-    return { lines, fulfilment: parsed.fulfilment === 'pickup' ? 'pickup' : 'delivery' }
+    const fulfilment = FULFILMENTS.includes(parsed.fulfilment as Fulfilment) ? (parsed.fulfilment as Fulfilment) : 'delivery'
+    const country = typeof parsed.country === 'string' && /^[A-Z]{2}$/.test(parsed.country) ? parsed.country : null
+    return { lines, fulfilment, country }
   } catch {
-    return { lines: [], fulfilment: 'delivery' }
+    return { lines: [], fulfilment: 'delivery', country: null }
   }
 }
 
@@ -82,6 +89,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
     count: state.lines.length,
     fulfilment: state.fulfilment,
     setFulfilment: (fulfilment) => setState((s) => ({ ...s, fulfilment })),
+    country: state.country,
+    setCountry: (country) => setState((s) => ({ ...s, country })),
     addFabric: (f, quantity) => {
       const existing = state.lines.find((l) => l.fabric_id === f.id)
       upsert({

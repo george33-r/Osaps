@@ -10,6 +10,7 @@ import { useSession } from '../lib/session'
 import { useAsync } from '../lib/useAsync'
 import { CultureBand, Cultures, Diaspora, Festivals } from './HomeCulture'
 import { Lookbook, PhotoGallery, StyleWall, Weddings } from './HomeLookbook'
+import { LiveStrip } from './Live'
 
 const STEPS = [
   ['Discover the fabric', 'Ankara, aṣọ-òkè, lace and adire from market vendors, with real prices and stock.'],
@@ -131,6 +132,17 @@ function ShopModes() {
         <span className="mode__fine">An agreed price is held for you for {hold} hours. Pay by card, transfer or USSD.</span>
         <span className="mode__cta">Shop fabric →</span>
       </Link>
+      <Link to="/aso-ebi" className="mode mode--aso" data-tilt>
+        <span className="mode__kicker">Aṣọ-ẹbí for the family?</span>
+        <span className="mode__title">One link. Everyone pays their own.</span>
+        <span className="mode__steps">
+          <span><b>1</b> Pick the fabric and yards per guest</span>
+          <span><b>2</b> Drop the link in the WhatsApp group</span>
+          <span><b>3</b> Watch “37 of 60 paid” fill up</span>
+        </span>
+        <span className="mode__fine">Same bolt, colours that match. Agree a bulk price with the vendor first.</span>
+        <span className="mode__cta">Start from any fabric →</span>
+      </Link>
       <Link to="/stylist" className="mode mode--make" data-tilt>
         <span className="mode__kicker">Want it made?</span>
         <span className="mode__title">Tailors make you an offer.</span>
@@ -228,6 +240,8 @@ export default function Home() {
       <Hero />
 
       <CultureBand />
+
+      <div className="live-strip-wrap"><LiveStrip /></div>
 
       <ShopModes />
 

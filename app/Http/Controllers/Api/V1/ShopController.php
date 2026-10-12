@@ -22,14 +22,15 @@ class ShopController extends Controller
             'items.*.fabric_id' => ['required', 'integer', 'min:1'],
             'items.*.quantity' => ['required', 'integer', 'min:1', 'max:10000'],
             'items.*.price_offer_id' => ['nullable', 'integer', 'min:1'],
-            'fulfilment' => ['required', 'in:delivery,pickup'],
+            'fulfilment' => ['required', 'in:delivery,pickup,arrival,international'],
+            'country' => ['nullable', 'required_if:fulfilment,international', 'string', 'size:2'],
         ];
     }
 
     public function quote(Request $request): JsonResponse
     {
         $data = $request->validate($this->cartRules());
-        $q = $this->checkouts->quote($request->user(), $data['items'], $data['fulfilment']);
+        $q = $this->checkouts->quote($request->user(), $data['items'], $data['fulfilment'], $data['country'] ?? null);
 
         return response()->json(['data' => self::present($q)]);
     }
@@ -40,11 +41,13 @@ class ShopController extends Controller
             'expected_total_minor' => ['required', 'integer', 'min:0'],
             'contact.name' => ['required', 'string', 'min:2', 'max:80'],
             'contact.phone' => ['required', 'string', 'regex:/^\+?[0-9 ]{7,20}$/'],
-            'address.line1' => ['required_if:fulfilment,delivery', 'nullable', 'string', 'max:160'],
+            'address.line1' => ['required_unless:fulfilment,pickup', 'nullable', 'string', 'max:160'],
             'address.line2' => ['nullable', 'string', 'max:160'],
-            'address.city' => ['required_if:fulfilment,delivery', 'nullable', 'string', 'max:80'],
-            'address.state' => ['required_if:fulfilment,delivery', 'nullable', 'string', 'max:80'],
+            'address.city' => ['required_unless:fulfilment,pickup', 'nullable', 'string', 'max:80'],
+            'address.state' => ['required_if:fulfilment,delivery,arrival', 'nullable', 'string', 'max:80'],
+            'address.postcode' => ['required_if:fulfilment,international', 'nullable', 'string', 'max:16'],
             'address.landmark' => ['nullable', 'string', 'max:160'],
+            'arrival_date' => ['required_if:fulfilment,arrival', 'nullable', 'date_format:Y-m-d', 'after_or_equal:today', 'before:+180 days'],
         ]);
         $user = $request->user();
         $checkout = $this->checkouts->create(
@@ -52,9 +55,11 @@ class ShopController extends Controller
             items: $data['items'],
             fulfilment: $data['fulfilment'],
             contact: ['name' => $data['contact']['name'], 'phone' => $data['contact']['phone'], 'email' => $user->email],
-            address: $data['fulfilment'] === 'delivery' ? array_filter($data['address'] ?? [], fn ($v) => $v !== null && $v !== '') : null,
+            address: $data['fulfilment'] !== 'pickup' ? array_filter($data['address'] ?? [], fn ($v) => $v !== null && $v !== '') : null,
             expectedTotalMinor: (int) $data['expected_total_minor'],
             callbackUrl: url('/checkout/complete'),
+            country: $data['country'] ?? null,
+            arrivalDate: $data['arrival_date'] ?? null,
         );
 
         return (new CheckoutResource($checkout->load('orders.items.fabric', 'orders.vendor', 'orders.checkout')))

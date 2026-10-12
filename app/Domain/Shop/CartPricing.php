@@ -34,7 +34,13 @@ final class CartPricing
      *   ok: bool
      * }
      */
-    public function quote(array $lines, string $fulfilment): array
+    public const FULFILMENTS = ['delivery', 'pickup', 'arrival', 'international'];
+
+    /**
+     * $deliveryFeePerVendor overrides the default per-vendor delivery charge (international
+     * shipping is priced per destination region by the caller). Pickup is always free.
+     */
+    public function quote(array $lines, string $fulfilment, ?int $deliveryFeePerVendor = null): array
     {
         $blocking = [];
         $notices = [];
@@ -47,9 +53,10 @@ final class CartPricing
         if (count($lines) > self::MAX_LINES) {
             $blocking[] = ['fabric_id' => 0, 'code' => 'too_many_lines', 'message' => 'A cart can hold up to '.self::MAX_LINES.' fabrics.'];
         }
-        if (! in_array($fulfilment, ['delivery', 'pickup'], true)) {
-            $blocking[] = ['fabric_id' => 0, 'code' => 'fulfilment_invalid', 'message' => 'Choose delivery or pickup.'];
+        if (! in_array($fulfilment, self::FULFILMENTS, true)) {
+            $blocking[] = ['fabric_id' => 0, 'code' => 'fulfilment_invalid', 'message' => 'Choose how you want to receive your fabric.'];
         }
+        $fee = $fulfilment === 'pickup' ? 0 : max(0, $deliveryFeePerVendor ?? $this->deliveryFeePerVendorMinor);
 
         foreach ($lines as $line) {
             if (isset($seen[$line->fabricId])) {
@@ -76,7 +83,9 @@ final class CartPricing
 
             $unit = $line->listUnitMinor;
             $offerApplied = null;
-            if ($line->offerId !== null) {
+            if ($line->fixedUnitMinor !== null) {
+                $unit = min($line->fixedUnitMinor, $line->listUnitMinor);
+            } elseif ($line->offerId !== null) {
                 if (! $line->offerUsable || $line->offerUnitMinor === null) {
                     $notices[] = ['fabric_id' => $line->fabricId, 'code' => 'offer_not_usable', 'message' => "{$line->fabricName}: your agreed price is no longer valid, so the listed price applies."];
                 } elseif ($line->offerQuantity !== null && $line->quantity > $line->offerQuantity) {
@@ -107,7 +116,7 @@ final class CartPricing
         $subtotal = 0;
         $delivery = 0;
         foreach ($vendors as &$v) {
-            $v['delivery'] = $fulfilment === 'delivery' ? $this->deliveryFeePerVendorMinor : 0;
+            $v['delivery'] = in_array($fulfilment, self::FULFILMENTS, true) ? $fee : 0;
             $v['total'] = $v['subtotal'] + $v['delivery'];
             $subtotal += $v['subtotal'];
             $delivery += $v['delivery'];

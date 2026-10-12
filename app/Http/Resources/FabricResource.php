@@ -28,7 +28,12 @@ class FabricResource extends ApiResource
             'stock_status' => $this->stockStatus(),
             'min_order_quantity' => $this->min_order_quantity,
             // Null means no vendor photo yet; clients render an illustrated swatch, labelled as such.
-            'image_url' => $this->image_path ? asset('storage/'.$this->image_path) : null,
+            'image_url' => $this->relationLoaded('media') && ($first = $this->media->firstWhere('kind', 'photo'))
+                ? $first->url()
+                : ($this->image_path ? asset('storage/'.$this->image_path) : null),
+            // Real photos and a short video of the actual bolt, uploaded by the vendor.
+            'media' => $this->whenLoaded('media', fn () => $this->media->map(fn ($m) => ['id' => $m->id, 'kind' => $m->kind, 'url' => $m->url(), 'mime' => $m->mime])->values()),
+            'has_video' => $this->relationLoaded('media') ? $this->media->contains('kind', 'video') : false,
             'is_demo' => $this->is_demo,
             'vendor' => $this->whenLoaded('vendor', fn () => [
                 'business_name' => $this->vendor->business_name,

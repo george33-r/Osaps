@@ -3,6 +3,8 @@ import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react
 import { useSession } from '../lib/session'
 import { StylistFab } from './StylistFab'
 import { CartIcon } from './ShopKit'
+import { NotificationBell } from './Notifications'
+import { CurrencyPicker } from '../lib/fx'
 
 function PreviewBanner() {
   const { user, refresh } = useSession()
@@ -81,12 +83,21 @@ function Header() {
   const [menu, setMenu] = useState(false)
   const [search, setSearch] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  const [acct, setAcct] = useState(false)
+  const acctRef = useRef<HTMLLIElement>(null)
+  useEffect(() => {
+    if (!acct) return
+    const close = (e: MouseEvent) => { if (!acctRef.current?.contains(e.target as Node)) setAcct(false) }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [acct])
   const location = useLocation()
   const navigate = useNavigate()
 
   useEffect(() => {
     setMenu(false)
     setSearch(false)
+    setAcct(false)
   }, [location.pathname, location.search])
 
   useEffect(() => {
@@ -98,6 +109,7 @@ function Header() {
 
   const primary = [
     { to: '/fabrics', label: 'Shop fabric' },
+    { to: '/live', label: 'Live' },
     { to: '/tailors', label: 'Tailors' },
     ...(user?.role === 'tailor'
       ? [{ to: '/tailor/inbox', label: 'Job inbox' }]
@@ -110,8 +122,10 @@ function Header() {
         ...(user.role === 'customer' ? [{ to: '/requests', label: 'My requests' }] : []),
         ...(user.role === 'tailor' ? [{ to: '/tailor/profile', label: 'My profile' }] : []),
         { to: '/offers', label: 'My offers' },
+        { to: '/aso-ebi', label: 'Aṣọ-ẹbí' },
         { to: '/shop/orders', label: 'Fabric orders' },
         { to: '/orders', label: 'Tailoring orders' },
+        { to: '/account', label: 'Account' },
       ]
     : []
 
@@ -131,37 +145,32 @@ function Header() {
             </li>
           </ul>
           <ul className="site-nav__account">
-            {account.map((l) => (
-              <li key={l.to}>
-                <NavLink
-                  to={l.to}
-                  className={({ isActive }) => `site-nav__link site-nav__link--quiet ${isActive && !location.pathname.endsWith('/new') ? 'active' : 'not-active'}`}
-                >
-                  {l.label}
-                </NavLink>
-              </li>
-            ))}
-            <li>
-              {user ? (
-                <button
-                  className="site-nav__link site-nav__link--quiet site-nav__button"
-                  onClick={async () => {
-                    await signOut()
-                    navigate('/')
-                  }}
-                >
-                  Sign out
+            {user ? (
+              <li className={`acct ${acct ? 'is-open' : ''}`} ref={acctRef}>
+                <button type="button" className="site-nav__link site-nav__link--quiet acct__toggle" aria-expanded={acct} onClick={() => setAcct((a) => !a)}>
+                  {user.name.split(' ')[0]} <span aria-hidden>▾</span>
                 </button>
-              ) : (
-                <NavLink to="/signin" className="site-nav__link site-nav__link--quiet">Sign in</NavLink>
-              )}
-            </li>
+                <ul className="acct__menu">
+                  {account.map((l) => (
+                    <li key={l.to}>
+                      <NavLink to={l.to} className={({ isActive }) => `site-nav__link site-nav__link--quiet ${isActive && !location.pathname.endsWith('/new') ? 'active' : 'not-active'}`}>{l.label}</NavLink>
+                    </li>
+                  ))}
+                  <li>
+                    <button className="site-nav__link site-nav__link--quiet site-nav__button" onClick={async () => { await signOut(); navigate('/') }}>Sign out</button>
+                  </li>
+                </ul>
+              </li>
+            ) : (
+              <li><NavLink to="/signin" className="site-nav__link site-nav__link--quiet">Sign in</NavLink></li>
+            )}
           </ul>
         </nav>
         <div className="site-header__tools">
           <button className="icon-btn" onClick={() => setSearch((s) => !s)} aria-expanded={search} aria-label="Search fabric">
             <SearchIcon />
           </button>
+          <NotificationBell />
           <CartIcon />
           <button className="icon-btn site-header__menu" aria-expanded={menu} aria-controls="site-nav" onClick={() => setMenu((m) => !m)}>
             <span className="sr-only">Menu</span>
@@ -188,6 +197,8 @@ function Footer() {
           <div>
             <p className="label">Discover</p>
             <Link to="/fabrics">Shop fabric</Link>
+            <Link to="/live">Live from the market</Link>
+            <Link to="/aso-ebi">Aṣọ-ẹbí group orders</Link>
             <Link to="/tailors">Tailors</Link>
             <Link to="/stylist">AI stylist</Link>
           </div>
@@ -212,6 +223,7 @@ function Footer() {
       </div>
       <div className="site-footer__base">
         <span>© {new Date().getFullYear()} OSAPS</span>
+        <CurrencyPicker compact />
       </div>
     </footer>
   )

@@ -5,11 +5,12 @@
  */
 import type { Api } from './client'
 import type {
-  CartItemInput, Checkout, Fabric, FabricOrder, FabricOrderStatus, Fulfilment, MoneyValue, PriceOffer, PriceOfferStatus,
-  ShopQuote, User, VendorListing,
+  AsoEbiGroup, CartItemInput, Checkout, Fabric, FabricOrder, FabricOrderStatus, Fulfilment, MoneyValue, PriceOffer, PriceOfferStatus,
+  ShopQuote, User, VendorListing, VendorProfile,
 } from './types'
 
 interface Ctx {
+  notify: (userId: number, title: string, body: string | null, link: string) => void
   fabrics: Fabric[]
   vendorSlugOf: (u: User) => string | null
   user: () => User | null
@@ -23,6 +24,9 @@ export const SHOP = {
   offer_floor_bps: 7000, offer_response_hours: 24, offer_hold_hours: 48, offer_max_rounds: 3,
 }
 const R = 5_000 // ₦50 rounding
+/** Demo international shipping per vendor parcel (kobo). Real values are set by OSAPS in .env. */
+export const PREVIEW_SHIP: Record<string, number> = { GB: 2_800_000, IE: 3_000_000, US: 3_500_000, CA: 3_600_000, DE: 3_000_000, FR: 3_000_000, NL: 3_000_000, GH: 1_500_000 }
+export const PREVIEW_FX: Record<string, number> = { GBP: 2050, USD: 1550, EUR: 1780, CAD: 1120 }
 const bps = (m: number, b: number) => Math.floor((m * b + 5_000) / 10_000)
 export const offerFloor = (list: number) => Math.ceil(bps(list, SHOP.offer_floor_bps) / R) * R
 export const offerSuggestions = (list: number) => {
@@ -43,6 +47,7 @@ interface OfferRow {
   createdAt: string; history: { by: 'buyer' | 'vendor' | 'system'; action: string; unit: number | null; at: string }[]
 }
 interface OrderRow {
+  groupCode: string | null; payout: 'held' | 'releasable' | 'paid' | 'withheld'
   reference: string; checkoutRef: string; customerId: number; vendorSlug: string; status: FabricOrderStatus; fulfilment: Fulfilment
   subtotal: number; delivery: number; fee: number; commission: number; createdAt: string
   items: { fabricId: number; name: string; unitName: string; quantity: number; list: number; price: number; offerId: number | null }[]
@@ -52,6 +57,13 @@ interface CheckoutRow {
   reference: string; customerId: number; fulfilment: Fulfilment; subtotal: number; delivery: number; fee: number; total: number
   status: Checkout['payment_status']; expiresAt: string; paidAt: string | null; simulatedPaid: boolean
   contact: { name: string; phone: string }; address: Record<string, string> | null
+  country: string | null; arrivalDate: string | null; groupCode: string | null
+}
+interface GroupRow {
+  code: string; organizerId: number; organizerName: string; organizerPhone: string; fabricId: number; title: string; message: string | null
+  eventDate: string; deadline: string; yards: number; target: number; fulfilment: AsoEbiGroup['fulfilment']
+  dealUnit: number | null; dealQty: number | null; status: 'open' | 'closed' | 'cancelled'
+  shares: { guestId: number; guestName: string; yards: number; showName: boolean; checkoutRef: string; status: 'pending' | 'paid' | 'cancelled' }[]
 }
 
 const LABELS: Record<PriceOfferStatus, string> = {
@@ -72,6 +84,7 @@ const dispatch = (f: Fulfilment): FabricOrderStatus => (f === 'pickup' ? 'ready_
 export function makePreviewShop(ctx: Ctx) {
   const { fabrics, money, delay, fail } = ctx
   const offers: OfferRow[] = []
+  const groups: GroupRow[] = []
   const orders: OrderRow[] = []
   const checkouts: CheckoutRow[] = []
   let nextOffer = 1
@@ -117,6 +130,13 @@ export function makePreviewShop(ctx: Ctx) {
     }
   }
 
+  const tell = (o: OfferRow, side: 'buyer' | 'vendor', action: string) => {
+    const f = fabricById(o.fabricId)!
+    const p = money(o.unit).formatted
+    if (side === 'buyer') ctx.notify(VENDOR_USER_ID[o.vendorSlug] ?? 0, action === 'accept' ? `Buyer accepted ${p} for ${f.name}` : `Buyer raised to ${p} for ${f.name}`, null, '/vendor?tab=offers')
+    else ctx.notify(o.buyerId, action === 'accept' ? `Deal! ${p} per ${f.unit} for ${f.name}` : `Vendor countered: ${p} for ${f.name}`, action === 'accept' ? 'Your price is held for 48 hours.' : null, '/offers')
+  }
+
   /** Vendors other than the demo vendor account answer automatically, so a solo review feels live. */
   const autoVendor = (o: OfferRow) => {
     if (o.vendorSlug === 'balogun-bolts') return // the "View as: Vendor" account answers these by hand
@@ -126,15 +146,17 @@ export function makePreviewShop(ctx: Ctx) {
       if (o.unit >= bps(o.list, 9_200) || o.vendorRounds >= SHOP.offer_max_rounds) {
         o.status = 'accepted'; o.holdUntil = hours(SHOP.offer_hold_hours); o.respondBy = null
         o.history.push({ by: 'vendor', action: 'accept', unit: o.unit, at })
+        tell(o, 'vendor', 'accept')
       } else {
         const mid = Math.min(o.list, Math.ceil((o.unit + (o.list - o.unit) * 0.55) / R) * R)
         o.vendorRounds++; o.vendorUnit = mid; o.unit = mid; o.status = 'awaiting_buyer'; o.respondBy = hours(SHOP.offer_response_hours)
         o.history.push({ by: 'vendor', action: 'counter', unit: mid, at })
+        tell(o, 'vendor', 'counter')
       }
     }, 1_800)
   }
 
-  const quoteOf = (u: User, items: CartItemInput[], fulfilment: Fulfilment, ignoreBusy?: string): ShopQuote & { raw: { vendors: { slug: string; name: string; subtotal: number; delivery: number; lines: OrderRow['items'] }[]; subtotal: number; delivery: number; fee: number; total: number } } => {
+  const quoteOf = (u: User, items: CartItemInput[], fulfilment: Fulfilment, ignoreBusy?: string, opts: { country?: string | null; fixedUnit?: number | null } = {}): ShopQuote & { raw: { vendors: { slug: string; name: string; subtotal: number; delivery: number; lines: OrderRow['items'] }[]; subtotal: number; delivery: number; fee: number; total: number } } => {
     const blocking: ShopQuote['blocking'] = []
     const notices: ShopQuote['notices'] = []
     if (!items.length) blocking.push({ fabric_id: 0, code: 'empty_cart', message: 'Your cart is empty.' })
@@ -150,7 +172,9 @@ export function makePreviewShop(ctx: Ctx) {
       if (it.quantity > f.available_quantity) blocking.push({ fabric_id: f.id, code: 'insufficient_stock', message: f.available_quantity > 0 ? `${f.name}: only ${f.available_quantity} ${f.unit} left.` : `${f.name} is out of stock.` })
       let unit = f.price.amount_minor
       let offerId: number | null = null
-      if (it.price_offer_id) {
+      if (opts.fixedUnit != null) {
+        unit = Math.min(opts.fixedUnit, f.price.amount_minor)
+      } else if (it.price_offer_id) {
         const o = offers.find((x) => x.id === it.price_offer_id)
         const busy = orders.some((r) => r.status === 'pending_payment' && r.customerId !== u.id && r.checkoutRef !== ignoreBusy && r.items.some((i) => i.offerId === it.price_offer_id))
         if (!o || o.buyerId !== u.id || o.fabricId !== f.id || o.status !== 'accepted' || busy) notices.push({ fabric_id: f.id, code: 'offer_not_usable', message: `${f.name}: your agreed price is no longer valid, so the listed price applies.` })
@@ -162,8 +186,15 @@ export function makePreviewShop(ctx: Ctx) {
       v.subtotal += unit * it.quantity
       vendors.set(f.vendor.slug, v)
     }
+    let fee0 = SHOP.delivery_fee_per_vendor_minor
+    if (fulfilment === 'international') {
+      const c = (opts.country ?? '').toUpperCase()
+      if (!c) fail('Choose the country to ship to.', 422, 'country_required')
+      if (c === 'NG') fail('For a Nigerian address, choose delivery instead.', 422, 'country_is_nigeria')
+      fee0 = PREVIEW_SHIP[c] ?? fail('We do not ship to that country yet.', 422, 'country_not_served')
+    }
     let subtotal = 0, delivery = 0
-    for (const v of vendors.values()) { v.delivery = fulfilment === 'delivery' ? SHOP.delivery_fee_per_vendor_minor : 0; subtotal += v.subtotal; delivery += v.delivery }
+    for (const v of vendors.values()) { v.delivery = fulfilment === 'pickup' ? 0 : fee0; subtotal += v.subtotal; delivery += v.delivery }
     const fee = Math.min(bps(subtotal, SHOP.service_fee_bps), SHOP.service_fee_cap_minor)
     const total = subtotal + delivery + fee
     const list = [...vendors.values()]
@@ -191,6 +222,9 @@ export function makePreviewShop(ctx: Ctx) {
       subtotal: money(r.subtotal), delivery: money(r.delivery),
       service_fee: viewer === 'customer' ? money(r.fee) : null, total: viewer === 'customer' ? money(r.subtotal + r.delivery + r.fee) : null,
       vendor_payout: viewer === 'vendor' ? money(r.subtotal + r.delivery - r.commission) : null,
+      payout_status: viewer === 'vendor' ? r.payout : null,
+      aso_ebi: r.groupCode ? { code: r.groupCode, title: groups.find((g) => g.code === r.groupCode)?.title ?? '' } : null,
+      ship: { country: c.country, arrival_date: c.arrivalDate },
       vendor: v ? { business_name: v.business_name, market: v.market, city: v.city } : undefined,
       deliver_to: viewer === 'vendor' && paid ? { name: c.contact.name, phone: c.contact.phone, address: c.address } : null,
       items: r.items.map((i) => {
@@ -216,6 +250,32 @@ export function makePreviewShop(ctx: Ctx) {
       o.status = 'cancelled'; o.events.push({ to: 'cancelled', by: to === 'expired' ? 'system' : 'customer', note: to === 'expired' ? 'Payment was not completed in time.' : 'Cancelled by the buyer before paying.', at: new Date().toISOString() })
     }
     c.status = to
+    for (const g of groups) for (const sh of g.shares) if (sh.checkoutRef === c.reference && sh.status === 'pending') sh.status = 'cancelled'
+  }
+
+  const VENDOR_USER_ID: Record<string, number> = { 'balogun-bolts': 3 }
+
+  /** Write a checkout and its per-vendor orders, holding stock (mirrors CheckoutService::persist). */
+  const persist = (u: User, q: ReturnType<typeof quoteOf>, fulfilment: Fulfilment, expected: number, contact: { name: string; phone: string },
+    address: Record<string, string> | null, extra: { country: string | null; arrivalDate: string | null; groupCode: string | null }): CheckoutRow => {
+    if (!q.ok) fail(q.blocking[0]?.message ?? 'Your cart needs attention.', 422, 'cart_invalid')
+    if (q.raw.total !== expected) fail('Prices or delivery changed since you looked. Review the new total before paying.', 422, 'cart_changed')
+    const ref = 'OSP-' + rid(16)
+    const c: CheckoutRow = { reference: ref, customerId: u.id, fulfilment, subtotal: q.raw.subtotal, delivery: q.raw.delivery, fee: q.raw.fee,
+      total: q.raw.total, status: 'pending', expiresAt: new Date(Date.now() + SHOP.checkout_hold_minutes * 60_000).toISOString(), paidAt: null, simulatedPaid: false,
+      contact, address: fulfilment === 'pickup' ? null : address, ...extra }
+    checkouts.push(c)
+    let rest = q.raw.fee
+    q.raw.vendors.forEach((v, i) => {
+      const fee = i === q.raw.vendors.length - 1 ? rest : Math.floor((q.raw.fee * v.subtotal) / Math.max(1, q.raw.subtotal))
+      rest -= fee
+      const at = new Date().toISOString()
+      orders.push({ reference: 'FAB-' + rid(8), checkoutRef: ref, customerId: u.id, vendorSlug: v.slug, status: 'pending_payment', fulfilment,
+        subtotal: v.subtotal, delivery: v.delivery, fee, commission: bps(v.subtotal, 500), createdAt: at, items: v.lines,
+        events: [{ to: 'pending_payment', by: 'customer', note: null, at }], groupCode: extra.groupCode, payout: 'held' })
+      for (const l of v.lines) { const f = fabricById(l.fabricId)!; setAvailable(f, f.available_quantity - l.quantity) }
+    })
+    return c
   }
 
   const offerOf = (id: number) => offers.find((o) => o.id === id) ?? fail('Not found.', 404, 'not_found')
@@ -234,7 +294,9 @@ export function makePreviewShop(ctx: Ctx) {
   const api: Pick<Api,
     'makePriceOffer' | 'myPriceOffers' | 'vendorPriceOffers' | 'priceOffer' | 'acceptPriceOffer' | 'counterPriceOffer' | 'declinePriceOffer' | 'withdrawPriceOffer'
     | 'quote' | 'createCheckout' | 'checkout' | 'verifyCheckout' | 'cancelCheckout' | 'fabricOrders' | 'fabricOrder' | 'transitionFabricOrder'
-    | 'vendorFabricOrders' | 'vendorListings' | 'updateListing' | 'createListing' | 'saveVendorProfile'> = {
+    | 'vendorFabricOrders' | 'vendorListings' | 'updateListing' | 'createListing' | 'saveVendorProfile' | 'vendorProfile'
+    | 'addListingMedia' | 'removeListingMedia' | 'asoEbi' | 'myAsoEbi' | 'createAsoEbi' | 'quoteAsoEbi' | 'joinAsoEbi'
+    | 'closeAsoEbi' | 'reopenAsoEbi' | 'cancelAsoEbi'> = {
     makePriceOffer: async (slug, quantity, unit, note) => {
       sweep()
       const u = me()
@@ -252,6 +314,7 @@ export function makePreviewShop(ctx: Ctx) {
         vendorUnit: null, status: 'awaiting_vendor', buyerRounds: 0, vendorRounds: 0, note: note ?? null, respondBy: hours(SHOP.offer_response_hours), holdUntil: null,
         createdAt: now, history: [{ by: 'buyer', action: 'open', unit, at: now }] }
       offers.push(o)
+      ctx.notify(VENDOR_USER_ID[o.vendorSlug] ?? 0, `New offer: ${money(unit).formatted} per ${f.unit} for ${f.name}`, `${quantity} ${f.unit}s. Answer within 24 hours.`, '/vendor?tab=offers')
       autoVendor(o)
       return delay(view(o, 'buyer'))
     },
@@ -270,6 +333,7 @@ export function makePreviewShop(ctx: Ctx) {
       turn(o, side)
       o.status = 'accepted'; o.holdUntil = hours(SHOP.offer_hold_hours); o.respondBy = null
       o.history.push({ by: side, action: 'accept', unit: o.unit, at: new Date().toISOString() })
+      tell(o, side, 'accept')
       return delay(view(o, side))
     },
     counterPriceOffer: async (id, unit) => {
@@ -288,6 +352,7 @@ export function makePreviewShop(ctx: Ctx) {
       }
       o.unit = unit; o.respondBy = hours(SHOP.offer_response_hours)
       o.history.push({ by: side, action: 'counter', unit, at: new Date().toISOString() })
+      tell(o, side, 'counter')
       if (side === 'buyer') autoVendor(o)
       return delay(view(o, side))
     },
@@ -306,29 +371,15 @@ export function makePreviewShop(ctx: Ctx) {
       return delay(view(o, side))
     },
 
-    quote: (items, fulfilment) => { sweep(); const { raw: _raw, ...q } = quoteOf(me(), items, fulfilment); return delay(q) },
+    quote: (items, fulfilment, country) => { sweep(); const { raw: _raw, ...q } = quoteOf(me(), items, fulfilment, undefined, { country }); return delay(q) },
     createCheckout: async (input) => {
       sweep()
       const u = me()
-      for (const old of checkouts.filter((c) => c.customerId === u.id && c.status === 'pending')) release(old, 'cancelled')
-      const q = quoteOf(u, input.items, input.fulfilment)
-      if (!q.ok) fail(q.blocking[0]?.message ?? 'Your cart needs attention.', 422, 'cart_invalid')
-      if (q.raw.total !== input.expected_total_minor) fail('Prices or delivery changed since you looked. Review the new total before paying.', 422, 'cart_changed')
-      const ref = 'OSP-' + rid(16)
-      const c: CheckoutRow = { reference: ref, customerId: u.id, fulfilment: input.fulfilment, subtotal: q.raw.subtotal, delivery: q.raw.delivery, fee: q.raw.fee,
-        total: q.raw.total, status: 'pending', expiresAt: new Date(Date.now() + SHOP.checkout_hold_minutes * 60_000).toISOString(), paidAt: null, simulatedPaid: false,
-        contact: input.contact, address: (input.address as Record<string, string> | null) ?? null }
-      checkouts.push(c)
-      let rest = q.raw.fee
-      q.raw.vendors.forEach((v, i) => {
-        const fee = i === q.raw.vendors.length - 1 ? rest : Math.floor((q.raw.fee * v.subtotal) / Math.max(1, q.raw.subtotal))
-        rest -= fee
-        const at = new Date().toISOString()
-        orders.push({ reference: 'FAB-' + rid(8), checkoutRef: ref, customerId: u.id, vendorSlug: v.slug, status: 'pending_payment', fulfilment: input.fulfilment,
-          subtotal: v.subtotal, delivery: v.delivery, fee, commission: bps(v.subtotal, 500), createdAt: at, items: v.lines, events: [{ to: 'pending_payment', by: 'customer', note: null, at }] })
-        for (const l of v.lines) { const f = fabricById(l.fabricId)!; setAvailable(f, f.available_quantity - l.quantity) }
-      })
-      return delay(checkoutView(c, `/checkout/preview-pay/${ref}`))
+      for (const old of checkouts.filter((c) => c.customerId === u.id && c.status === 'pending' && !c.groupCode)) release(old, 'cancelled')
+      const q = quoteOf(u, input.items, input.fulfilment, undefined, { country: input.country })
+      const c = persist(u, q, input.fulfilment, input.expected_total_minor, input.contact, (input.address as Record<string, string> | null) ?? null,
+        { country: input.fulfilment === 'international' ? (input.country ?? '').toUpperCase() : null, arrivalDate: input.fulfilment === 'arrival' ? input.arrival_date ?? null : null, groupCode: null })
+      return delay(checkoutView(c, `/checkout/preview-pay/${c.reference}`))
     },
     checkout: (ref) => { sweep(); const u = me(); const c = checkouts.find((x) => x.reference === ref && x.customerId === u.id) ?? fail('Not found.', 404, 'not_found'); return delay(checkoutView(c)) },
     verifyCheckout: async (ref) => {
@@ -340,6 +391,15 @@ export function makePreviewShop(ctx: Ctx) {
         for (const o of orders.filter((x) => x.checkoutRef === ref)) {
           o.status = 'paid'; o.events.push({ to: 'paid', by: 'system', note: 'Payment confirmed (simulated in the design preview).', at: c.paidAt })
           for (const i of o.items) { if (i.offerId) { const off = offers.find((x) => x.id === i.offerId); if (off && off.status === 'accepted') off.status = 'used' } }
+          ctx.notify(VENDOR_USER_ID[o.vendorSlug] ?? 0, `New paid order ${o.reference}`, o.items.map((i) => `${i.quantity} × ${i.name}`).join(', '), '/vendor?tab=orders')
+        }
+        ctx.notify(c.customerId, 'Payment confirmed', `We received ${money(c.total).formatted}. Your vendor is packing your fabric.`, '/shop/orders')
+        const g = groups.find((x) => x.code === c.groupCode)
+        const sh = g?.shares.find((x) => x.checkoutRef === ref)
+        if (g && sh) {
+          sh.status = 'paid'
+          const paid = g.shares.filter((x) => x.status === 'paid').length
+          ctx.notify(g.organizerId, `${paid} of ${g.target} paid for ${g.title}`, `${sh.showName ? sh.guestName.split(' ')[0] : 'A guest'} paid for ${sh.yards} yards.`, `/aso-ebi/${g.code}`)
         }
       }
       return delay(checkoutView(c))
@@ -368,6 +428,9 @@ export function makePreviewShop(ctx: Ctx) {
       if (!(NEXT[o.status][role] ?? []).includes(status)) fail(`Order: cannot move from '${o.status}' to '${status}' by ${role}.`, 409, 'invalid_transition')
       o.status = status
       o.events.push({ to: status, by: role, note: note ?? null, at: new Date().toISOString() })
+      if (status === 'completed') { o.payout = 'releasable'; ctx.notify(VENDOR_USER_ID[o.vendorSlug] ?? 0, `Order ${o.reference} completed`, 'The buyer confirmed receipt. Your payout is released for payment.', '/vendor?tab=orders') }
+      const what: Partial<Record<FabricOrderStatus, string>> = { packed: 'Your fabric is packed.', out_for_delivery: 'Your fabric is on its way.', ready_for_pickup: 'Your fabric is ready to collect.', delivered: 'The vendor marked your fabric as delivered. Confirm when you have it.' }
+      if (role === 'vendor' && what[status]) ctx.notify(o.customerId, what[status]!, `Order ${o.reference}.`, `/shop/orders/${o.reference}`)
       return delay(orderView(o, role))
     },
 
@@ -410,7 +473,109 @@ export function makePreviewShop(ctx: Ctx) {
       fabrics.push(f)
       return delay(listing(f))
     },
-    saveVendorProfile: async (input) => delay({ ...input, slug: ctx.vendorSlugOf(me()) ?? 'my-shop', verified: false }),
+    saveVendorProfile: async (input) => {
+      profile = { ...profile, ...input, market: input.market ?? null, phone: input.phone ?? null, whatsapp: input.whatsapp ?? null,
+        bank_name: input.bank_name ?? profile.bank_name, bank_account_name: input.bank_account_name ?? profile.bank_account_name,
+        bank_account_last4: input.bank_account_number ? input.bank_account_number.slice(-4) : profile.bank_account_last4 }
+      return delay(profile)
+    },
+    vendorProfile: () => delay(profile),
+    addListingMedia: async (id, file) => {
+      const slug = ctx.vendorSlugOf(me()) ?? fail('You do not have access to this.', 403, 'forbidden')
+      const f = fabrics.find((x) => x.id === id && x.vendor?.slug === slug) ?? fail('You do not have access to this.', 403, 'forbidden')
+      const kind = file.type.startsWith('video/') ? 'video' : file.type.startsWith('image/') ? 'photo' : fail('Upload a JPG, PNG or WebP photo, or an MP4, WebM or MOV video.', 422, 'media_type')
+      const list = (f.media ??= [])
+      if (kind === 'photo' && list.filter((m) => m.kind === 'photo').length >= 6) fail('Up to 6 photos per fabric. Remove one first.', 422, 'media_limit')
+      if (kind === 'video' && list.some((m) => m.kind === 'video')) fail('One video per fabric. Remove the old one first.', 422, 'media_limit')
+      list.push({ id: Date.now(), kind, url: URL.createObjectURL(file), mime: file.type })
+      f.has_video = list.some((m) => m.kind === 'video')
+      f.image_url = list.find((m) => m.kind === 'photo')?.url ?? null
+      return delay(listing(f))
+    },
+    removeListingMedia: async (id, mediaId) => {
+      const f = fabrics.find((x) => x.id === id) ?? fail('Not found.', 404, 'not_found')
+      f.media = (f.media ?? []).filter((m) => m.id !== mediaId)
+      f.has_video = f.media.some((m) => m.kind === 'video')
+      f.image_url = f.media.find((m) => m.kind === 'photo')?.url ?? null
+      return delay(listing(f))
+    },
+
+    asoEbi: (code) => { sweep(); const g = groupOf(code); return delay(groupView(g)) },
+    myAsoEbi: () => { const u = me(); return delay(groups.filter((g) => g.organizerId === u.id || g.shares.some((x) => x.guestId === u.id && x.status === 'paid')).slice().reverse().map(groupView)) },
+    createAsoEbi: async (slug, input) => {
+      const u = me()
+      const f = fabrics.find((x) => x.slug === slug) ?? fail('Not found.', 404, 'not_found')
+      const deadline = new Date(input.deadline_at)
+      if (input.yards_per_guest < Math.max(1, f.min_order_quantity) || input.yards_per_guest > 50) fail(`Set between ${Math.max(1, f.min_order_quantity)} and 50 per guest.`, 422, 'yards_out_of_range')
+      if (input.target_guests < 2 || input.target_guests > 500) fail('Invite between 2 and 500 guests.', 422, 'guests_out_of_range')
+      if (!(deadline.getTime() > Date.now())) fail('The payment deadline must be in the future.', 422, 'deadline_past')
+      if (new Date(input.event_date + 'T23:59:59') < deadline) fail('The payment deadline must come before the event.', 422, 'event_before_deadline')
+      let dealUnit: number | null = null, dealQty: number | null = null
+      if (input.price_offer_id) {
+        const o = offers.find((x) => x.id === input.price_offer_id)
+        if (!o || o.buyerId !== u.id || o.fabricId !== f.id || o.status !== 'accepted') fail('That agreed price cannot be used for this group. It may have expired.', 422, 'offer_not_usable')
+        dealUnit = Math.min(o!.unit, f.price.amount_minor); dealQty = o!.quantity; o!.status = 'used'
+      }
+      const code = Array.from({ length: 10 }, () => 'abcdefghjkmnpqrstuvwxyz23456789'[Math.floor(Math.random() * 31)]).join('')
+      const g: GroupRow = { code, organizerId: u.id, organizerName: u.name, organizerPhone: input.organizer_phone, fabricId: f.id, title: input.title, message: input.message ?? null,
+        eventDate: input.event_date, deadline: deadline.toISOString(), yards: input.yards_per_guest, target: input.target_guests, fulfilment: input.fulfilment,
+        dealUnit, dealQty, status: 'open', shares: [] }
+      groups.push(g)
+      if (f.vendor) ctx.notify(VENDOR_USER_ID[f.vendor.slug] ?? 0, `Aṣọ-ẹbí started on ${f.name}`, `${g.target} guests × ${g.yards} ${f.unit}s for ${g.title}. Keep stock ready.`, '/vendor?tab=orders')
+      return delay(groupView(g))
+    },
+    quoteAsoEbi: (code, yards) => { sweep(); const g = groupOf(code); const { raw: _raw, ...q } = shareQuote(me(), g, yards); return delay(q) },
+    joinAsoEbi: async (code, input) => {
+      sweep()
+      const u = me()
+      const g = groupOf(code)
+      if (g.status !== 'open' || Date.parse(g.deadline) <= Date.now()) fail('This aṣọ-ẹbí is no longer taking payments. Ask the organiser.', 422, 'group_closed')
+      for (const old of checkouts.filter((c) => c.customerId === u.id && c.groupCode === code && c.status === 'pending')) release(old, 'cancelled')
+      const q = shareQuote(u, g, input.yards)
+      const fulfil: Fulfilment = g.fulfilment === 'pickup_organizer' ? 'pickup' : 'delivery'
+      const c = persist(u, q, fulfil, input.expected_total_minor, input.contact, (input.address as Record<string, string> | null) ?? null, { country: null, arrivalDate: null, groupCode: code })
+      g.shares.push({ guestId: u.id, guestName: u.name, yards: input.yards, showName: input.show_name, checkoutRef: c.reference, status: 'pending' })
+      return delay(checkoutView(c, `/checkout/preview-pay/${c.reference}`))
+    },
+    closeAsoEbi: async (code) => { const g = ownGroup(code); if (g.status !== 'open') fail('This group is not open.', 409, 'invalid_transition'); g.status = 'closed'; return delay(groupView(g)) },
+    reopenAsoEbi: async (code) => { const g = ownGroup(code); if (Date.parse(g.deadline) < Date.now()) fail('The deadline has passed.', 422, 'deadline_past'); g.status = 'open'; return delay(groupView(g)) },
+    cancelAsoEbi: async (code) => {
+      const g = ownGroup(code)
+      if (g.shares.some((x) => x.status === 'paid')) fail('Guests have already paid. Close the group instead, or contact OSAPS support to arrange refunds.', 422, 'group_has_payments')
+      g.status = 'cancelled'
+      return delay(groupView(g))
+    },
+  }
+
+  let profile: VendorProfile = { business_name: 'Balogun Bolts', slug: 'balogun-bolts', city: 'Lagos', market: 'Balogun Market', phone: null, whatsapp: null, verified: false,
+    bank_name: null, bank_account_name: null, bank_account_last4: null }
+
+  const groupOf = (code: string) => groups.find((g) => g.code === code) ?? fail('Not found.', 404, 'not_found')
+  const ownGroup = (code: string) => { const g = groupOf(code); if (g.organizerId !== me().id) fail('Only the organiser can change this group.', 422, 'forbidden'); return g }
+  const committed = (g: GroupRow) => g.shares.filter((x) => x.status !== 'cancelled').reduce((n, x) => n + x.yards, 0)
+  const shareQuote = (u: User, g: GroupRow, yards: number) => {
+    const fixed = g.dealUnit !== null && g.dealQty !== null && committed(g) + yards <= g.dealQty ? g.dealUnit : null
+    return quoteOf(u, [{ fabric_id: g.fabricId, quantity: yards }], g.fulfilment === 'pickup_organizer' ? 'pickup' : 'delivery', undefined, { fixedUnit: fixed })
+  }
+  const groupView = (g: GroupRow): AsoEbiGroup => {
+    const f = fabricById(g.fabricId)!
+    const u = ctx.user()
+    const paid = g.shares.filter((x) => x.status === 'paid')
+    const left = g.dealQty !== null ? Math.max(0, g.dealQty - committed(g)) : null
+    const unit = g.dealUnit !== null && (left ?? 0) >= g.yards ? Math.min(g.dealUnit, f.price.amount_minor) : f.price.amount_minor
+    const open = g.status === 'open' && Date.parse(g.deadline) > Date.now()
+    const mine = u ? g.shares.filter((x) => x.guestId === u.id).pop() : undefined
+    const organizer = u?.id === g.organizerId
+    return {
+      code: g.code, title: g.title, message: g.message, event_date: g.eventDate, deadline_at: g.deadline, status: open ? 'open' : g.status === 'open' ? 'closed' : g.status,
+      yards_per_guest: g.yards, target_guests: g.target, fulfilment: g.fulfilment, unit_price: money(unit), list_unit_price: f.price,
+      deal: g.dealUnit !== null ? { unit_price: money(g.dealUnit), quantity: g.dealQty!, left } : null,
+      share_price: money(unit * g.yards), progress: { paid: paid.length, target: g.target, percent: Math.min(100, Math.floor((paid.length * 100) / Math.max(1, g.target))) },
+      yards_paid: paid.reduce((n, x) => n + x.yards, 0), paid_names: paid.filter((x) => x.showName).map((x) => x.guestName.split(' ')[0]!),
+      organizer_name: g.organizerName.split(' ')[0]!, is_organizer: organizer, my_share: mine ? { status: mine.status, yards: mine.yards } : null,
+      ...(organizer ? { guests: g.shares.filter((x) => x.status !== 'cancelled').map((x) => ({ name: x.guestName, yards: x.yards, status: x.status })) } : {}),
+      fabric: structuredClone(f),
+    }
   }
 
   const statuses = new Map<number, VendorListing['status']>()

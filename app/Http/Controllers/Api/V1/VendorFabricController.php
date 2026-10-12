@@ -18,7 +18,7 @@ class VendorFabricController extends Controller
         $vendor = $request->user()->fabricVendor;
         abort_if($vendor === null, 403);
 
-        $fabrics = $vendor->fabrics()->with('vendor')->orderBy('name')->get();
+        $fabrics = $vendor->fabrics()->with('vendor', 'media')->orderBy('name')->get();
 
         return response()->json(['data' => $fabrics->map(fn ($f) => (new FabricResource($f))->toArray($request) + [
             'status' => $f->status,
@@ -38,6 +38,9 @@ class VendorFabricController extends Controller
             'market' => ['nullable', 'string', 'max:120'],
             'phone' => ['nullable', 'string', 'regex:/^\+?[0-9 ]{7,20}$/'],
             'whatsapp' => ['nullable', 'string', 'regex:/^\+?[0-9 ]{7,20}$/'],
+            'bank_name' => ['nullable', 'string', 'max:80'],
+            'bank_account_number' => ['nullable', 'string', 'regex:/^[0-9]{10}$/'],
+            'bank_account_name' => ['nullable', 'string', 'max:120'],
         ]);
         $vendor = $user->fabricVendor()->firstOrNew([]);
         if (! $vendor->exists) {
@@ -49,7 +52,55 @@ class VendorFabricController extends Controller
         return response()->json(['data' => [
             'business_name' => $vendor->business_name, 'slug' => $vendor->slug, 'city' => $vendor->city, 'market' => $vendor->market,
             'phone' => $vendor->phone, 'whatsapp' => $vendor->whatsapp, 'verified' => $vendor->verification_status === 'verified',
+            'bank_name' => $vendor->bank_name, 'bank_account_name' => $vendor->bank_account_name,
+            // Only the last four digits are ever sent back.
+            'bank_account_last4' => $vendor->bank_account_number ? substr((string) $vendor->bank_account_number, -4) : null,
         ]]);
+    }
+
+    public function profile(Request $request): JsonResponse
+    {
+        $vendor = $request->user()->fabricVendor;
+        abort_if($vendor === null, 404);
+
+        return response()->json(['data' => [
+            'business_name' => $vendor->business_name, 'slug' => $vendor->slug, 'city' => $vendor->city, 'market' => $vendor->market,
+            'phone' => $vendor->phone, 'whatsapp' => $vendor->whatsapp, 'verified' => $vendor->verification_status === 'verified',
+            'bank_name' => $vendor->bank_name, 'bank_account_name' => $vendor->bank_account_name,
+            'bank_account_last4' => $vendor->bank_account_number ? substr((string) $vendor->bank_account_number, -4) : null,
+        ]]);
+    }
+
+    /** Add a photo or a short video of the real bolt. */
+    public function addMedia(Request $request, Fabric $fabric, \App\Services\MediaService $media): JsonResponse
+    {
+        $vendor = $request->user()->fabricVendor;
+        abort_unless($vendor !== null && $fabric->fabric_vendor_id === $vendor->id, 403);
+        $request->validate(['file' => ['required', 'file', 'mimetypes:image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime', 'max:25600']]);
+        $file = $request->file('file');
+        if (str_starts_with((string) $file->getMimeType(), 'image/') && $file->getSize() > 6 * 1024 * 1024) {
+            throw ValidationException::withMessages(['file' => ['Photos can be up to 6 MB.']]);
+        }
+        $media->add($fabric, $file);
+
+        return response()->json(['data' => $this->listing($request, $fabric->fresh(['vendor', 'media']))], 201);
+    }
+
+    public function removeMedia(Request $request, Fabric $fabric, int $mediaId, \App\Services\MediaService $media): JsonResponse
+    {
+        $vendor = $request->user()->fabricVendor;
+        abort_unless($vendor !== null && $fabric->fabric_vendor_id === $vendor->id, 403);
+        $item = $fabric->media()->whereKey($mediaId)->firstOrFail();
+        $media->remove($item);
+
+        return response()->json(['data' => $this->listing($request, $fabric->fresh(['vendor', 'media']))]);
+    }
+
+    private function listing(Request $request, Fabric $f): array
+    {
+        return (new FabricResource($f))->toArray($request) + [
+            'status' => $f->status, 'stock_quantity' => $f->stock_quantity, 'reserved_quantity' => $f->reserved_quantity,
+        ];
     }
 
     /** Add a new listing. It goes live straight away unless saved as a draft. */
@@ -82,7 +133,7 @@ class VendorFabricController extends Controller
         $fabric->fabric_vendor_id = $vendor->id;
         $fabric->save();
 
-        return response()->json(['data' => (new FabricResource($fabric->load('vendor')))->toArray($request) + [
+        return response()->json(['data' => (new FabricResource($fabric->load('vendor', 'media')))->toArray($request) + [
             'status' => $fabric->status, 'stock_quantity' => $fabric->stock_quantity, 'reserved_quantity' => 0,
         ]], 201);
     }
@@ -107,7 +158,7 @@ class VendorFabricController extends Controller
             return $fabric;
         });
 
-        return response()->json(['data' => (new FabricResource($fabric->load('vendor')))->toArray($request) + [
+        return response()->json(['data' => (new FabricResource($fabric->load('vendor', 'media')))->toArray($request) + [
             'status' => $fabric->status,
             'stock_quantity' => $fabric->stock_quantity,
             'reserved_quantity' => $fabric->reserved_quantity,

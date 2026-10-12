@@ -27,7 +27,7 @@ class FabricController extends Controller
             'per_page' => ['nullable', 'integer', 'min:1', 'max:48'],
         ]);
 
-        $query = Fabric::query()->listed()->with('vendor')->filter($f);
+        $query = Fabric::query()->listed()->with('vendor', 'media')->filter($f);
 
         match ($f['sort'] ?? 'newest') {
             'price_asc' => $query->orderBy('price_minor')->orderBy('id'),
@@ -44,7 +44,7 @@ class FabricController extends Controller
      */
     public function contact(string $slug): \Illuminate\Http\JsonResponse
     {
-        $fabric = Fabric::query()->listed()->with('vendor')->where('slug', $slug)->firstOrFail();
+        $fabric = Fabric::query()->listed()->with('vendor', 'media')->where('slug', $slug)->firstOrFail();
         $v = $fabric->vendor;
 
         return response()->json(['data' => [
@@ -61,6 +61,6 @@ class FabricController extends Controller
 
     public function show(string $slug): FabricResource
     {
-        return new FabricResource(Fabric::query()->listed()->with('vendor')->where('slug', $slug)->firstOrFail());
+        return new FabricResource(Fabric::query()->listed()->with('vendor', 'media')->where('slug', $slug)->firstOrFail());
     }
 }

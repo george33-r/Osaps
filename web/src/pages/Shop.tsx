@@ -6,6 +6,7 @@ import { Swatch } from '../components/Swatch'
 import { Button, ButtonLink, EmptyState, ErrorState, Field, PageHeader, Skeleton, errorMessage } from '../components/ui'
 import { lineEstimate, useCart } from '../lib/cart'
 import { formatDate, formatNaira } from '../lib/format'
+import { Approx } from '../lib/fx'
 import { useSession } from '../lib/session'
 import { useAsync } from '../lib/useAsync'
 
@@ -15,15 +16,16 @@ function useQuote(enabled: boolean) {
   const [quote, setQuote] = useState<ShopQuote | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const key = JSON.stringify([cart.items, cart.fulfilment])
+  const key = JSON.stringify([cart.items, cart.fulfilment, cart.country])
   const seq = useRef(0)
 
   const refresh = async () => {
     if (!enabled || cart.items.length === 0) { setQuote(null); return null }
+    if (cart.fulfilment === 'international' && !cart.country) { setQuote(null); setError('Choose the country to ship to.'); return null }
     const n = ++seq.current
     setLoading(true)
     try {
-      const q = await api.quote(cart.items, cart.fulfilment)
+      const q = await api.quote(cart.items, cart.fulfilment, cart.fulfilment === 'international' ? cart.country : null)
       if (n === seq.current) { setQuote(q); setError(null) }
       return q
     } catch (e) {
@@ -54,6 +56,7 @@ function Summary({ quote, estimate, children }: { quote: ShopQuote | null; estim
           <div><dt>Delivery{quote.vendors.length > 1 ? ` (${quote.vendors.length} vendors)` : ''}</dt><dd>{quote.delivery.amount_minor ? quote.delivery.formatted : 'Free pickup'}</dd></div>
           <div><dt>OSAPS service fee</dt><dd>{quote.service_fee.formatted}</dd></div>
           <div className="bag__total"><dt>Total</dt><dd>{quote.total.formatted}</dd></div>
+          <Approx minor={quote.total.amount_minor} className="bag__approx" />
         </dl>
       ) : (
         <dl className="bag__lines">
@@ -67,18 +70,43 @@ function Summary({ quote, estimate, children }: { quote: ShopQuote | null; estim
   )
 }
 
+const COUNTRY_NAMES: Record<string, string> = {
+  GB: 'United Kingdom', IE: 'Ireland', US: 'United States', CA: 'Canada', DE: 'Germany', FR: 'France', NL: 'Netherlands', BE: 'Belgium', IT: 'Italy', ES: 'Spain',
+  SE: 'Sweden', NO: 'Norway', DK: 'Denmark', FI: 'Finland', PT: 'Portugal', AT: 'Austria', CH: 'Switzerland', PL: 'Poland', GH: 'Ghana', ZA: 'South Africa',
+  KE: 'Kenya', CM: 'Cameroon', SN: 'Senegal', CI: "Côte d'Ivoire", AE: 'United Arab Emirates', AU: 'Australia', QA: 'Qatar', SA: 'Saudi Arabia', CN: 'China',
+  IN: 'India', JP: 'Japan', BR: 'Brazil', NZ: 'New Zealand',
+}
+
 function Fulfilment() {
   const cart = useCart()
   const { meta } = useSession()
   const fee = meta?.shop?.delivery_fee_per_vendor_minor
+  const countries = meta?.diaspora?.ship_countries ?? []
+  const opts: { key: typeof cart.fulfilment; title: string; sub: string; show: boolean }[] = [
+    { key: 'delivery', title: 'Deliver to me', sub: fee ? `${formatNaira(fee)} per vendor, in Nigeria` : 'In Nigeria', show: true },
+    { key: 'pickup', title: "Pick up at the vendor's market", sub: 'Free', show: true },
+    { key: 'arrival', title: 'Deliver when I land', sub: 'Flying in? Waiting at your Nigerian address on your date', show: true },
+    { key: 'international', title: 'Ship abroad', sub: countries.length ? 'UK, US, Europe and more' : 'Coming soon', show: countries.length > 0 },
+  ]
   return (
-    <div className="fulfil" role="radiogroup" aria-label="How you get your fabric">
-      {(['delivery', 'pickup'] as const).map((f) => (
-        <button key={f} type="button" role="radio" aria-checked={cart.fulfilment === f} className="fulfil__opt" onClick={() => cart.setFulfilment(f)}>
-          <strong>{f === 'delivery' ? 'Deliver to me' : "Pick up at the vendor's market"}</strong>
-          <span>{f === 'delivery' ? (fee ? `${formatNaira(fee)} per vendor` : 'Delivery fee per vendor') : 'Free'}</span>
-        </button>
-      ))}
+    <div className="fulfil-wrap">
+      <div className="fulfil" role="radiogroup" aria-label="How you get your fabric">
+        {opts.filter((o) => o.show).map((o) => (
+          <button key={o.key} type="button" role="radio" aria-checked={cart.fulfilment === o.key} className="fulfil__opt" onClick={() => cart.setFulfilment(o.key)}>
+            <strong>{o.title}</strong>
+            <span>{o.sub}</span>
+          </button>
+        ))}
+      </div>
+      {cart.fulfilment === 'international' && (
+        <label className="fulfil__country">
+          <span className="label">Ship to</span>
+          <select className="input" value={cart.country ?? ''} onChange={(e) => cart.setCountry(e.target.value || null)}>
+            <option value="">Choose a country</option>
+            {countries.map((c) => <option key={c.code} value={c.code}>{COUNTRY_NAMES[c.code] ?? c.code} · {formatNaira(c.fee_minor)} per vendor</option>)}
+          </select>
+        </label>
+      )}
     </div>
   )
 }
@@ -184,7 +212,9 @@ export function CheckoutPage() {
         fulfilment: cart.fulfilment,
         expected_total_minor: quote.total.amount_minor,
         contact: { name: s('name'), phone: s('phone') },
-        address: cart.fulfilment === 'delivery' ? { line1: s('line1'), line2: s('line2') || undefined, city: s('city'), state: s('state'), landmark: s('landmark') || undefined } : null,
+        address: cart.fulfilment === 'pickup' ? null : { line1: s('line1'), line2: s('line2') || undefined, city: s('city'), state: s('state') || undefined, postcode: s('postcode') || undefined, landmark: s('landmark') || undefined },
+        country: cart.fulfilment === 'international' ? cart.country : null,
+        arrival_date: cart.fulfilment === 'arrival' ? s('arrival_date') : null,
       })
       try { sessionStorage.setItem(PENDING_KEY, c.reference) } catch { /* ignore */ }
       if (!c.authorization_url) throw new ApiError('Payment could not be started. Please try again.', 0, 'payment_start_failed')
@@ -212,9 +242,24 @@ export function CheckoutPage() {
             <Field label="Full name" error={error?.field('contact.name')}>{(p) => <input {...p} name="name" className="input" defaultValue={user?.name ?? ''} autoComplete="name" required minLength={2} />}</Field>
             <Field label="Phone number" hint="The vendor calls this number about your order." error={error?.field('contact.phone')}>{(p) => <input {...p} name="phone" className="input" type="tel" inputMode="tel" defaultValue={user?.phone ?? ''} autoComplete="tel" placeholder="0801 234 5678" required />}</Field>
           </section>
-          {cart.fulfilment === 'delivery' ? (
+          {cart.fulfilment === 'international' ? (
             <section className="checkout__block">
-              <h2 className="checkout__h">3. Delivery address</h2>
+              <h2 className="checkout__h">3. Address abroad</h2>
+              <Field label="Street address" error={error?.field('address.line1')}>{(p) => <input {...p} name="line1" className="input" autoComplete="address-line1" required />}</Field>
+              <Field label="Flat or building" optional>{(p) => <input {...p} name="line2" className="input" autoComplete="address-line2" />}</Field>
+              <div className="checkout__pair">
+                <Field label="Town or city" error={error?.field('address.city')}>{(p) => <input {...p} name="city" className="input" autoComplete="address-level2" required />}</Field>
+                <Field label="Postcode / ZIP" error={error?.field('address.postcode')}>{(p) => <input {...p} name="postcode" className="input" autoComplete="postal-code" required />}</Field>
+              </div>
+              <Field label="County / state" optional>{(p) => <input {...p} name="state" className="input" autoComplete="address-level1" />}</Field>
+              <p className="muted">Customs duties in your country, if any, are paid by you on arrival.</p>
+            </section>
+          ) : cart.fulfilment === 'delivery' || cart.fulfilment === 'arrival' ? (
+            <section className="checkout__block">
+              <h2 className="checkout__h">3. {cart.fulfilment === 'arrival' ? 'Where and when you land' : 'Delivery address'}</h2>
+              {cart.fulfilment === 'arrival' && (
+                <Field label="Deliver on or after" hint="Your arrival date in Nigeria. Hotels and family houses are fine." error={error?.field('arrival_date')}>{(p) => <input {...p} name="arrival_date" type="date" className="input" required min={new Date().toISOString().slice(0, 10)} />}</Field>
+              )}
               <Field label="Street address" error={error?.field('address.line1')}>{(p) => <input {...p} name="line1" className="input" autoComplete="address-line1" required />}</Field>
               <Field label="Flat, estate or office" optional>{(p) => <input {...p} name="line2" className="input" autoComplete="address-line2" />}</Field>
               <div className="checkout__pair">

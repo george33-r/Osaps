@@ -36,17 +36,22 @@ class FabricOrderResource extends ApiResource
             'total' => $viewer === 'customer' ? self::money($this->total_minor) : null,
             // What the vendor is owed for the goods, after commission.
             'vendor_payout' => $viewer === 'vendor' ? self::money($this->subtotal_minor + $this->delivery_minor - $this->vendor_commission_minor) : null,
+            // Buyer protection: the vendor is paid once the buyer confirms (or after the grace period).
+            'payout_status' => $viewer === 'vendor' ? $this->payout_status : null,
+            'aso_ebi' => $this->aso_ebi_group_id && $this->relationLoaded('group') && $this->group ? ['code' => $this->group->code, 'title' => $this->group->title] : null,
+            'ship' => $this->checkout ? ['country' => $this->checkout->ship_country, 'arrival_date' => $this->checkout->arrival_date?->toDateString()] : null,
             'vendor' => $this->whenLoaded('vendor', fn () => [
                 'business_name' => $this->vendor->business_name,
                 'market' => $this->vendor->market,
                 'city' => $this->vendor->city,
             ]),
             // The vendor needs the buyer's contact and address to deliver, and only once paid.
-            'deliver_to' => $viewer === 'vendor' && $paid && $this->checkout ? [
-                'name' => $this->checkout->contact['name'] ?? null,
-                'phone' => $this->checkout->contact['phone'] ?? null,
-                'address' => $this->checkout->address,
-            ] : null,
+            'deliver_to' => $viewer === 'vendor' && $paid && $this->checkout ? (
+                // An aṣọ-ẹbí collected by the organiser: the vendor deals with the organiser.
+                $this->fulfilment === 'pickup' && $this->relationLoaded('group') && $this->group?->fulfilment === 'pickup_organizer'
+                    ? ['name' => ($this->checkout->contact['name'] ?? 'Guest').' (organiser collects)', 'phone' => $this->group->organizer_phone, 'address' => null]
+                    : ['name' => $this->checkout->contact['name'] ?? null, 'phone' => $this->checkout->contact['phone'] ?? null, 'address' => $this->checkout->address]
+            ) : null,
             'items' => $this->whenLoaded('items', fn () => $this->items->map(fn ($i) => [
                 'fabric_id' => $i->fabric_id,
                 'slug' => $i->fabric?->slug,

@@ -8,7 +8,8 @@
  */
 import { ApiError, type Api } from './client'
 import { OCCASIONS, previewAi } from './preview-ai'
-import { makePreviewShop, offerFloor, offerSuggestions, SHOP } from './preview-shop'
+import { makePreviewShop, offerFloor, offerSuggestions, PREVIEW_FX, PREVIEW_SHIP, SHOP } from './preview-shop'
+import { makePreviewGrowth } from './preview-growth'
 import type {
   Fabric,
   JobRequest,
@@ -260,7 +261,16 @@ function score(req: JobRequest, t: Tailor) {
   return { score: Math.round(total), new_vendor: true, reasons, factors: {} }
 }
 
+const growth = makePreviewGrowth({
+  fabrics,
+  user: () => current,
+  setUser: (u) => { current = u; const key = Object.entries(users).find(([, x]) => x.id === u.id)?.[0]; if (key) users[key] = u },
+  vendorSlugOf: (u) => (u.role === 'fabric_vendor' ? 'balogun-bolts' : null),
+  delay,
+  fail: fail as never,
+})
 const shop = makePreviewShop({
+  notify: growth.notify,
   fabrics,
   vendorSlugOf: (u) => (u.role === 'fabric_vendor' ? 'balogun-bolts' : null),
   user: () => current,
@@ -272,6 +282,7 @@ export const previewSimulatePayment = shop.simulatePayment
 
 export const previewApi: Api = {
   ...shop.api,
+  ...growth.api,
   meta: () =>
     delay<Meta>({
       brand: { name: 'OSAPS', tagline: 'From fabric to finished outfit — your style, your budget, your choice.' },
@@ -285,7 +296,8 @@ export const previewApi: Api = {
       fees: { customer_service_fee_bps: FEE_BPS, customer_service_fee_cap_minor: FEE_CAP },
       offer_rules: { expiry_hours: EXPIRY_HOURS, max_counter_rounds_per_side: MAX_ROUNDS },
       shop: SHOP,
-      features: { payments: true, ai_assistant: false, disputes: false },
+      diaspora: { rates: PREVIEW_FX, rates_updated: 'Demo rates', ship_countries: Object.entries(PREVIEW_SHIP).map(([code, fee_minor]) => ({ code, fee_minor })) },
+      features: { payments: true, ai_assistant: false, disputes: false, whatsapp: false, try_on: true },
     }),
   me: () => delay(current),
   register: async (input) => {

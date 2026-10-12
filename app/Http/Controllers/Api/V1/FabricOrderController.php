@@ -11,13 +11,13 @@ use Illuminate\Http\Request;
 
 class FabricOrderController extends Controller
 {
-    private const WITH = ['items.fabric', 'events', 'vendor', 'checkout'];
+    private const WITH = ['items.fabric', 'events', 'vendor', 'checkout', 'group'];
 
     public function __construct(private readonly CheckoutService $checkouts) {}
 
     public function index(Request $request): JsonResponse
     {
-        $this->checkouts->releaseExpired();
+        $this->checkouts->sweep();
         $orders = FabricOrder::query()->where('customer_id', $request->user()->id)->with(self::WITH)->latest('id')->limit(50)->get();
 
         return response()->json(['data' => $orders->map(fn ($o) => $this->present($o, 'customer', $request))->values()]);
@@ -29,7 +29,7 @@ class FabricOrderController extends Controller
         if ($vendor === null) {
             return response()->json(['data' => [], 'meta' => ['is_vendor' => false]]);
         }
-        $this->checkouts->releaseExpired();
+        $this->checkouts->sweep();
         // Vendors only see orders once they are paid: an unpaid order is not theirs to act on yet.
         $orders = FabricOrder::query()->where('fabric_vendor_id', $vendor->id)
             ->whereNotIn('status', ['pending_payment'])

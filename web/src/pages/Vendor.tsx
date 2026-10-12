@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { api, ApiError, type FabricOrder, type PriceOffer, type VendorListing } from '../api'
+import { api, ApiError, type FabricOrder, type LiveSession, type PriceOffer, type VendorListing } from '../api'
 import { OfferCard } from '../components/ShopKit'
 import { Swatch } from '../components/Swatch'
 import { Badge, Button, EmptyState, ErrorState, Field, PageHeader, Skeleton, errorMessage } from '../components/ui'
@@ -10,7 +10,7 @@ import { useToast } from '../lib/toast'
 import { useAsync } from '../lib/useAsync'
 import { OrderTimeline } from './Shop'
 
-type Tab = 'offers' | 'orders' | 'listings' | 'shop'
+type Tab = 'offers' | 'orders' | 'listings' | 'live' | 'shop'
 
 /** Everything a fabric vendor needs: answer price offers, ship paid orders, keep price and stock right. */
 export function VendorHub() {
@@ -50,7 +50,8 @@ export function VendorHub() {
     { key: 'offers', label: 'Price offers', n: waiting },
     { key: 'orders', label: 'Orders', n: toShip },
     { key: 'listings', label: 'Listings' },
-    { key: 'shop', label: 'Shop details' },
+    { key: 'live', label: 'Go live' },
+    { key: 'shop', label: 'Shop & payouts' },
   ]
 
   return (
@@ -66,6 +67,7 @@ export function VendorHub() {
       {tab === 'offers' && <VendorOffers state={offers} />}
       {tab === 'orders' && <VendorOrders state={orders} />}
       {tab === 'listings' && <Listings />}
+      {tab === 'live' && <GoLive />}
       {tab === 'shop' && <ShopForm onSaved={refresh} />}
     </div>
   )
@@ -95,6 +97,9 @@ function VendorOrders({ state }: { state: ReturnType<typeof useAsync<{ data: Fab
         <article key={o.reference} className={`vorder ${o.next.length ? 'needs-action' : ''}`}>
           <header className="vorder__head">
             <strong>{o.reference}</strong>
+            {o.aso_ebi && <span className="cart-line__deal">Aṣọ-ẹbí · {o.aso_ebi.title}</span>}
+            {o.ship?.country && <span className="cart-line__deal">Ship to {o.ship.country}</span>}
+            {o.ship?.arrival_date && <span className="cart-line__deal">Deliver from {formatDate(o.ship.arrival_date)}</span>}
             <Badge tone={o.next.length ? 'waiting' : o.status === 'completed' ? 'good' : 'neutral'}>{o.status_label}</Badge>
             <span className="vorder__when">{o.created_at ? formatDate(o.created_at, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}</span>
           </header>
@@ -116,7 +121,7 @@ function VendorOrders({ state }: { state: ReturnType<typeof useAsync<{ data: Fab
             </div>
           )}
           <footer className="vorder__foot">
-            <span>You receive <strong>{o.vendor_payout?.formatted}</strong></span>
+            <span>You receive <strong>{o.vendor_payout?.formatted}</strong> <small className={`payout payout--${o.payout_status}`}>{o.payout_status === 'paid' ? 'Paid out' : o.payout_status === 'releasable' ? 'Released, payment on the way' : o.payout_status === 'withheld' ? 'Not payable' : 'Held until the buyer confirms'}</small></span>
             <span className="vorder__actions">
               {o.next.map((n) => (
                 <Button key={n.status} busy={busy === o.reference + n.status} onClick={async () => {
@@ -130,6 +135,38 @@ function VendorOrders({ state }: { state: ReturnType<typeof useAsync<{ data: Fab
         </article>
       ))}
     </div>
+  )
+}
+
+function MediaRow({ f, onSaved }: { f: VendorListing; onSaved: (f: VendorListing) => void }) {
+  const toast = useToast()
+  const [busy, setBusy] = useState(false)
+  const media = f.media ?? []
+  return (
+    <tr className="media-row">
+      <td colSpan={4}>
+        <div className="media-strip">
+          {media.map((m) => (
+            <figure key={m.id} className="media-strip__item">
+              {m.kind === 'video' ? <video src={m.url} muted playsInline preload="metadata" /> : <img src={m.url} alt="" />}
+              <button type="button" className="media-strip__x" aria-label="Remove" onClick={async () => { try { onSaved(await api.removeListingMedia(f.id, m.id)) } catch (e) { toast(errorMessage(e), 'alert') } }}>×</button>
+              {m.kind === 'video' && <span className="media-strip__tag">Video</span>}
+            </figure>
+          ))}
+          <label className={`media-strip__add ${busy ? 'is-busy' : ''}`}>
+            <span>{busy ? 'Uploading…' : media.length ? '+ Add' : '+ Add photos or a 15-second video of the real bolt'}</span>
+            <input type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime" disabled={busy} onChange={async (e) => {
+              const file = e.target.files?.[0]
+              e.target.value = ''
+              if (!file) return
+              setBusy(true)
+              try { onSaved(await api.addListingMedia(f.id, file)); toast('Added. Buyers trust real photos and video.', 'good') }
+              catch (err) { toast(err instanceof ApiError ? (err.field('file') ?? err.message) : errorMessage(err), 'alert') } finally { setBusy(false) }
+            }} />
+          </label>
+        </div>
+      </td>
+    </tr>
   )
 }
 
@@ -182,7 +219,10 @@ function Listings() {
       <div className="table-wrap">
         <table className="listing-table">
           <thead><tr><th>Fabric</th><th>Price</th><th>Stock</th><th><span className="sr-only">Save</span></th></tr></thead>
-          <tbody>{list.map((f) => <ListingRow key={f.id} f={f} onSaved={(n) => setList((l) => l?.map((x) => (x.id === n.id ? n : x)) ?? null)} />)}</tbody>
+          <tbody>{list.map((f) => {
+            const save = (n: VendorListing) => setList((l) => l?.map((x) => (x.id === n.id ? n : x)) ?? null)
+            return [<ListingRow key={f.id} f={f} onSaved={save} />, <MediaRow key={`m${f.id}`} f={f} onSaved={save} />]
+          })}</tbody>
         </table>
       </div>
     </div>
@@ -236,6 +276,7 @@ function NewListingForm({ onCreated }: { onCreated: (f: VendorListing) => void }
 
 function ShopForm({ onSaved }: { onSaved: () => void | Promise<void> }) {
   const { user } = useSession()
+  const existing = useAsync(() => (user?.has_vendor_profile ? api.vendorProfile() : Promise.resolve(null)), [user?.has_vendor_profile])
   const toast = useToast()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<ApiError | null>(null)
@@ -245,24 +286,90 @@ function ShopForm({ onSaved }: { onSaved: () => void | Promise<void> }) {
     const s = (k: string) => String(f.get(k) ?? '').trim()
     setBusy(true); setError(null)
     try {
-      await api.saveVendorProfile({ business_name: s('business_name'), city: s('city'), market: s('market') || null, phone: s('phone') || null, whatsapp: s('whatsapp') || null })
+      await api.saveVendorProfile({
+        business_name: s('business_name'), city: s('city'), market: s('market') || null, phone: s('phone') || null, whatsapp: s('whatsapp') || null,
+        bank_name: s('bank_name') || null, bank_account_name: s('bank_account_name') || null, bank_account_number: s('bank_account_number') || null,
+      })
       toast('Shop details saved.', 'good')
       await onSaved()
     } catch (err) { setError(err instanceof ApiError ? err : new ApiError(errorMessage(err), 0, 'unknown')) } finally { setBusy(false) }
   }
+  if (user?.has_vendor_profile && existing.status === 'loading') return <Skeleton lines={4} />
+  const v = existing.data
   return (
-    <form className="new-listing" onSubmit={submit}>
-      <Field label="Shop name" error={error?.field('business_name')}>{(p) => <input {...p} name="business_name" className="input" required minLength={2} defaultValue={user?.name ?? ''} />}</Field>
+    <form className="new-listing" onSubmit={submit} key={v?.slug ?? 'new'}>
+      <Field label="Shop name" error={error?.field('business_name')}>{(p) => <input {...p} name="business_name" className="input" required minLength={2} defaultValue={v?.business_name ?? user?.name ?? ''} />}</Field>
       <div className="checkout__pair">
-        <Field label="City" error={error?.field('city')}>{(p) => <input {...p} name="city" className="input" required defaultValue={user?.city ?? ''} />}</Field>
-        <Field label="Market" optional>{(p) => <input {...p} name="market" className="input" placeholder="Balogun Market" />}</Field>
+        <Field label="City" error={error?.field('city')}>{(p) => <input {...p} name="city" className="input" required defaultValue={v?.city ?? user?.city ?? ''} />}</Field>
+        <Field label="Market" optional>{(p) => <input {...p} name="market" className="input" placeholder="Balogun Market" defaultValue={v?.market ?? ''} />}</Field>
       </div>
       <div className="checkout__pair">
-        <Field label="Phone" optional hint="Shown to buyers only after they pay." error={error?.field('phone')}>{(p) => <input {...p} name="phone" className="input" type="tel" />}</Field>
-        <Field label="WhatsApp" optional error={error?.field('whatsapp')}>{(p) => <input {...p} name="whatsapp" className="input" type="tel" />}</Field>
+        <Field label="Phone" optional hint="Shown to buyers only after they pay." error={error?.field('phone')}>{(p) => <input {...p} name="phone" className="input" type="tel" defaultValue={v?.phone ?? ''} />}</Field>
+        <Field label="WhatsApp" optional error={error?.field('whatsapp')}>{(p) => <input {...p} name="whatsapp" className="input" type="tel" defaultValue={v?.whatsapp ?? ''} />}</Field>
       </div>
+      <h3 className="checkout__h">Payouts</h3>
+      <p className="muted">You are paid by bank transfer once the buyer confirms they received the fabric, or {3} days after you mark it delivered if they say nothing.</p>
+      <div className="checkout__pair">
+        <Field label="Bank" optional>{(p) => <input {...p} name="bank_name" className="input" defaultValue={v?.bank_name ?? ''} placeholder="GTBank" />}</Field>
+        <Field label="Account name" optional>{(p) => <input {...p} name="bank_account_name" className="input" defaultValue={v?.bank_account_name ?? ''} />}</Field>
+      </div>
+      <Field label="Account number (10 digits)" optional hint={v?.bank_account_last4 ? `Saved: ••••••${v.bank_account_last4}. Leave empty to keep it.` : 'Stored encrypted. Only OSAPS payouts staff can see it.'} error={error?.field('bank_account_number')}>
+        {(p) => <input {...p} name="bank_account_number" className="input" inputMode="numeric" pattern="[0-9]{10}" maxLength={10} />}
+      </Field>
       {error && error.code !== 'validation_failed' && <p className="field__error">{error.message}</p>}
       <Button type="submit" busy={busy}>Save shop</Button>
     </form>
+  )
+}
+
+function GoLive() {
+  const res = useAsync(() => api.myLive(), [])
+  const listings = useAsync(() => api.vendorListings(), [])
+  const toast = useToast()
+  const [list, setList] = useState<LiveSession[] | null>(null)
+  const [picked, setPicked] = useState<number[]>([])
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  useEffect(() => { if (res.data) setList(res.data) }, [res.data])
+  const submit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const d = new FormData(e.currentTarget)
+    const s = (k: string) => String(d.get(k) ?? '').trim()
+    setBusy(true); setError(null)
+    try {
+      const created = await api.createLive({ title: s('title'), platform: s('platform') as LiveSession['platform'], url: s('url'), starts_at: new Date(s('starts_at')).toISOString(), fabric_ids: picked })
+      setList((l) => [...(l ?? []), created])
+      toast('Live session added. Buyers see it on the Live page.', 'good')
+      e.currentTarget.reset(); setPicked([])
+    } catch (err) { setError(errorMessage(err)) } finally { setBusy(false) }
+  }
+  return (
+    <div className="listings">
+      <p className="muted">Go live on TikTok, Instagram, YouTube or Facebook as usual, and list the session here. Buyers watch, then name their price on the fabrics you feature.</p>
+      <form className="new-listing" onSubmit={submit}>
+        <Field label="Title">{(p) => <input {...p} name="title" className="input" required minLength={3} maxLength={100} placeholder="New Ankara drop: 40 prints under ₦5k" />}</Field>
+        <div className="checkout__pair">
+          <Field label="Platform">{(p) => <select {...p} name="platform" className="input"><option value="tiktok">TikTok</option><option value="instagram">Instagram</option><option value="youtube">YouTube</option><option value="facebook">Facebook</option></select>}</Field>
+          <Field label="Starts">{(p) => <input {...p} name="starts_at" type="datetime-local" className="input" required />}</Field>
+        </div>
+        <Field label="Link to your live or profile" hint="Must be an https link on that platform.">{(p) => <input {...p} name="url" type="url" className="input" required placeholder="https://www.tiktok.com/@yourshop/live" />}</Field>
+        {listings.data && listings.data.length > 0 && (
+          <div className="field">
+            <span className="field__label">Feature fabrics</span>
+            <div className="name-price__chips">{listings.data.map((f) => <button key={f.id} type="button" className="chip" aria-pressed={picked.includes(f.id)} onClick={() => setPicked((p) => (p.includes(f.id) ? p.filter((x) => x !== f.id) : [...p, f.id].slice(0, 12)))}>{f.name}</button>)}</div>
+          </div>
+        )}
+        {error && <p className="field__error" role="alert">{error}</p>}
+        <Button type="submit" busy={busy}>Add live session</Button>
+      </form>
+      {list && list.length > 0 && (
+        <ul className="aso__guests">
+          {list.map((l) => (
+            <li key={l.id}><span>{l.is_live ? '🔴 ' : ''}{l.title}</span><span>{formatDate(l.starts_at, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+              <button className="text-link" onClick={async () => { await api.deleteLive(l.id); setList((x) => x?.filter((y) => y.id !== l.id) ?? null) }}>Remove</button></li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }

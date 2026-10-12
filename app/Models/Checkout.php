@@ -31,6 +31,7 @@ class Checkout extends Model
             'amount_paid_minor' => 'integer',
             'paid_at' => 'datetime',
             'expires_at' => 'datetime',
+            'arrival_date' => 'date',
         ];
     }
 
@@ -42,6 +43,16 @@ class Checkout extends Model
     public function customer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'customer_id');
+    }
+
+    public function group(): BelongsTo
+    {
+        return $this->belongsTo(AsoEbiGroup::class, 'aso_ebi_group_id');
+    }
+
+    public function share(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(AsoEbiShare::class);
     }
 
     public function orders(): HasMany

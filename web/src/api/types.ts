@@ -17,6 +17,8 @@ export interface User {
   city: string | null
   has_tailor_profile?: boolean
   has_vendor_profile?: boolean
+  whatsapp_opt_in?: boolean
+  currency?: string | null
 }
 
 export interface KeyLabel {
@@ -45,7 +47,12 @@ export interface Meta {
     offer_hold_hours: number
     offer_max_rounds: number
   }
-  features: { payments: boolean; ai_assistant: boolean; disputes: boolean }
+  diaspora?: {
+    rates: Record<string, number>
+    rates_updated: string | null
+    ship_countries: { code: string; fee_minor: number }[]
+  }
+  features: { payments: boolean; ai_assistant: boolean; disputes: boolean; whatsapp?: boolean; try_on?: boolean }
 }
 
 export interface Fabric {
@@ -72,6 +79,16 @@ export interface Fabric {
   offer_floor?: MoneyValue
   /** Quick-pick offer prices, highest first. */
   offer_suggestions?: MoneyValue[]
+  /** Real photos and a short video of the actual bolt, from the vendor. */
+  media?: FabricMedia[]
+  has_video?: boolean
+}
+
+export interface FabricMedia {
+  id: number
+  kind: 'photo' | 'video'
+  url: string
+  mime: string
 }
 
 export interface MatchResult {
@@ -212,6 +229,8 @@ export type OrderStatus =
 export interface Order {
   reference: string
   offer_id: number
+  /** The customer's saved measurements, in cm — shown to the hired tailor if the customer allows. */
+  measurements?: { values: Record<string, number>; notes: string | null; labels: Record<string, string> } | null
   status: OrderStatus
   status_label: string
   viewer_role: 'customer' | 'tailor' | 'admin' | null
@@ -448,7 +467,7 @@ export interface CartItemInput {
   price_offer_id?: number | null
 }
 
-export type Fulfilment = 'delivery' | 'pickup'
+export type Fulfilment = 'delivery' | 'pickup' | 'arrival' | 'international'
 
 export interface ShopProblem {
   fabric_id: number
@@ -484,7 +503,9 @@ export interface CheckoutInput {
   fulfilment: Fulfilment
   expected_total_minor: number
   contact: { name: string; phone: string }
-  address?: { line1: string; line2?: string; city: string; state: string; landmark?: string } | null
+  address?: { line1: string; line2?: string; city: string; state?: string; postcode?: string; landmark?: string } | null
+  country?: string | null
+  arrival_date?: string | null
 }
 
 export type FabricOrderStatus = 'pending_payment' | 'paid' | 'packed' | 'out_for_delivery' | 'ready_for_pickup' | 'delivered' | 'completed' | 'cancelled'
@@ -504,6 +525,9 @@ export interface FabricOrder {
   vendor_payout: MoneyValue | null
   vendor?: { business_name: string; market: string | null; city: string }
   deliver_to: { name: string | null; phone: string | null; address: Record<string, string> | null } | null
+  payout_status?: 'held' | 'releasable' | 'paid' | 'withheld' | null
+  aso_ebi?: { code: string; title: string } | null
+  ship?: { country: string | null; arrival_date: string | null } | null
   items?: {
     fabric_id: number
     slug: string | null
@@ -547,6 +571,9 @@ export interface VendorProfileInput {
   market?: string | null
   phone?: string | null
   whatsapp?: string | null
+  bank_name?: string | null
+  bank_account_number?: string | null
+  bank_account_name?: string | null
 }
 
 export interface NewListing {
@@ -562,4 +589,101 @@ export interface NewListing {
   stock_quantity: number
   min_order_quantity?: number
   status?: 'active' | 'draft'
+}
+
+// ---------------------------------------------------------------- Aṣọ-ẹbí, account, live, try-on
+
+export interface AsoEbiGroup {
+  code: string
+  title: string
+  message: string | null
+  event_date: string
+  deadline_at: string
+  status: 'open' | 'closed' | 'cancelled'
+  yards_per_guest: number
+  target_guests: number
+  fulfilment: 'deliver_each' | 'pickup_organizer'
+  unit_price: MoneyValue
+  list_unit_price: MoneyValue
+  deal: { unit_price: MoneyValue; quantity: number; left: number | null } | null
+  share_price: MoneyValue
+  progress: { paid: number; target: number; percent: number }
+  yards_paid: number
+  paid_names: string[]
+  organizer_name: string
+  is_organizer: boolean
+  my_share?: { status: 'pending' | 'paid' | 'cancelled'; yards: number } | null
+  guests?: { name: string; yards: number; status: string }[]
+  fabric: Fabric
+}
+
+export interface NewAsoEbi {
+  title: string
+  message?: string | null
+  event_date: string
+  deadline_at: string
+  yards_per_guest: number
+  target_guests: number
+  fulfilment: 'deliver_each' | 'pickup_organizer'
+  organizer_phone: string
+  price_offer_id?: number | null
+}
+
+export interface JoinAsoEbi {
+  yards: number
+  show_name: boolean
+  expected_total_minor: number
+  contact: { name: string; phone: string }
+  address?: { line1: string; line2?: string; city: string; state: string; landmark?: string } | null
+}
+
+export interface AppNotification {
+  id: number
+  kind: string
+  title: string
+  body: string | null
+  link: string | null
+  read: boolean
+  at: string | null
+}
+
+export interface Measurements {
+  unit: 'cm' | 'in'
+  values: Record<string, number>
+  notes: string | null
+  share_with_tailors: boolean
+  updated_at: string | null
+  fields: { key: string; label: string }[]
+}
+
+export interface LiveSession {
+  id: number
+  title: string
+  platform: 'tiktok' | 'instagram' | 'youtube' | 'facebook'
+  url: string
+  youtube_id: string | null
+  starts_at: string
+  ends_at: string | null
+  is_live: boolean
+  vendor: { business_name: string | null; market: string | null; city: string | null }
+  fabrics: Fabric[]
+}
+
+export interface TryOnResult {
+  image: string
+  notice: string
+  left_today: number
+}
+
+export interface VendorProfile {
+  business_name: string
+  slug: string
+  city: string
+  market: string | null
+  phone: string | null
+  whatsapp: string | null
+  verified: boolean
+  bank_name: string | null
+  bank_account_name: string | null
+  bank_account_last4: string | null
 }

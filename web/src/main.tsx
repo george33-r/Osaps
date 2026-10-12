@@ -36,6 +36,12 @@ const PreviewPay = lazy(() => import('./pages/Shop').then((m) => ({ default: m.P
 const MyOffers = lazy(() => import('./pages/Shop').then((m) => ({ default: m.MyOffers })))
 const FabricOrderList = lazy(() => import('./pages/Shop').then((m) => ({ default: m.FabricOrderList })))
 const FabricOrderDetail = lazy(() => import('./pages/Shop').then((m) => ({ default: m.FabricOrderDetail })))
+const AsoEbiNew = lazy(() => import('./pages/AsoEbi').then((m) => ({ default: m.AsoEbiNew })))
+const AsoEbiPage = lazy(() => import('./pages/AsoEbi').then((m) => ({ default: m.AsoEbiPage })))
+const MyAsoEbi = lazy(() => import('./pages/AsoEbi').then((m) => ({ default: m.MyAsoEbi })))
+const AccountPage = lazy(() => import('./pages/Account').then((m) => ({ default: m.AccountPage })))
+const MeasurementsPage = lazy(() => import('./pages/Account').then((m) => ({ default: m.MeasurementsPage })))
+const LivePage = lazy(() => import('./pages/Live').then((m) => ({ default: m.LivePage })))
 const VendorHub = lazy(() => import('./pages/Vendor').then((m) => ({ default: m.VendorHub })))
 
 const page = (el: ReactNode) => <Suspense fallback={<div className="page"><Skeleton lines={6} /></div>}>{el}</Suspense>
@@ -95,6 +101,12 @@ const router = createBrowserRouter(
             { path: 'shop/orders', element: signedIn(<FabricOrderList />) },
             { path: 'shop/orders/:reference', element: signedIn(<FabricOrderDetail />) },
             { path: 'vendor', element: signedIn(<VendorHub />) },
+            { path: 'fabrics/:slug/aso-ebi', element: signedIn(<AsoEbiNew />) },
+            { path: 'aso-ebi', element: signedIn(<MyAsoEbi />) },
+            { path: 'aso-ebi/:code', element: page(<AsoEbiPage />) },
+            { path: 'account', element: signedIn(<AccountPage />) },
+            { path: 'account/measurements', element: signedIn(<MeasurementsPage />) },
+            { path: 'live', element: page(<LivePage />) },
             { path: '*', element: <NotFound /> },
           ],
         },

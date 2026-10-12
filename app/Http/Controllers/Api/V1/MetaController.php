@@ -39,7 +39,17 @@ class MetaController extends Controller
                 'offer_hold_hours' => config('marketplace.shop.offers.hold_hours'),
                 'offer_max_rounds' => config('marketplace.shop.offers.max_rounds_per_side'),
             ],
+            'diaspora' => [
+                'rates' => app(\App\Domain\Diaspora\CurrencyDisplay::class)->rates(),
+                'rates_updated' => config('marketplace.diaspora.rates_updated'),
+                'ship_countries' => collect(\App\Domain\Diaspora\ShippingZones::COUNTRIES)
+                    ->filter(fn ($zone) => (int) (config('marketplace.diaspora.shipping_minor')[$zone] ?? 0) > 0)
+                    ->map(fn ($zone, $code) => ['code' => $code, 'fee_minor' => (int) config('marketplace.diaspora.shipping_minor')[$zone]])
+                    ->values(),
+            ],
             'features' => [
+                'whatsapp' => app(\App\Messaging\WhatsAppClient::class)->enabled(),
+                'try_on' => app(\App\TryOn\TryOnProvider::class)->available(),
                 // True once a Paystack secret key is set on the server. The key itself is never sent.
                 'payments' => app(\App\Payments\PaymentGateway::class)->enabled(),
                 'ai_assistant' => app(\App\Ai\AiGateway::class)->available(),

@@ -1,3 +1,4 @@
+import { Approx } from '../lib/fx'
 import { Link } from 'react-router-dom'
 import type { Fabric, Tailor } from '../api'
 import { Swatch } from './Swatch'
@@ -32,7 +33,9 @@ export function FabricCard({ fabric, feature = false }: { fabric: Fabric; featur
         <p className="fabric-card__price">
           {fabric.price.formatted}
           <span> per {fabric.unit}</span>
+          <Approx minor={fabric.price.amount_minor} />
         </p>
+        {fabric.has_video && <span className="fabric-card__video">▶ Real video</span>}
       </div>
     </Link>
   )

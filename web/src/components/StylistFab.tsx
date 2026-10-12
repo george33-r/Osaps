@@ -23,7 +23,7 @@ export function StylistFab() {
 
   if (pathname.startsWith('/stylist')) return null
   // Out of the way while buying or running a shop; just an icon on fabric pages so it never covers the buy box.
-  if (/^\/(cart|checkout|vendor|offers|shop)(\/|$)/.test(pathname)) return null
+  if (/^\/(cart|checkout|vendor|offers|shop|aso-ebi|account)(\/|$)/.test(pathname)) return null
   const compact = pathname.startsWith('/fabrics/')
 
   const close = () => {

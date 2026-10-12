@@ -207,6 +207,16 @@ export function OrderDetail() {
             <p className="muted">Payment status: {o.payment_status === 'unpaid' ? 'not paid through OSAPS. In-app payment is not available yet.' : o.payment_status}</p>
             {o.viewer_role === 'tailor' && o.customer?.phone && <p>Customer phone: {o.customer.phone}</p>}
           </section>
+          {o.viewer_role === 'tailor' && o.measurements && (
+            <section className="brief">
+              <h2 className="brief__title">Customer measurements (cm)</h2>
+              <dl className="terms">
+                {Object.entries(o.measurements.values).map(([k, v]) => <div key={k}><dt>{o.measurements!.labels[k] ?? k}</dt><dd>{v}</dd></div>)}
+              </dl>
+              {o.measurements.notes && <p className="muted">{o.measurements.notes}</p>}
+              <p className="muted">Self-measured. Check at the first fitting.</p>
+            </section>
+          )}
         </aside>
       </div>
 

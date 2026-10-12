@@ -74,6 +74,8 @@ return [
         'delivery_fee_per_vendor_minor' => (int) env('SHOP_DELIVERY_FEE_MINOR', 300_000),
         // How long stock is held while the buyer pays.
         'checkout_hold_minutes' => (int) env('SHOP_CHECKOUT_HOLD_MINUTES', 60),
+        // Buyer protection: an order the buyer has not confirmed completes this many days after delivery.
+        'auto_complete_days' => (int) env('SHOP_AUTO_COMPLETE_DAYS', 3),
         'offers' => [
             // Lowest offer allowed, as a share of the list price (7000 = 70%).
             'floor_bps' => (int) env('SHOP_OFFER_FLOOR_BPS', 7_000),
@@ -82,6 +84,35 @@ return [
             'max_rounds_per_side' => (int) env('SHOP_OFFER_MAX_ROUNDS', 3),
             'max_live_per_buyer' => (int) env('SHOP_OFFER_MAX_LIVE', 10),
         ],
+    ],
+
+    // Shoppers abroad. Prices are always charged in naira; these rates only show approximate amounts.
+    // Rates are naira per one unit of the currency. Update them regularly (placeholders, not live rates).
+    'diaspora' => [
+        'naira_per_unit' => [
+            'GBP' => (float) env('FX_GBP', 0),
+            'USD' => (float) env('FX_USD', 0),
+            'EUR' => (float) env('FX_EUR', 0),
+            'CAD' => (float) env('FX_CAD', 0),
+        ],
+        'rates_updated' => env('FX_UPDATED'),
+        // International shipping per vendor parcel, by zone, in kobo. 0 = not offered.
+        'shipping_minor' => [
+            'uk' => (int) env('SHIP_UK_MINOR', 0),
+            'us' => (int) env('SHIP_US_MINOR', 0),
+            'ca' => (int) env('SHIP_CA_MINOR', 0),
+            'eu' => (int) env('SHIP_EU_MINOR', 0),
+            'africa' => (int) env('SHIP_AFRICA_MINOR', 0),
+            'other' => (int) env('SHIP_OTHER_MINOR', 0),
+        ],
+    ],
+
+    // WhatsApp Cloud API (Meta). Off until both values are set. See docs/GROWTH.md.
+    'whatsapp' => [
+        'token' => env('WHATSAPP_TOKEN'),
+        'phone_number_id' => env('WHATSAPP_PHONE_NUMBER_ID'),
+        'template' => env('WHATSAPP_TEMPLATE', 'osaps_update'),
+        'language' => env('WHATSAPP_TEMPLATE_LANGUAGE', 'en'),
     ],
 
     'requests' => [

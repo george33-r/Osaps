@@ -18,6 +18,9 @@ class FabricOrder extends Model
             'service_fee_minor' => 'integer',
             'total_minor' => 'integer',
             'vendor_commission_minor' => 'integer',
+            'delivered_at' => 'datetime',
+            'completed_at' => 'datetime',
+            'paid_out_at' => 'datetime',
         ];
     }
 
@@ -39,6 +42,11 @@ class FabricOrder extends Model
     public function vendor(): BelongsTo
     {
         return $this->belongsTo(FabricVendor::class, 'fabric_vendor_id');
+    }
+
+    public function group(): BelongsTo
+    {
+        return $this->belongsTo(AsoEbiGroup::class, 'aso_ebi_group_id');
     }
 
     public function items(): HasMany

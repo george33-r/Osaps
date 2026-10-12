@@ -2,6 +2,8 @@ import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api, ApiError, type Fabric, type FabricFilters, type FabricIdea, type VendorContact } from '../api'
 import { BuyBox } from '../components/ShopKit'
+import { TryOn } from '../components/TryOn'
+import { Approx } from '../lib/fx'
 import { FabricCard } from '../components/cards'
 import { COLOR_HEX, DrapedCloth, Swatch } from '../components/Swatch'
 import { Badge, Button, ButtonLink, EmptyState, ErrorState, Label, PageHeader, Skeleton, SourceNote, errorMessage } from '../components/ui'
@@ -276,7 +278,26 @@ export function FabricDetail() {
       </nav>
       <div className="product">
         <figure className="product__gallery">
-          {f.image_url ? (
+          {f.media && f.media.length > 0 ? (
+            <>
+              {(() => {
+                const video = f.media.find((m) => m.kind === 'video')
+                const photos = f.media.filter((m) => m.kind === 'photo')
+                return (
+                  <>
+                    {video ? (
+                      <div className="product__main product__video">
+                        <video src={video.url} controls muted loop playsInline preload="metadata" aria-label={`Video of the real bolt of ${f.name}`} />
+                        <span className="product__real">Real video of this bolt</span>
+                      </div>
+                    ) : photos[0] ? <img className="product__main" src={photos[0].url} alt={f.name} /> : null}
+                    {photos.slice(video ? 0 : 1, video ? 2 : 3).map((p) => <img key={p.id} className="product__detail" src={p.url} alt={`${f.name}, detail`} loading="lazy" />)}
+                    <figcaption className="product__caption">Photos and video by the vendor, of the fabric you will receive.</figcaption>
+                  </>
+                )
+              })()}
+            </>
+          ) : f.image_url ? (
             <img className="product__main" src={f.image_url} alt={f.name} />
           ) : (
             <>
@@ -291,7 +312,7 @@ export function FabricDetail() {
         <div className="product__info">
           <Label>{f.category_label}</Label>
           <h1 className="product__name">{f.name}</h1>
-          <p className="product__price">{f.price.formatted} <span>per {f.unit}</span></p>
+          <p className="product__price">{f.price.formatted} <span>per {f.unit}</span> <Approx minor={f.price.amount_minor} /></p>
           <p className={`product__stock product__stock--${f.stock_status}`}>
             {f.stock_status === 'out_of_stock' ? 'Sold out' : f.stock_status === 'low_stock' ? `Only ${f.available_quantity} ${f.unit}s left` : `${f.available_quantity} ${f.unit}s available`}
           </p>
@@ -303,6 +324,10 @@ export function FabricDetail() {
             <div><dt>Minimum order</dt><dd>{f.min_order_quantity} {f.unit}{f.min_order_quantity > 1 ? 's' : ''}</dd></div>
           </dl>
           <BuyBox fabric={f} />
+          <div className="product__actions product__actions--extra">
+            <TryOn fabric={f} />
+            {f.purchase_mode === 'checkout' && <ButtonLink variant="secondary" to={`/fabrics/${f.slug}/aso-ebi`}>Start aṣọ-ẹbí</ButtonLink>}
+          </div>
           <div className="product__actions">
             <ButtonLink variant={f.purchase_mode === 'checkout' ? 'secondary' : 'primary'} to="/requests/new" state={{ draft: { fabric_status: 'buying_on_platform', fabric_id: f.id } }}>Have a tailor make something with this</ButtonLink>
           </div>

@@ -41,4 +41,14 @@ return [
         'fabric_ideas' => 'fabric-ideas-v1',
         'inspiration' => 'inspiration-brief-v1',
     ],
+
+    // "See it on me" try-on. Needs an image model; off until TRYON_PROVIDER=openai and a key are set.
+    'try_on' => [
+        'provider' => env('TRYON_PROVIDER'),
+        'openai_key' => env('TRYON_OPENAI_API_KEY'),
+        'model' => env('TRYON_MODEL', 'gpt-image-1'),
+        'timeout' => (int) env('TRYON_TIMEOUT', 90),
+        'daily_limit' => (int) env('TRYON_DAILY_LIMIT', 5),
+        'daily_limit_global' => (int) env('TRYON_DAILY_LIMIT_GLOBAL', 200),
+    ],
 ];

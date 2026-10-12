@@ -9,7 +9,12 @@ use App\Http\Controllers\Api\V1\OfferController;
 use App\Http\Controllers\Api\V1\OfferMessageController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\TailorController;
+use App\Http\Controllers\Api\V1\AccountController;
+use App\Http\Controllers\Api\V1\AdminPayoutController;
+use App\Http\Controllers\Api\V1\AsoEbiController;
 use App\Http\Controllers\Api\V1\FabricOrderController;
+use App\Http\Controllers\Api\V1\LiveController;
+use App\Http\Controllers\Api\V1\TryOnController;
 use App\Http\Controllers\Api\V1\PaystackWebhookController;
 use App\Http\Controllers\Api\V1\PriceOfferController;
 use App\Http\Controllers\Api\V1\ShopController;
@@ -38,6 +43,10 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::get('fabrics/{slug}/ideas', [AiController::class, 'fabricIdeas'])->name('fabric-ideas');
         Route::post('inspiration', [AiController::class, 'inspiration'])->middleware('auth:sanctum')->name('inspiration');
     });
+
+    // Public: aṣọ-ẹbí share links and the live market.
+    Route::get('aso-ebi/{asoEbiGroup}', [AsoEbiController::class, 'show'])->where('asoEbiGroup', '[a-hj-km-np-z2-9]{10}')->name('aso-ebi.show');
+    Route::get('live', [LiveController::class, 'index'])->name('live.index');
 
     // Paystack server-to-server callback. No session or CSRF: it is authenticated by its HMAC signature.
     Route::post('webhooks/paystack', PaystackWebhookController::class)->middleware('throttle:webhooks')->name('webhooks.paystack');
@@ -104,9 +113,40 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::get('fabric-orders/{fabricOrder}', [FabricOrderController::class, 'show'])->name('fabric-orders.show');
         Route::post('fabric-orders/{fabricOrder}/transitions', [FabricOrderController::class, 'transition'])->middleware('throttle:marketplace-writes')->name('fabric-orders.transition');
 
+        // Aṣọ-ẹbí group orders
+        Route::get('aso-ebi', [AsoEbiController::class, 'mine'])->name('aso-ebi.mine');
+        Route::post('fabrics/{slug}/aso-ebi', [AsoEbiController::class, 'store'])->middleware('throttle:marketplace-writes')->name('aso-ebi.store');
+        Route::middleware('throttle:marketplace-writes')->where(['asoEbiGroup' => '[a-hj-km-np-z2-9]{10}'])->group(function () {
+            Route::post('aso-ebi/{asoEbiGroup}/quote', [AsoEbiController::class, 'quote'])->withoutMiddleware('throttle:marketplace-writes')->middleware('throttle:shop-quotes')->name('aso-ebi.quote');
+            Route::post('aso-ebi/{asoEbiGroup}/join', [AsoEbiController::class, 'join'])->name('aso-ebi.join');
+            Route::post('aso-ebi/{asoEbiGroup}/close', [AsoEbiController::class, 'close'])->name('aso-ebi.close');
+            Route::post('aso-ebi/{asoEbiGroup}/reopen', [AsoEbiController::class, 'reopen'])->name('aso-ebi.reopen');
+            Route::post('aso-ebi/{asoEbiGroup}/cancel', [AsoEbiController::class, 'cancel'])->name('aso-ebi.cancel');
+        });
+
+        // Account, notifications, measurements
+        Route::put('me', [AccountController::class, 'update'])->middleware('throttle:marketplace-writes')->name('me.update');
+        Route::get('notifications', [AccountController::class, 'notifications'])->name('notifications.index');
+        Route::post('notifications/read', [AccountController::class, 'markRead'])->name('notifications.read');
+        Route::get('me/measurements', [AccountController::class, 'measurements'])->name('me.measurements');
+        Route::put('me/measurements', [AccountController::class, 'saveMeasurements'])->middleware('throttle:marketplace-writes')->name('me.measurements.save');
+
+        // Try-on (AI image), off until a provider key is set
+        Route::post('ai/try-on', TryOnController::class)->middleware('throttle:ai')->name('ai.try-on');
+
+        // Admin: vendor payouts
+        Route::get('admin/payouts', [AdminPayoutController::class, 'index'])->name('admin.payouts');
+        Route::post('admin/fabric-orders/{fabricOrder}/paid-out', [AdminPayoutController::class, 'markPaid'])->name('admin.payouts.paid');
+
         // Vendor workspace
         Route::get('vendor/fabric-orders', [FabricOrderController::class, 'vendor'])->name('vendor.fabric-orders');
         Route::get('vendor/fabrics', [VendorFabricController::class, 'index'])->name('vendor.fabrics');
+        Route::get('me/vendor-profile', [VendorFabricController::class, 'profile'])->name('me.vendor-profile.show');
+        Route::post('vendor/fabrics/{fabric}/media', [VendorFabricController::class, 'addMedia'])->middleware('throttle:marketplace-writes')->name('vendor.fabrics.media.store');
+        Route::delete('vendor/fabrics/{fabric}/media/{mediaId}', [VendorFabricController::class, 'removeMedia'])->whereNumber('mediaId')->name('vendor.fabrics.media.destroy');
+        Route::get('vendor/live', [LiveController::class, 'mine'])->name('vendor.live');
+        Route::post('vendor/live', [LiveController::class, 'store'])->middleware('throttle:marketplace-writes')->name('vendor.live.store');
+        Route::delete('vendor/live/{liveSession}', [LiveController::class, 'destroy'])->name('vendor.live.destroy');
         Route::put('me/vendor-profile', [VendorFabricController::class, 'upsertProfile'])->middleware('throttle:marketplace-writes')->name('me.vendor-profile');
         Route::post('vendor/fabrics', [VendorFabricController::class, 'store'])->middleware('throttle:marketplace-writes')->name('vendor.fabrics.store');
         Route::patch('vendor/fabrics/{fabric}', [VendorFabricController::class, 'update'])->middleware('throttle:marketplace-writes')->name('vendor.fabrics.update');

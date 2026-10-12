@@ -12,10 +12,12 @@ Artisan::command('marketplace:expire-stale', function (NegotiationService $negot
 // Requires the scheduler: `* * * * * php artisan schedule:run` (see README).
 Schedule::command('marketplace:expire-stale')->everyFiveMinutes()->withoutOverlapping();
 
-Artisan::command('shop:sweep', function (\App\Services\CheckoutService $checkouts, \App\Services\ShopOfferService $offers) {
+Artisan::command('shop:sweep', function (\App\Services\CheckoutService $checkouts, \App\Services\ShopOfferService $offers, \App\Services\AsoEbiService $groups) {
     $released = $checkouts->releaseExpired();
     $expired = $offers->expireStale();
-    $this->info("Released stock from {$released} unpaid checkouts; expired {$expired} price offers.");
+    $completed = $checkouts->autoCompleteDelivered();
+    $closed = $groups->closeExpired();
+    $this->info("Released {$released} unpaid checkouts, expired {$expired} offers, completed {$completed} delivered orders, closed {$closed} aṣọ-ẹbí groups.");
 })->purpose('Release stock held by unpaid checkouts and lapse unanswered price offers');
 
 // The shop also sweeps lazily on every cart and offer request, so it works without cron too.

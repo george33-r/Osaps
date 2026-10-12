@@ -31,7 +31,7 @@ class OrderController extends Controller
     {
         Gate::authorize('view', $order);
 
-        return new OrderResource($order->load(['tailor.tailorProfile', 'customer', 'events']));
+        return new OrderResource($order->load(['tailor.tailorProfile', 'customer.measurements', 'events']));
     }
 
     public function transition(TransitionOrderRequest $request, Order $order): OrderResource
@@ -39,6 +39,6 @@ class OrderController extends Controller
         Gate::authorize('transition', $order);
         $order = $this->orders->transition($request->user(), $order, $request->input('status'), $request->input('note'));
 
-        return new OrderResource($order->load(['tailor.tailorProfile', 'customer', 'events']));
+        return new OrderResource($order->load(['tailor.tailorProfile', 'customer.measurements', 'events']));
     }
 }

@@ -32,6 +32,11 @@ class Fabric extends Model
         return $this->belongsTo(FabricVendor::class, 'fabric_vendor_id');
     }
 
+    public function media(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(FabricMedia::class)->orderBy('sort')->orderBy('id');
+    }
+
     public function availableQuantity(): int
     {
         return max(0, $this->stock_quantity - $this->reserved_quantity);

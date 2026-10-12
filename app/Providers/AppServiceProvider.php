@@ -56,6 +56,26 @@ class AppServiceProvider extends ServiceProvider
             channels: array_values((array) config('payments.paystack.channels')),
         ));
 
+        $this->app->singleton(\App\Domain\AsoEbi\AsoEbiRules::class, fn () => new \App\Domain\AsoEbi\AsoEbiRules);
+        $this->app->singleton(\App\Domain\Shop\PayoutRules::class, fn () => new \App\Domain\Shop\PayoutRules(
+            autoCompleteDays: (int) config('marketplace.shop.auto_complete_days', 3),
+        ));
+        $this->app->singleton(\App\Domain\Diaspora\ShippingZones::class, fn () => new \App\Domain\Diaspora\ShippingZones(
+            array_map('intval', (array) config('marketplace.diaspora.shipping_minor')),
+        ));
+        $this->app->singleton(\App\Domain\Diaspora\CurrencyDisplay::class, fn () => new \App\Domain\Diaspora\CurrencyDisplay(
+            (array) config('marketplace.diaspora.naira_per_unit'),
+        ));
+        $this->app->singleton(\App\Messaging\WhatsAppClient::class, fn () => new \App\Messaging\WhatsAppClient(
+            token: config('marketplace.whatsapp.token'),
+            phoneNumberId: config('marketplace.whatsapp.phone_number_id'),
+            template: (string) config('marketplace.whatsapp.template'),
+            language: (string) config('marketplace.whatsapp.language'),
+        ));
+        $this->app->singleton(\App\TryOn\TryOnProvider::class, fn () => config('ai.try_on.provider') === 'openai' && config('ai.try_on.openai_key')
+            ? new \App\TryOn\OpenAiTryOn(config('ai.try_on.openai_key'), (string) config('ai.try_on.model'), (int) config('ai.try_on.timeout'))
+            : new \App\TryOn\UnavailableTryOn);
+
         $this->app->singleton(TailorScorer::class, fn () => new TailorScorer(config('marketplace.matching.weights')));
     }
 
