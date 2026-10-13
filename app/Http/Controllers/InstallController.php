@@ -25,12 +25,19 @@ class InstallController extends Controller
         $expected = (string) env('INSTALL_TOKEN', '');
         abort_unless(InstallLedger::tokenIsStrong($expected) && hash_equals($expected, $token), 404);
 
-        $lockPath = storage_path('app/installed.lock');
         // A copied site can be missing empty folders; create the ones Laravel writes to.
         foreach (['app', 'app/public', 'framework/cache/data', 'framework/sessions', 'framework/views', 'logs'] as $dir) {
             if (! is_dir(storage_path($dir))) {
                 @mkdir(storage_path($dir), 0755, true);
             }
+        }
+        // Keep the record in storage/app; if that folder cannot be created, use storage/framework,
+        // which the front controller already checks is writable.
+        $lockPath = is_dir(storage_path('app')) && is_writable(storage_path('app'))
+            ? storage_path('app/installed.lock')
+            : storage_path('framework/installed.lock');
+        if (! is_file($lockPath) && is_file(storage_path('framework/installed.lock'))) {
+            $lockPath = storage_path('framework/installed.lock');
         }
         $ledger = InstallLedger::fromLock(is_file($lockPath) ? (string) file_get_contents($lockPath) : null);
         if ($ledger->wasUsed($token)) {
@@ -55,6 +62,7 @@ class InstallController extends Controller
             }
 
             file_put_contents($lockPath, $ledger->record($token, now()->toDateTimeString(), $upgrading ? 'upgrade' : 'install')->toLock(), LOCK_EX);
+            $log[] = '(installer v3)';
             $log[] = ($upgrading ? 'Upgrade done.' : 'Install done.').' This link will not work again. Delete the INSTALL_TOKEN line from .env now.';
 
             return $this->text(implode("\n\n", array_filter($log)));
