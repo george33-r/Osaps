@@ -130,6 +130,8 @@ class DemoSeeder extends Seeder
             $vendor = FabricVendor::query()->firstOrNew(['user_id' => $user->id]);
             $vendor->forceFill([
                 'business_name' => $name, 'slug' => Str::slug($name), 'city' => $city, 'market' => $market, 'is_demo' => true,
+                // Demo shops count as verified so the local catalogue has something to sell. Never seeded in production.
+                'verification_status' => 'verified', 'verified_at' => now(),
                 // Demonstration vendors have no phone numbers: inventing numbers could reach real people.
                 'contact_note' => "Demonstration vendor — visit {$market}, {$city}. Real vendors add their phone and WhatsApp here.",
             ])->save();

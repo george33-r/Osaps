@@ -11,6 +11,8 @@ import { OCCASIONS, previewAi } from './preview-ai'
 import { makePreviewShop, offerFloor, offerSuggestions, PREVIEW_FX, PREVIEW_SHIP, SHOP } from './preview-shop'
 import { makePreviewGrowth } from './preview-growth'
 import type {
+  CartItemInput,
+  SavedCartLine,
   Fabric,
   JobRequest,
   Meta,
@@ -125,7 +127,17 @@ const users: Record<string, User> = {
   customer: { id: 1, name: 'Amaka Demo', email: 'customer@demo.osaps.test', phone: null, role: 'customer', city: 'Abuja' },
   tailor: { id: 2, name: 'Ọ̀ṣọ́ Atelier', email: 'tailor1@demo.osaps.test', phone: null, role: 'tailor', city: 'Abuja', has_tailor_profile: true },
   fabric_vendor: { id: 3, name: 'Bola Balogun', email: 'vendor1@demo.osaps.test', phone: null, role: 'fabric_vendor', city: 'Lagos', has_vendor_profile: true },
+  // Two admins, so the two-person payout rule can be tried: one approves, the other records the transfer.
+  admin: { id: 4, name: 'Tolu (admin)', email: 'admin@demo.osaps.test', phone: null, role: 'admin', city: 'Lagos' },
+  admin2: { id: 5, name: 'Kemi (admin)', email: 'admin2@demo.osaps.test', phone: null, role: 'admin', city: 'Abuja' },
 }
+const savedCarts: Record<number, CartItemInput[]> = {}
+const savedView = (items: CartItemInput[]): SavedCartLine[] => items.flatMap((i) => {
+  const f = fabrics.find((x) => x.id === i.fabric_id)
+  return f ? [{ fabric_id: f.id, quantity: i.quantity, price_offer_id: i.price_offer_id ?? null, offer: null,
+    fabric: { slug: f.slug, name: f.name, unit: f.unit, colors: f.colors, pattern: f.pattern, image_url: f.image_url, vendor_name: f.vendor?.business_name ?? null,
+      list_minor: f.price.amount_minor, min: Math.max(1, f.min_order_quantity), available: f.available_quantity } }] : []
+})
 let current: User | null = null
 try {
   const saved = sessionStorage.getItem('osaps-preview-user')
@@ -271,6 +283,7 @@ const growth = makePreviewGrowth({
 })
 const shop = makePreviewShop({
   notify: growth.notify,
+  onPaid: (userId, ids) => { savedCarts[userId] = (savedCarts[userId] ?? []).filter((i) => !ids.includes(i.fabric_id)) },
   fabrics,
   vendorSlugOf: (u) => (u.role === 'fabric_vendor' ? 'balogun-bolts' : null),
   user: () => current,
@@ -283,6 +296,19 @@ export const previewSimulatePayment = shop.simulatePayment
 export const previewApi: Api = {
   ...shop.api,
   ...growth.api,
+  forgotPassword: async () => delay('If that email has an OSAPS account, a reset link is on its way. It works for 60 minutes. (Design preview: no email is sent.)'),
+  resetPassword: async (input) => {
+    if (input.password.length < 8 || !/[a-z]/i.test(input.password) || !/\d/.test(input.password)) fail('Use at least 8 characters with letters and numbers.', 422, 'validation_failed', { password: ['Use at least 8 characters with letters and numbers.'] })
+    if (input.password !== input.password_confirmation) fail('The passwords do not match.', 422, 'validation_failed', { password: ['The passwords do not match.'] })
+    if (!input.token) fail('That reset link is invalid or has expired. Ask for a new one.', 422, 'validation_failed', { email: ['That reset link is invalid or has expired. Ask for a new one.'] })
+    return delay('Password changed. Sign in with your new password.')
+  },
+  savedCart: async () => { const u = current ?? fail('Please sign in.', 401, 'unauthenticated'); return delay(savedView(savedCarts[u.id] ?? [])) },
+  saveCart: async (items) => {
+    const u = current ?? fail('Please sign in.', 401, 'unauthenticated')
+    savedCarts[u.id] = items.filter((i) => fabrics.some((f) => f.id === i.fabric_id)).slice(0, 50)
+    return delay(savedView(savedCarts[u.id]!))
+  },
   meta: () =>
     delay<Meta>({
       brand: { name: 'OSAPS', tagline: 'From fabric to finished outfit — your style, your budget, your choice.' },
@@ -589,7 +615,7 @@ export const previewApi: Api = {
 }
 
 /** Lets the preview banner switch who you are, so both sides of a negotiation can be reviewed. */
-export function previewSwitchUser(role: 'customer' | 'tailor' | 'fabric_vendor' | null) {
+export function previewSwitchUser(role: 'customer' | 'tailor' | 'fabric_vendor' | 'admin' | 'admin2' | null) {
   current = role ? users[role]! : null
   try {
     if (role) sessionStorage.setItem('osaps-preview-user', role)

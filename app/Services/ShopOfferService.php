@@ -71,7 +71,7 @@ class ShopOfferService
                 minQuantity: (int) $fabric->min_order_quantity,
                 available: $fabric->availableQuantity(),
                 isOwnListing: $fabric->vendor?->user_id === $buyer->id,
-                listingActive: $fabric->status === 'active',
+                listingActive: $fabric->isBuyable(),
                 buyerLiveOffers: (clone $live)->count(),
                 buyerHasLiveOfferOnFabric: (clone $live)->where('fabric_id', $fabric->id)->exists(),
             );

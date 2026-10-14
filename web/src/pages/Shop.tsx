@@ -4,6 +4,7 @@ import { api, ApiError, isPreview, type Checkout, type FabricOrder, type PriceOf
 import { Countdown, OfferCard, QtyStepper } from '../components/ShopKit'
 import { Swatch } from '../components/Swatch'
 import { Button, ButtonLink, EmptyState, ErrorState, Field, PageHeader, Skeleton, errorMessage } from '../components/ui'
+import { DeliveryCodeCard, ProblemReport, ProtectionNote, RefundList } from '../components/Protection'
 import { lineEstimate, useCart } from '../lib/cart'
 import { formatDate, formatNaira } from '../lib/format'
 import { Approx } from '../lib/fx'
@@ -470,10 +471,15 @@ export function FabricOrderDetail() {
   const [order, setOrder] = useState<FabricOrder | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [note, setNote] = useState('')
+  const { user } = useSession()
   useEffect(() => { if (res.data) setOrder(res.data) }, [res.data])
   if (res.status === 'error') return <div className="page"><ErrorState error={res.error} onRetry={res.reload} /></div>
   if (!order) return <div className="page"><Skeleton lines={5} /></div>
-  const labelFor = (s: string) => (s === 'delivered' ? (order.fulfilment === 'pickup' ? 'I have collected it' : 'I have received it') : s === 'completed' ? 'All good — complete order' : s)
+  const isAdmin = user?.role === 'admin'
+  const labelFor = (s: string) => isAdmin
+    ? ({ delivered: 'Confirm handover (admin)', completed: 'Complete (admin)', cancelled: 'Cancel order (admin)' } as Record<string, string>)[s] ?? s
+    : s === 'delivered' ? (order.fulfilment === 'pickup' ? 'I have collected it' : 'I have received it') : s === 'completed' ? 'All good — complete order' : s
 
   return (
     <div className="page page--narrow">
@@ -494,17 +500,27 @@ export function FabricOrderDetail() {
         {order.service_fee && <div><dt>Service fee</dt><dd>{order.service_fee.formatted}</dd></div>}
         {order.total && <div className="bag__total"><dt>Total</dt><dd>{order.total.formatted}</dd></div>}
       </dl>
+      <ProtectionNote order={order} />
+      <DeliveryCodeCard order={order} />
+      <RefundList order={order} />
+      {order.next.length > 0 && isAdmin && (
+        <div className="decide">
+          <label className="field__label" htmlFor="admin-note">Admin note (buyer and vendor see it; needed for these actions)</label>
+          <textarea id="admin-note" className="input" rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
+        </div>
+      )}
       {order.next.length > 0 && (
         <div className="paid__actions">
           {order.next.map((n) => (
-            <Button key={n.status} busy={busy === n.status} onClick={async () => {
+            <Button key={n.status} variant={n.status === 'cancelled' ? 'danger' : 'primary'} busy={busy === n.status} disabled={isAdmin && note.trim().length < 5} onClick={async () => {
               setBusy(n.status); setError(null)
-              try { setOrder(await api.transitionFabricOrder(order.reference, n.status)) } catch (e) { setError(errorMessage(e)) } finally { setBusy(null) }
+              try { setOrder(await api.transitionFabricOrder(order.reference, n.status, isAdmin ? note.trim() : null)); setNote('') } catch (e) { setError(errorMessage(e)) } finally { setBusy(null) }
             }}>{labelFor(n.status)}</Button>
           ))}
         </div>
       )}
       {error && <p className="field__error" role="alert">{error}</p>}
+      <ProblemReport order={order} onChange={setOrder} />
       <h2 className="section-title section-title--small order-history">History</h2>
       <ol className="events">
         {order.events?.map((e, i) => <li key={i}><strong>{e.label}</strong>{e.note ? ` — ${e.note}` : ''}{e.at ? <small> {formatDate(e.at, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</small> : null}</li>)}

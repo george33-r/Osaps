@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -42,6 +43,45 @@ class AuthController extends Controller
         }
 
         return $this->issue($request, $user);
+    }
+
+    /**
+     * Email a reset link. Always the same answer, whether or not the email has an account,
+     * so this cannot be used to find out who is registered.
+     */
+    public function forgotPassword(Request $request): JsonResponse
+    {
+        $data = $request->validate(['email' => ['required', 'email:rfc', 'max:190']]);
+        $status = Password::sendResetLink(['email' => strtolower(trim($data['email']))]);
+        if (! in_array($status, [Password::RESET_LINK_SENT, Password::INVALID_USER, Password::RESET_THROTTLED], true)) {
+            \Illuminate\Support\Facades\Log::warning('Password reset email not sent', ['status' => $status]);
+        }
+
+        return response()->json(['message' => 'If that email has an OSAPS account, a reset link is on its way. It works for 60 minutes.']);
+    }
+
+    /** Set a new password from the emailed link. Signs the account out of its mobile devices. */
+    public function resetPassword(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'token' => ['required', 'string', 'max:200'],
+            'email' => ['required', 'email:rfc', 'max:190'],
+            'password' => ['required', 'confirmed', \Illuminate\Validation\Rules\Password::min(8)->letters()->numbers()],
+        ]);
+        $status = Password::reset(
+            ['email' => strtolower(trim($data['email'])), 'token' => $data['token'], 'password' => $data['password'], 'password_confirmation' => $request->input('password_confirmation')],
+            function (User $user, string $password) {
+                $user->password = $password; // hashed by the model cast
+                $user->setRememberToken(\Illuminate\Support\Str::random(60));
+                $user->save();
+                $user->tokens()->delete();
+            },
+        );
+        if ($status !== Password::PASSWORD_RESET) {
+            throw ValidationException::withMessages(['email' => 'That reset link is invalid or has expired. Ask for a new one.']);
+        }
+
+        return response()->json(['message' => 'Password changed. Sign in with your new password.']);
     }
 
     public function logout(Request $request): JsonResponse

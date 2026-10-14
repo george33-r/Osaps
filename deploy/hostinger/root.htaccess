@@ -21,3 +21,8 @@ Options -Indexes
 <FilesMatch "(^\.|\.(env|zip|md|lock|log|sql|xml|yml|yaml)$|^(artisan|composer\.json)$)">
     Require all denied
 </FilesMatch>
+
+# Third line: the app's own folders are never web pages, even if rewriting stops working.
+<IfModule mod_alias.c>
+    RedirectMatch 404 ^/(app|bootstrap|config|database|resources|routes|storage|tests|vendor)(/|$)
+</IfModule>

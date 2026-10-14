@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\PaymentEvent;
 use App\Payments\PaymentGateway;
 use App\Services\CheckoutService;
+use App\Services\TrustService;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
@@ -23,7 +24,7 @@ use Illuminate\Support\Facades\Log;
  */
 class PaystackWebhookController extends Controller
 {
-    public function __invoke(Request $request, PaymentGateway $gateway, CheckoutService $checkouts): Response
+    public function __invoke(Request $request, PaymentGateway $gateway, CheckoutService $checkouts, TrustService $trust): Response
     {
         $raw = $request->getContent();
         if (strlen($raw) > 100_000 || ! $gateway->verifyWebhook($raw, $request->header('x-paystack-signature'))) {
@@ -33,7 +34,8 @@ class PaystackWebhookController extends Controller
         $payload = json_decode($raw, true);
         $event = is_array($payload) ? (string) ($payload['event'] ?? '') : '';
         $data = is_array($payload['data'] ?? null) ? $payload['data'] : [];
-        $reference = is_string($data['reference'] ?? null) ? $data['reference'] : null;
+        $reference = is_string($data['reference'] ?? null) ? $data['reference']
+            : (is_string($data['transaction_reference'] ?? null) ? $data['transaction_reference'] : null);
 
         $key = hash('sha256', $raw);
         try {
@@ -55,7 +57,17 @@ class PaystackWebhookController extends Controller
         }
 
         $result = 'ignored';
-        if ($event === 'charge.success' && $reference !== null && ChargeCheck::isOurReference($reference)) {
+        if (str_starts_with($event, 'refund.')) {
+            try {
+                $result = $trust->applyRefundEvent($event, $data);
+            } catch (\Throwable $e) {
+                $record->result = 'error';
+                $record->save();
+                Log::error('Paystack refund webhook failed', ['reference' => $reference, 'error' => $e->getMessage()]);
+
+                return response('error', 500);
+            }
+        } elseif ($event === 'charge.success' && $reference !== null && ChargeCheck::isOurReference($reference)) {
             try {
                 $checkout = $checkouts->confirmPaid($reference, $data);
                 $result = $checkout->payment_status;

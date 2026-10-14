@@ -11,7 +11,7 @@ use Illuminate\Http\Request;
 
 class FabricOrderController extends Controller
 {
-    private const WITH = ['items.fabric', 'events', 'vendor', 'checkout', 'group'];
+    private const WITH = ['items.fabric', 'events', 'vendor', 'checkout', 'group', 'refunds'];
 
     public function __construct(private readonly CheckoutService $checkouts) {}
 
@@ -52,10 +52,24 @@ class FabricOrderController extends Controller
         $data = $request->validate([
             'status' => ['required', 'string', 'max:20'],
             'note' => ['nullable', 'string', 'max:500'],
+            'code' => ['nullable', 'string', 'max:12'],
         ]);
-        $order = $this->checkouts->transition($request->user(), $fabricOrder, $data['status'], $data['note'] ?? null);
+        $order = $this->checkouts->transition($request->user(), $fabricOrder, $data['status'], $data['note'] ?? null, $data['code'] ?? null);
 
         return response()->json(['data' => $this->present($order->load(self::WITH), $viewer, $request)]);
+    }
+
+    /** The buyer reports a problem. Pauses completion and the vendor's payout until an admin settles it. */
+    public function dispute(Request $request, FabricOrder $fabricOrder, \App\Services\TrustService $trust): JsonResponse
+    {
+        $data = $request->validate([
+            'reason' => ['required', 'string', \Illuminate\Validation\Rule::in(array_keys(\App\Domain\Shop\DisputeRules::REASONS))],
+            'details' => ['required', 'string', 'min:10', 'max:2000'],
+        ]);
+        abort_unless($fabricOrder->customer_id === $request->user()->id, 403);
+        $order = $trust->openDispute($request->user(), $fabricOrder, $data['reason'], $data['details']);
+
+        return response()->json(['data' => $this->present($order->load(self::WITH), 'customer', $request)]);
     }
 
     private function viewer(Request $request, FabricOrder $order): string
@@ -63,6 +77,9 @@ class FabricOrderController extends Controller
         $user = $request->user();
         if ($order->customer_id === $user->id) {
             return 'customer';
+        }
+        if ($user->isAdmin()) {
+            return 'admin';
         }
         $order->loadMissing('vendor');
         abort_unless($order->vendor?->user_id === $user->id && $order->status !== 'pending_payment', 403);

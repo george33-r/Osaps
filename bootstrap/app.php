@@ -25,6 +25,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // Same-origin SPA uses Sanctum cookie sessions; mobile apps use bearer tokens.
         $middleware->statefulApi();
         $middleware->throttleApi('api');
+        $middleware->alias(['admin' => \App\Http\Middleware\EnsureAdmin::class]);
+        // Security headers on every response Laravel serves (static SPA files get them from .htaccess).
+        $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // One predictable error shape for web and mobile: { message, code, errors? }.

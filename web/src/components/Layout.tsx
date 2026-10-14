@@ -10,13 +10,13 @@ function PreviewBanner() {
   const { user, refresh } = useSession()
   const navigate = useNavigate()
   if (import.meta.env.MODE !== 'preview') return null
-  const switchTo = async (role: 'customer' | 'tailor' | 'fabric_vendor' | null) => {
+  const switchTo = async (role: 'customer' | 'tailor' | 'fabric_vendor' | 'admin' | 'admin2' | null) => {
     if (import.meta.env.MODE === 'preview') {
       const { previewSwitchUser } = await import('../api/preview')
       previewSwitchUser(role)
     }
     await refresh()
-    navigate(role === 'tailor' ? '/tailor/inbox' : role === 'fabric_vendor' ? '/vendor' : role === 'customer' ? '/fabrics' : '/')
+    navigate(role === 'tailor' ? '/tailor/inbox' : role === 'fabric_vendor' ? '/vendor' : role === 'customer' ? '/fabrics' : role ? '/admin' : '/')
   }
   return (
     <div className="preview-banner" role="note">
@@ -26,6 +26,8 @@ function PreviewBanner() {
         <button aria-pressed={user?.role === 'customer'} onClick={() => switchTo('customer')}>Customer</button>
         <button aria-pressed={user?.role === 'tailor'} onClick={() => switchTo('tailor')}>Tailor</button>
         <button aria-pressed={user?.role === 'fabric_vendor'} onClick={() => switchTo('fabric_vendor')}>Vendor</button>
+        <button aria-pressed={user?.id === 4} onClick={() => switchTo('admin')}>Admin</button>
+        <button aria-pressed={user?.id === 5} onClick={() => switchTo('admin2')}>Admin 2</button>
         <button aria-pressed={!user} onClick={() => switchTo(null)}>Visitor</button>
       </span>
     </div>
@@ -120,6 +122,7 @@ function Header() {
   const account = user
     ? [
         ...(user.role === 'customer' ? [{ to: '/requests', label: 'My requests' }] : []),
+        ...(user.role === 'admin' ? [{ to: '/admin', label: 'Back office' }] : []),
         ...(user.role === 'tailor' ? [{ to: '/tailor/profile', label: 'My profile' }] : []),
         { to: '/offers', label: 'My offers' },
         { to: '/aso-ebi', label: 'Aṣọ-ẹbí' },

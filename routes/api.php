@@ -10,7 +10,8 @@ use App\Http\Controllers\Api\V1\OfferMessageController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\TailorController;
 use App\Http\Controllers\Api\V1\AccountController;
-use App\Http\Controllers\Api\V1\AdminPayoutController;
+use App\Http\Controllers\Api\V1\AdminController;
+use App\Http\Controllers\Api\V1\CartController;
 use App\Http\Controllers\Api\V1\AsoEbiController;
 use App\Http\Controllers\Api\V1\FabricOrderController;
 use App\Http\Controllers\Api\V1\LiveController;
@@ -54,6 +55,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
     Route::middleware('throttle:auth')->group(function () {
         Route::post('auth/register', [AuthController::class, 'register'])->name('auth.register');
         Route::post('auth/login', [AuthController::class, 'login'])->name('auth.login');
+        Route::post('auth/forgot-password', [AuthController::class, 'forgotPassword'])->name('auth.forgot');
+        Route::post('auth/reset-password', [AuthController::class, 'resetPassword'])->name('auth.reset');
     });
 
     // Authenticated (cookie session for the SPA, bearer token for mobile)
@@ -112,6 +115,11 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::get('fabric-orders', [FabricOrderController::class, 'index'])->name('fabric-orders.index');
         Route::get('fabric-orders/{fabricOrder}', [FabricOrderController::class, 'show'])->name('fabric-orders.show');
         Route::post('fabric-orders/{fabricOrder}/transitions', [FabricOrderController::class, 'transition'])->middleware('throttle:marketplace-writes')->name('fabric-orders.transition');
+        Route::post('fabric-orders/{fabricOrder}/dispute', [FabricOrderController::class, 'dispute'])->middleware('throttle:marketplace-writes')->name('fabric-orders.dispute');
+
+        // Cart saved to the account, so it follows the shopper between devices
+        Route::get('cart', [CartController::class, 'show'])->name('cart.show');
+        Route::put('cart', [CartController::class, 'replace'])->middleware('throttle:shop-quotes')->name('cart.replace');
 
         // Aṣọ-ẹbí group orders
         Route::get('aso-ebi', [AsoEbiController::class, 'mine'])->name('aso-ebi.mine');
@@ -134,9 +142,22 @@ Route::prefix('v1')->name('v1.')->group(function () {
         // Try-on (AI image), off until a provider key is set
         Route::post('ai/try-on', TryOnController::class)->middleware('throttle:ai')->name('ai.try-on');
 
-        // Admin: vendor payouts
-        Route::get('admin/payouts', [AdminPayoutController::class, 'index'])->name('admin.payouts');
-        Route::post('admin/fabric-orders/{fabricOrder}/paid-out', [AdminPayoutController::class, 'markPaid'])->name('admin.payouts.paid');
+        // Back office (admins only): shops, problem reports, refunds, two-person payouts, stuck orders, log.
+        Route::middleware(['admin', 'throttle:marketplace-writes'])->prefix('admin')->name('admin.')->group(function () {
+            Route::get('overview', [AdminController::class, 'overview'])->withoutMiddleware('throttle:marketplace-writes')->name('overview');
+            Route::get('vendors', [AdminController::class, 'vendors'])->withoutMiddleware('throttle:marketplace-writes')->name('vendors');
+            Route::post('vendors/{fabricVendor}/review', [AdminController::class, 'reviewVendor'])->whereNumber('fabricVendor')->name('vendors.review');
+            Route::get('disputes', [AdminController::class, 'disputes'])->withoutMiddleware('throttle:marketplace-writes')->name('disputes');
+            Route::post('fabric-orders/{fabricOrder}/resolve', [AdminController::class, 'resolveDispute'])->name('disputes.resolve');
+            Route::get('refunds', [AdminController::class, 'refunds'])->withoutMiddleware('throttle:marketplace-writes')->name('refunds');
+            Route::post('fabric-orders/{fabricOrder}/refund', [AdminController::class, 'refund'])->name('refunds.store');
+            Route::post('refunds/{refund}/mark-failed', [AdminController::class, 'markRefundFailed'])->whereNumber('refund')->name('refunds.failed');
+            Route::get('payouts', [AdminController::class, 'payouts'])->withoutMiddleware('throttle:marketplace-writes')->name('payouts');
+            Route::post('fabric-orders/{fabricOrder}/payout-approve', [AdminController::class, 'approvePayout'])->name('payouts.approve');
+            Route::post('fabric-orders/{fabricOrder}/paid-out', [AdminController::class, 'markPaid'])->name('payouts.paid');
+            Route::get('stuck', [AdminController::class, 'stuck'])->withoutMiddleware('throttle:marketplace-writes')->name('stuck');
+            Route::get('actions', [AdminController::class, 'actions'])->withoutMiddleware('throttle:marketplace-writes')->name('actions');
+        });
 
         // Vendor workspace
         Route::get('vendor/fabric-orders', [FabricOrderController::class, 'vendor'])->name('vendor.fabric-orders');

@@ -1,0 +1,103 @@
+# Runs every test on each push and pull request, on GitHub's free runners.
+# This is where the Laravel code (checkout, Paystack webhook, refunds, payouts) is actually
+# executed: the Hostinger account has no Composer or command line to run it.
+name: tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  domain:
+    name: Business rules (no framework)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+      - run: php tests/bin/run-domain-tests.php
+
+  laravel:
+    name: Laravel feature tests (MySQL, like production)
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: osaps_test
+          MYSQL_ROOT_PASSWORD: root
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -proot"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_DATABASE: osaps_test
+      DB_USERNAME: root
+      DB_PASSWORD: root
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, pdo_mysql, pdo_sqlite, intl, bcmath, gd
+          coverage: none
+      - name: Install PHP packages
+        run: composer update --no-interaction --prefer-dist --no-progress
+      - name: Prepare the app
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+      - name: Migrations run forwards and back
+        run: |
+          php artisan migrate --force
+          php artisan migrate:rollback --force
+          php artisan migrate --force
+      - name: Feature tests (MySQL)
+        # phpunit.xml defaults to SQLite in memory; these variables point it at MySQL instead.
+        run: php artisan test
+        env:
+          DB_CONNECTION: mysql
+      - name: Feature tests (SQLite)
+        run: php artisan test
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ':memory:'
+      - name: Upload the PHP packages for Hostinger
+        # The vendor folder built here can be uploaded to Hostinger (Actions > this run > Artifacts).
+        run: |
+          composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+          zip -qr vendor-for-hostinger.zip vendor composer.lock
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vendor-for-hostinger
+          path: vendor-for-hostinger.zip
+          retention-days: 14
+
+  web:
+    name: Web app (types, build, no preview code in production)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - run: npm run build
+      - name: Production bundle has no design-preview code
+        run: |
+          if grep -rqE 'simulatePayment|Design preview with|DESIGN PREVIEW|preview-growth' ../public/spa/assets; then
+            echo "Preview code leaked into the production bundle"; exit 1
+          fi

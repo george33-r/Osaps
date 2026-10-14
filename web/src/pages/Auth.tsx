@@ -42,7 +42,7 @@ export function SignIn() {
     try {
       const user = await api.login(String(form.get('email')), String(form.get('password')))
       setUser(user)
-      navigate(safeNext(params.get('next'), user.role === 'tailor' ? '/tailor/inbox' : user.role === 'fabric_vendor' ? '/vendor' : '/fabrics'), { replace: true })
+      navigate(safeNext(params.get('next'), user.role === 'tailor' ? '/tailor/inbox' : user.role === 'fabric_vendor' ? '/vendor' : user.role === 'admin' ? '/admin' : '/fabrics'), { replace: true })
     } catch (err) {
       setError(err instanceof ApiError ? err : new ApiError('Could not sign in.', 0, 'unknown'))
     } finally {
@@ -53,6 +53,7 @@ export function SignIn() {
   return (
     <AuthFrame title="Welcome back" intro="Sign in to follow your requests, offers and orders.">
       <form className="form" onSubmit={submit} noValidate>
+        {params.get('reset') && !error && <p className="form__ok" role="status">Password changed. Sign in with your new password.</p>}
         {error && !error.field('email') && <p className="form__error" role="alert">{error.message}</p>}
         <Field label="Email" error={error?.field('email')}>
           {(p) => <input {...p} name="email" type="email" autoComplete="email" required className="input" />}
@@ -60,6 +61,7 @@ export function SignIn() {
         <Field label="Password">
           {(p) => <input {...p} name="password" type="password" autoComplete="current-password" required className="input" />}
         </Field>
+        <p className="form__aside"><Link to="/forgot-password">Forgot your password?</Link></p>
         <Button type="submit" busy={busy}>
           Sign in
         </Button>
@@ -143,6 +145,77 @@ export function Register() {
         <p className="muted">
           Already have an account? <Link to="/signin">Sign in</Link>
         </p>
+      </form>
+    </AuthFrame>
+  )
+}
+
+export function ForgotPassword() {
+  const [busy, setBusy] = useState(false)
+  const [done, setDone] = useState<string | null>(null)
+  const [error, setError] = useState<ApiError | null>(null)
+  const submit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const email = String(new FormData(e.currentTarget).get('email') ?? '').trim()
+    setBusy(true); setError(null)
+    try { setDone(await api.forgotPassword(email)) } catch (err) { setError(err instanceof ApiError ? err : new ApiError('Could not send the link.', 0, 'unknown')) } finally { setBusy(false) }
+  }
+  return (
+    <AuthFrame title="Reset your password" intro="Enter the email you signed up with. We will send a link to choose a new password.">
+      {done ? (
+        <div className="form">
+          <p className="form__ok" role="status">{done}</p>
+          <p className="muted">No email? Check your spam folder, or wait a minute and try again.</p>
+          <Link to="/signin">Back to sign in</Link>
+        </div>
+      ) : (
+        <form className="form" onSubmit={submit} noValidate>
+          {error && !error.field('email') && <p className="form__error" role="alert">{error.message}</p>}
+          <Field label="Email" error={error?.field('email')}>
+            {(p) => <input {...p} name="email" type="email" autoComplete="email" required className="input" />}
+          </Field>
+          <Button type="submit" busy={busy}>Send reset link</Button>
+          <p className="muted"><Link to="/signin">Back to sign in</Link></p>
+        </form>
+      )}
+    </AuthFrame>
+  )
+}
+
+export function ResetPassword() {
+  const [params] = useSearchParams()
+  const navigate = useNavigate()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<ApiError | null>(null)
+  const token = params.get('token') ?? ''
+  const email = params.get('email') ?? ''
+  const submit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const f = new FormData(e.currentTarget)
+    setBusy(true); setError(null)
+    try {
+      await api.resetPassword({ token, email, password: String(f.get('password')), password_confirmation: String(f.get('password_confirmation')) })
+      navigate('/signin?reset=1', { replace: true })
+    } catch (err) { setError(err instanceof ApiError ? err : new ApiError('Could not change the password.', 0, 'unknown')) } finally { setBusy(false) }
+  }
+  if (!token || !email) {
+    return (
+      <AuthFrame title="Link not complete" intro="Open the link from your email again, or ask for a new one.">
+        <Link className="btn btn--primary" to="/forgot-password">Ask for a new link</Link>
+      </AuthFrame>
+    )
+  }
+  return (
+    <AuthFrame title="Choose a new password" intro={`For ${email}.`}>
+      <form className="form" onSubmit={submit} noValidate>
+        {error && !error.field('password') && <p className="form__error" role="alert">{error.field('email') ?? error.message}</p>}
+        <Field label="New password" hint="At least 8 characters, with letters and numbers." error={error?.field('password')}>
+          {(p) => <input {...p} name="password" type="password" autoComplete="new-password" required className="input" />}
+        </Field>
+        <Field label="Confirm new password">
+          {(p) => <input {...p} name="password_confirmation" type="password" autoComplete="new-password" required className="input" />}
+        </Field>
+        <Button type="submit" busy={busy}>Save new password</Button>
       </form>
     </AuthFrame>
   )

@@ -58,7 +58,8 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->singleton(\App\Domain\AsoEbi\AsoEbiRules::class, fn () => new \App\Domain\AsoEbi\AsoEbiRules);
         $this->app->singleton(\App\Domain\Shop\PayoutRules::class, fn () => new \App\Domain\Shop\PayoutRules(
-            autoCompleteDays: (int) config('marketplace.shop.auto_complete_days', 3),
+            autoCompleteDays: (int) config('marketplace.shop.auto_complete_days', 7),
+            twoPersonPayouts: (bool) config('marketplace.shop.two_person_payouts', true),
         ));
         $this->app->singleton(\App\Domain\Diaspora\ShippingZones::class, fn () => new \App\Domain\Diaspora\ShippingZones(
             array_map('intval', (array) config('marketplace.diaspora.shipping_minor')),
@@ -81,6 +82,11 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Password reset emails link to the web app's own page, not a Laravel view.
+        \Illuminate\Auth\Notifications\ResetPassword::createUrlUsing(
+            fn ($user, string $token) => url('/reset-password').'?token='.urlencode($token).'&email='.urlencode($user->getEmailForPasswordReset())
+        );
+
         // Strict Eloquent catches lazy loading and silently discarded attributes — in local and test runs only,
         // never on a live server, where it would turn a missed eager-load into a 500.
         Model::shouldBeStrict($this->app->environment('local', 'testing'));

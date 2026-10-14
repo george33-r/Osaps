@@ -74,8 +74,14 @@ return [
         'delivery_fee_per_vendor_minor' => (int) env('SHOP_DELIVERY_FEE_MINOR', 300_000),
         // How long stock is held while the buyer pays.
         'checkout_hold_minutes' => (int) env('SHOP_CHECKOUT_HOLD_MINUTES', 60),
-        // Buyer protection: an order the buyer has not confirmed completes this many days after delivery.
-        'auto_complete_days' => (int) env('SHOP_AUTO_COMPLETE_DAYS', 3),
+        // Buyer protection: after a confirmed delivery (buyer tap or delivery code) the buyer has this
+        // many days to report a problem before the order completes and the vendor can be paid.
+        'auto_complete_days' => (int) env('SHOP_AUTO_COMPLETE_DAYS', 7),
+        // Paying a vendor needs two different admins: one approves, another records the transfer.
+        // Turn off only while OSAPS has a single admin, and turn it back on as soon as it has two.
+        // Paid orders with no handover after this many days show up on the admin "stuck" list.
+        'stuck_after_days' => (int) env('SHOP_STUCK_AFTER_DAYS', 7),
+        'two_person_payouts' => (bool) env('SHOP_TWO_PERSON_PAYOUTS', true),
         'offers' => [
             // Lowest offer allowed, as a share of the list price (7000 = 70%).
             'floor_bps' => (int) env('SHOP_OFFER_FLOOR_BPS', 7_000),

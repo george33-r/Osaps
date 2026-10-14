@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Domain\Shop\VendorVerification;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\FabricResource;
 use App\Models\Fabric;
@@ -27,8 +28,12 @@ class VendorFabricController extends Controller
         ])->values()]);
     }
 
-    /** Create or update the vendor's shop details. */
-    public function upsertProfile(Request $request): JsonResponse
+    /**
+     * Create or update the vendor's shop details. A complete profile is sent for review
+     * automatically. Changing bank details on a verified shop sends it back for review, so a
+     * stolen login cannot quietly redirect payouts.
+     */
+    public function upsertProfile(Request $request, \App\Services\TrustService $trust): JsonResponse
     {
         $user = $request->user();
         abort_unless($user->role === 'fabric_vendor', 403);
@@ -45,17 +50,28 @@ class VendorFabricController extends Controller
         $vendor = $user->fabricVendor()->firstOrNew([]);
         if (! $vendor->exists) {
             $vendor->slug = \Illuminate\Support\Str::slug($data['business_name']).'-'.\Illuminate\Support\Str::lower(\Illuminate\Support\Str::random(4));
+            $vendor->verification_status = VendorVerification::UNVERIFIED;
         }
+        // An empty account number field means "keep the saved one" (the form only shows the last 4 digits).
+        if (($data['bank_account_number'] ?? null) === null) {
+            unset($data['bank_account_number']);
+        }
+        $bankChanged = $vendor->exists && (
+            (array_key_exists('bank_account_number', $data) && $data['bank_account_number'] !== $vendor->bank_account_number)
+            || ($data['bank_name'] ?? null) !== $vendor->bank_name || ($data['bank_account_name'] ?? null) !== $vendor->bank_account_name);
         $vendor->fill($data);
+        if ($bankChanged && $vendor->verification_status === VendorVerification::VERIFIED) {
+            $vendor->verification_status = VendorVerification::PENDING;
+            $vendor->verification_requested_at = now();
+            $vendor->verification_note = 'Bank details changed. OSAPS checks them again before the shop goes back live.';
+        }
         $vendor->save();
+        if (in_array($vendor->verification_status, [VendorVerification::UNVERIFIED, VendorVerification::REJECTED], true)
+            && VendorVerification::missingForReview($this->reviewFields($vendor)) === []) {
+            $vendor = $trust->requestReview($vendor);
+        }
 
-        return response()->json(['data' => [
-            'business_name' => $vendor->business_name, 'slug' => $vendor->slug, 'city' => $vendor->city, 'market' => $vendor->market,
-            'phone' => $vendor->phone, 'whatsapp' => $vendor->whatsapp, 'verified' => $vendor->verification_status === 'verified',
-            'bank_name' => $vendor->bank_name, 'bank_account_name' => $vendor->bank_account_name,
-            // Only the last four digits are ever sent back.
-            'bank_account_last4' => $vendor->bank_account_number ? substr((string) $vendor->bank_account_number, -4) : null,
-        ]]);
+        return response()->json(['data' => $this->presentProfile($vendor->fresh())]);
     }
 
     public function profile(Request $request): JsonResponse
@@ -63,12 +79,33 @@ class VendorFabricController extends Controller
         $vendor = $request->user()->fabricVendor;
         abort_if($vendor === null, 404);
 
-        return response()->json(['data' => [
+        return response()->json(['data' => $this->presentProfile($vendor)]);
+    }
+
+    /** @return array<string,mixed> */
+    private function reviewFields(\App\Models\FabricVendor $vendor): array
+    {
+        return $vendor->only(['business_name', 'city', 'market', 'phone', 'bank_name', 'bank_account_name']) + ['bank_account_number' => $vendor->bank_account_number];
+    }
+
+    /** @return array<string,mixed> */
+    private function presentProfile(\App\Models\FabricVendor $vendor): array
+    {
+        $status = $vendor->verification_status ?: VendorVerification::UNVERIFIED;
+
+        return [
             'business_name' => $vendor->business_name, 'slug' => $vendor->slug, 'city' => $vendor->city, 'market' => $vendor->market,
-            'phone' => $vendor->phone, 'whatsapp' => $vendor->whatsapp, 'verified' => $vendor->verification_status === 'verified',
+            'phone' => $vendor->phone, 'whatsapp' => $vendor->whatsapp, 'verified' => $status === VendorVerification::VERIFIED,
+            'verification' => [
+                'status' => $status,
+                'label' => VendorVerification::LABELS[$status] ?? $status,
+                'note' => $vendor->verification_note,
+                'missing' => VendorVerification::missingForReview($this->reviewFields($vendor)),
+            ],
             'bank_name' => $vendor->bank_name, 'bank_account_name' => $vendor->bank_account_name,
+            // Only the last four digits are ever sent back.
             'bank_account_last4' => $vendor->bank_account_number ? substr((string) $vendor->bank_account_number, -4) : null,
-        ]]);
+        ];
     }
 
     /** Add a photo or a short video of the real bolt. */
@@ -103,7 +140,7 @@ class VendorFabricController extends Controller
         ];
     }
 
-    /** Add a new listing. It goes live straight away unless saved as a draft. */
+    /** Add a new listing. Buyers see it once it is active and the shop is verified. */
     public function store(Request $request): JsonResponse
     {
         $vendor = $request->user()->fabricVendor;

@@ -226,6 +226,8 @@ class ShopFlowTest extends TestCase
         $this->actingAs($this->vendorUser())->postJson("/api/v1/fabric-orders/{$ref}/transitions", ['status' => 'out_for_delivery'])->assertOk();
         $this->actingAs($this->buyer)->postJson("/api/v1/fabric-orders/{$ref}/transitions", ['status' => 'delivered'])->assertOk();
         $this->actingAs($this->buyer)->postJson("/api/v1/fabric-orders/{$ref}/transitions", ['status' => 'completed'])->assertOk()->assertJsonPath('data.status', 'completed');
+        // The vendor cannot complete an order for the buyer.
+        $this->assertFalse(\App\Domain\Shop\FabricOrderStatus::can('delivered', 'completed', 'vendor'));
     }
 
     public function test_vendor_cannot_set_stock_below_what_buyers_are_paying_for(): void

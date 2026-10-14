@@ -32,7 +32,7 @@ class AsoEbiService
                 deadline: $deadline,
                 eventDate: new DateTimeImmutable((string) $data['event_date']),
                 now: $now,
-                fabricListed: $fabric->status === 'active',
+                fabricListed: $fabric->isBuyable(),
                 fulfilment: (string) $data['fulfilment'],
             );
 

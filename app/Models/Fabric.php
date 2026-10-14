@@ -53,9 +53,18 @@ class Fabric extends Model
         };
     }
 
+    /** On sale to the public: an active listing from a vendor OSAPS has verified. */
     public function scopeListed(Builder $q): Builder
     {
-        return $q->where('status', 'active');
+        return $q->where('status', 'active')
+            ->whereHas('vendor', fn (Builder $v) => $v->where('verification_status', \App\Domain\Shop\VendorVerification::VERIFIED));
+    }
+
+    /** Same test as scopeListed, for a fabric already loaded with its vendor. */
+    public function isBuyable(): bool
+    {
+        return $this->status === 'active'
+            && $this->vendor?->verification_status === \App\Domain\Shop\VendorVerification::VERIFIED;
     }
 
     /**

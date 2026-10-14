@@ -60,13 +60,28 @@ class PaystackGateway implements PaymentGateway
         return is_array($data) ? $data : [];
     }
 
+    public function refund(string $reference, int $amountMinor, string $currency, string $note): array
+    {
+        $this->assertEnabled();
+        // https://paystack.com/docs/api/refund/ — "transaction" takes the reference or id.
+        $json = $this->call('post', '/refund', [
+            'transaction' => $reference,
+            'amount' => $amountMinor,
+            'currency' => $currency,
+            'merchant_note' => mb_substr($note, 0, 200),
+        ], unknownOnTimeout: true);
+        $data = $json['data'] ?? null;
+
+        return is_array($data) ? $data : [];
+    }
+
     public function verifyWebhook(string $rawBody, ?string $signature): bool
     {
         return $this->enabled() && PaystackSignature::verify($rawBody, $signature, (string) $this->secret);
     }
 
     /** @return array<string,mixed> */
-    private function call(string $method, string $path, array $body = []): array
+    private function call(string $method, string $path, array $body = [], bool $unknownOnTimeout = false): array
     {
         try {
             $res = Http::withToken((string) $this->secret)
@@ -75,6 +90,10 @@ class PaystackGateway implements PaymentGateway
                 ->{$method}(rtrim($this->baseUrl, '/').$path, $body);
         } catch (ConnectionException $e) {
             Log::warning('Paystack unreachable', ['path' => $path, 'error' => $e->getMessage()]);
+            if ($unknownOnTimeout) {
+                // The request may have reached Paystack. Do not let anyone retry until it is checked.
+                throw new DomainRuleViolation('Paystack did not answer. Check the Paystack dashboard before trying again.', 'payment_outcome_unknown');
+            }
             throw new DomainRuleViolation('We could not reach Paystack. Please try again in a moment.', 'payment_provider_unreachable');
         }
 

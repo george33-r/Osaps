@@ -49,14 +49,19 @@ final class FabricOrderStatus extends StateMachine
                 self::READY_FOR_PICKUP => ['vendor'],
                 self::CANCELLED => ['admin'],
             ],
+            // The vendor can mark it received only with the buyer's delivery code (checked by the service).
+            // An admin can confirm it after checking with both sides, or cancel it to refund the buyer.
             self::OUT_FOR_DELIVERY => [
-                self::DELIVERED => ['vendor', 'customer'],
+                self::DELIVERED => ['vendor', 'customer', 'admin'],
+                self::CANCELLED => ['admin'],
             ],
             self::READY_FOR_PICKUP => [
-                self::DELIVERED => ['vendor', 'customer'],
+                self::DELIVERED => ['vendor', 'customer', 'admin'],
+                self::CANCELLED => ['admin'],
             ],
             self::DELIVERED => [
-                self::COMPLETED => ['customer', 'system'],
+                self::COMPLETED => ['customer', 'system', 'admin'],
+                self::CANCELLED => ['admin'],
             ],
             self::COMPLETED => [],
             self::CANCELLED => [],

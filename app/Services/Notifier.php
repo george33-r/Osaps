@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Jobs\SendWhatsApp;
 use App\Messaging\WhatsAppClient;
 use App\Models\User;
 use App\Models\UserNotification;
@@ -9,8 +10,8 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Tells people what happened: always in the site's notification bell, and on WhatsApp too when
- * the person has switched WhatsApp updates on and given a phone number. WhatsApp is sent only
- * after the database change has committed, so nobody is told about something that rolled back.
+ * the person has switched WhatsApp updates on and given a phone number. WhatsApp goes through the
+ * queue after the database change has committed, so nobody is told about something that rolled back.
  */
 class Notifier
 {
@@ -38,6 +39,8 @@ class Notifier
         $first = strtok((string) $user->name, ' ') ?: 'there';
         $url = url($link ?? '/');
         $text = $title.($body ? ' '.$body : '');
-        DB::afterCommit(fn () => $this->whatsapp->send($to, $first, $text, $url));
+        // Queued, and only once the database change has committed. Without a queue worker
+        // (QUEUE_CONNECTION=sync) it simply sends straight away, as before.
+        DB::afterCommit(fn () => SendWhatsApp::dispatch($to, $first, $text, $url));
     }
 }

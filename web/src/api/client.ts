@@ -26,6 +26,15 @@ import type {
   CheckoutInput,
   Checkout,
   FabricOrder,
+  DisputeReason,
+  AdminOverview,
+  AdminVendor,
+  AdminOrderRow,
+  AdminRefund,
+  AdminPayoutGroup,
+  AdminActionRow,
+  VendorVerificationStatus,
+  SavedCartLine,
   FabricOrderStatus,
   VendorListing,
   VendorProfileInput,
@@ -117,7 +126,31 @@ export interface Api {
   cancelCheckout(reference: string): Promise<Checkout>
   fabricOrders(): Promise<FabricOrder[]>
   fabricOrder(reference: string): Promise<FabricOrder>
-  transitionFabricOrder(reference: string, status: FabricOrderStatus, note?: string | null): Promise<FabricOrder>
+  transitionFabricOrder(reference: string, status: FabricOrderStatus, note?: string | null, code?: string | null): Promise<FabricOrder>
+  reportProblem(reference: string, reason: DisputeReason, details: string): Promise<FabricOrder>
+
+  // Password reset (the answer is the same whether or not the email has an account)
+  forgotPassword(email: string): Promise<string>
+  resetPassword(input: { token: string; email: string; password: string; password_confirmation: string }): Promise<string>
+
+  // Cart saved to the account
+  savedCart(): Promise<SavedCartLine[]>
+  saveCart(items: CartItemInput[]): Promise<SavedCartLine[]>
+
+  // Back office (admins only)
+  adminOverview(): Promise<AdminOverview>
+  adminVendors(status: VendorVerificationStatus): Promise<AdminVendor[]>
+  adminReviewVendor(id: number, to: 'verified' | 'rejected' | 'suspended', note: string | null): Promise<void>
+  adminDisputes(): Promise<AdminOrderRow[]>
+  adminResolveDispute(reference: string, resolution: 'refund' | 'release', note: string): Promise<void>
+  adminRefunds(): Promise<{ owed: AdminOrderRow[]; recent: AdminRefund[] }>
+  adminRefund(reference: string, reason: string, amountMinor?: number | null): Promise<{ id: number; status: string; failure: string | null }>
+  adminMarkRefundFailed(id: number, note: string): Promise<void>
+  adminPayouts(): Promise<{ data: AdminPayoutGroup[]; two_person: boolean }>
+  adminApprovePayout(reference: string): Promise<void>
+  adminMarkPaid(reference: string, transferReference: string): Promise<void>
+  adminStuck(): Promise<AdminOrderRow[]>
+  adminActions(): Promise<AdminActionRow[]>
 
   // Vendor workspace
   vendorFabricOrders(): Promise<{ data: FabricOrder[]; is_vendor: boolean }>
@@ -287,7 +320,25 @@ export const httpApi: Api = {
   cancelCheckout: (ref) => data(http('POST', `/checkouts/${encodeURIComponent(ref)}/cancel`)),
   fabricOrders: () => data(http('GET', '/fabric-orders')),
   fabricOrder: (ref) => data(http('GET', `/fabric-orders/${encodeURIComponent(ref)}`)),
-  transitionFabricOrder: (ref, status, note) => data(http('POST', `/fabric-orders/${encodeURIComponent(ref)}/transitions`, { status, note: note ?? null })),
+  transitionFabricOrder: (ref, status, note, code) => data(http('POST', `/fabric-orders/${encodeURIComponent(ref)}/transitions`, { status, note: note ?? null, code: code ?? null })),
+  reportProblem: (ref, reason, details) => data(http('POST', `/fabric-orders/${encodeURIComponent(ref)}/dispute`, { reason, details })),
+  forgotPassword: (email) => http<{ message: string }>('POST', '/auth/forgot-password', { email }).then((r) => r.message),
+  resetPassword: (input) => http<{ message: string }>('POST', '/auth/reset-password', input).then((r) => r.message),
+  savedCart: () => data(http('GET', '/cart')),
+  saveCart: (items) => data(http('PUT', '/cart', { items })),
+  adminOverview: () => data(http('GET', '/admin/overview')),
+  adminVendors: (status) => data(http('GET', `/admin/vendors?status=${encodeURIComponent(status)}`)),
+  adminReviewVendor: (id, to, note) => http('POST', `/admin/vendors/${id}/review`, { to, note }).then(() => undefined),
+  adminDisputes: () => data(http('GET', '/admin/disputes')),
+  adminResolveDispute: (ref, resolution, note) => http('POST', `/admin/fabric-orders/${encodeURIComponent(ref)}/resolve`, { resolution, note }).then(() => undefined),
+  adminRefunds: () => data(http('GET', '/admin/refunds')),
+  adminRefund: (ref, reason, amountMinor) => data(http('POST', `/admin/fabric-orders/${encodeURIComponent(ref)}/refund`, { reason, amount_minor: amountMinor ?? null })),
+  adminMarkRefundFailed: (id, note) => http('POST', `/admin/refunds/${id}/mark-failed`, { note }).then(() => undefined),
+  adminPayouts: () => http<{ data: AdminPayoutGroup[]; meta: { two_person_payouts: boolean } }>('GET', '/admin/payouts').then((r) => ({ data: r.data, two_person: r.meta.two_person_payouts })),
+  adminApprovePayout: (ref) => http('POST', `/admin/fabric-orders/${encodeURIComponent(ref)}/payout-approve`).then(() => undefined),
+  adminMarkPaid: (ref, transferReference) => http('POST', `/admin/fabric-orders/${encodeURIComponent(ref)}/paid-out`, { transfer_reference: transferReference }).then(() => undefined),
+  adminStuck: () => data(http('GET', '/admin/stuck')),
+  adminActions: () => data(http('GET', '/admin/actions')),
 
   vendorFabricOrders: () =>
     http<{ data: FabricOrder[]; meta: { is_vendor: boolean } }>('GET', '/vendor/fabric-orders').then((r) => ({ data: r.data, is_vendor: r.meta.is_vendor })),

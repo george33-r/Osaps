@@ -10,6 +10,9 @@ class FabricOrder extends Model
 {
     protected $fillable = [];
 
+    /** Only the buyer ever sees the delivery code, and only through FabricOrderResource. */
+    protected $hidden = ['delivery_code'];
+
     protected function casts(): array
     {
         return [
@@ -21,6 +24,10 @@ class FabricOrder extends Model
             'delivered_at' => 'datetime',
             'completed_at' => 'datetime',
             'paid_out_at' => 'datetime',
+            'dispute_opened_at' => 'datetime',
+            'dispute_resolved_at' => 'datetime',
+            'payout_approved_at' => 'datetime',
+            'delivery_code_attempts' => 'integer',
         ];
     }
 
@@ -52,6 +59,17 @@ class FabricOrder extends Model
     public function items(): HasMany
     {
         return $this->hasMany(FabricOrderItem::class);
+    }
+
+    public function refunds(): HasMany
+    {
+        return $this->hasMany(Refund::class)->orderBy('id');
+    }
+
+    /** Refunds that are done or on their way: what the buyer is already getting back. */
+    public function committedRefundMinor(): int
+    {
+        return (int) $this->refunds()->whereIn('status', ['pending', 'processed'])->sum('amount_minor');
     }
 
     public function events(): HasMany

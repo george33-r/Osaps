@@ -111,7 +111,7 @@ class GrowthFeaturesTest extends TestCase
         ])->assertStatus(422)->assertJsonPath('code', 'group_closed');
     }
 
-    public function test_vendor_payout_is_held_until_the_buyer_confirms_or_three_days_pass(): void
+    public function test_vendor_payout_is_held_until_a_confirmed_delivery_and_the_problem_window_passes(): void
     {
         $buyer = User::factory()->create();
         $cart = ['items' => [['fabric_id' => $this->fabric->id, 'quantity' => 2]], 'fulfilment' => 'delivery'];
@@ -121,22 +121,38 @@ class GrowthFeaturesTest extends TestCase
         $this->gateway->pay($c['reference'], $c['total']['amount_minor']);
         $this->actingAs($buyer)->postJson("/api/v1/checkouts/{$c['reference']}/verify")->assertJsonPath('data.payment_status', 'paid');
         $ref = $c['orders'][0]['reference'];
-        foreach (['packed', 'out_for_delivery', 'delivered'] as $s) {
+        $code = $this->actingAs($buyer)->getJson("/api/v1/fabric-orders/{$ref}")->json('data.delivery_code');
+        $this->assertSame(1, preg_match('/\A\d{6}\z/', (string) $code));
+        // The vendor never sees the code.
+        $this->actingAs($this->vendor())->getJson("/api/v1/fabric-orders/{$ref}")->assertJsonPath('data.delivery_code', null);
+        foreach (['packed', 'out_for_delivery'] as $s) {
             $this->actingAs($this->vendor())->postJson("/api/v1/fabric-orders/{$ref}/transitions", ['status' => $s])->assertOk();
         }
+        $this->actingAs($this->vendor())->postJson("/api/v1/fabric-orders/{$ref}/transitions", ['status' => 'delivered'])
+            ->assertStatus(422)->assertJsonPath('code', 'delivery_code_required');
+        $this->actingAs($this->vendor())->postJson("/api/v1/fabric-orders/{$ref}/transitions", ['status' => 'delivered', 'code' => $code])->assertOk();
         $this->assertSame('held', FabricOrder::query()->where('reference', $ref)->value('payout_status'));
-        $this->travel(73)->hours();
+        $this->travel(6)->days();
+        $this->artisan('shop:sweep')->assertSuccessful();
+        $this->assertSame('delivered', FabricOrder::query()->where('reference', $ref)->value('status'));
+        $this->travel(25)->hours();
         $this->artisan('shop:sweep')->assertSuccessful();
         $o = FabricOrder::query()->where('reference', $ref)->first();
         $this->assertSame('completed', $o->status);
         $this->assertSame('releasable', $o->payout_status);
 
         $this->actingAs($buyer)->getJson('/api/v1/admin/payouts')->assertForbidden();
-        $admin = User::factory()->create();
-        $admin->forceFill(['role' => 'admin'])->save();
-        $this->actingAs($admin)->getJson('/api/v1/admin/payouts')->assertOk()->assertJsonCount(1, 'data');
-        $this->actingAs($admin)->postJson("/api/v1/admin/fabric-orders/{$ref}/paid-out")->assertOk();
+        [$a1, $a2] = [User::factory()->create(), User::factory()->create()];
+        $a1->forceFill(['role' => 'admin'])->save();
+        $a2->forceFill(['role' => 'admin'])->save();
+        $this->actingAs($a1)->getJson('/api/v1/admin/payouts')->assertOk()->assertJsonCount(1, 'data');
+        // Two people: one approves, a different one records the transfer.
+        $this->actingAs($a1)->postJson("/api/v1/admin/fabric-orders/{$ref}/paid-out", ['transfer_reference' => 'TRF-001'])->assertStatus(422)->assertJsonPath('code', 'payout_not_approved');
+        $this->actingAs($a1)->postJson("/api/v1/admin/fabric-orders/{$ref}/payout-approve")->assertOk();
+        $this->actingAs($a1)->postJson("/api/v1/admin/fabric-orders/{$ref}/paid-out", ['transfer_reference' => 'TRF-001'])->assertStatus(422)->assertJsonPath('code', 'payout_needs_second_admin');
+        $this->actingAs($a2)->postJson("/api/v1/admin/fabric-orders/{$ref}/paid-out", ['transfer_reference' => 'TRF-001'])->assertOk();
         $this->assertSame('paid', $o->fresh()->payout_status);
+        $this->assertSame(['payout_approved', 'payout_paid'], \App\Models\AdminAction::query()->orderBy('id')->pluck('action')->all());
     }
 
     public function test_international_shipping_is_priced_by_country_and_refused_where_not_served(): void

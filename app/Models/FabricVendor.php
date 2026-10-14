@@ -18,7 +18,17 @@ class FabricVendor extends Model
 
     protected function casts(): array
     {
-        return ['is_demo' => 'boolean', 'verified_at' => 'datetime', 'bank_account_number' => 'encrypted'];
+        return ['is_demo' => 'boolean', 'verified_at' => 'datetime', 'verification_requested_at' => 'datetime', 'bank_account_number' => 'encrypted'];
+    }
+
+    public function isVerified(): bool
+    {
+        return \App\Domain\Shop\VendorVerification::canSell($this->verification_status);
+    }
+
+    public function hasBankDetails(): bool
+    {
+        return $this->bank_name && $this->bank_account_name && preg_match('/\A\d{10}\z/', (string) $this->bank_account_number) === 1;
     }
 
     public function user(): BelongsTo

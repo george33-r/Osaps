@@ -8,6 +8,8 @@ use App\Domain\Payments\ChargeCheck;
 use App\Domain\Shop\PayoutRules;
 use App\Domain\Shop\CartLine;
 use App\Domain\Shop\CartPricing;
+use App\Domain\Shop\DeliveryCode;
+use App\Domain\Shop\DisputeRules;
 use App\Domain\Shop\FabricOrderStatus;
 use App\Domain\Shop\PriceOfferStatus;
 use App\Domain\Support\DomainRuleViolation;
@@ -296,6 +298,10 @@ class CheckoutService
                     }
                     AsoEbiShare::query()->where('checkout_id', $checkout->id)->update(['status' => 'cancelled']);
                     Log::warning('Checkout paid after stock ran out; refund needed', ['reference' => $reference]);
+                    foreach (User::query()->where('role', User::ROLE_ADMIN)->pluck('id') as $adminId) {
+                        $this->notifier->notify($adminId, 'admin_refund_due', 'Refund due: '.$reference, 'Paid after the fabric sold out. Refund it from the admin screen.', '/admin?tab=refunds');
+                    }
+                    $this->notifier->notify($checkout->customer_id, 'refund_due', 'Sorry, that fabric sold out', 'Your payment arrived after the fabric sold out. OSAPS will refund you in full.', '/shop/orders');
 
                     return $checkout;
                 }
@@ -320,6 +326,11 @@ class CheckoutService
                 }
             }
 
+            // Bought: take these fabrics out of the buyer's saved cart.
+            if ($checkout->aso_ebi_group_id === null) {
+                \App\Models\CartItem::query()->where('user_id', $checkout->customer_id)->whereIn('fabric_id', $ids)->delete();
+            }
+
             $checkout->payment_status = Checkout::PAID;
             $checkout->amount_paid_minor = (int) $charge['amount'];
             $checkout->paid_at = now();
@@ -331,7 +342,7 @@ class CheckoutService
                 $this->notifier->notify($order->vendor?->user_id, 'order_paid', 'New paid order '.$order->reference,
                     $order->items->map(fn ($i) => "{$i->quantity} × {$i->name}")->implode(', ').'. Pack it and mark it packed.', '/vendor?tab=orders');
             }
-            $this->notifier->notify($checkout->customer_id, 'payment_confirmed', 'Payment confirmed', 'We received '.\App\Domain\Money\Money::minor($checkout->total_minor)->format().'. Your vendor is packing your fabric.', '/shop/orders');
+            $this->notifier->notify($checkout->customer_id, 'payment_confirmed', 'Payment confirmed', 'We received '.\App\Domain\Money\Money::minor($checkout->total_minor)->format().'. Your delivery code is on your order page: give it only when the fabric is in your hands.', '/shop/orders');
 
             $share = AsoEbiShare::query()->where('checkout_id', $checkout->id)->lockForUpdate()->first();
             if ($share !== null && $share->status !== 'paid') {
@@ -381,10 +392,14 @@ class CheckoutService
         return $n;
     }
 
-    /** Vendor or buyer moves an order along. */
-    public function transition(User $user, FabricOrder $order, string $to, ?string $note): FabricOrder
+    /**
+     * Vendor, buyer or admin moves an order along. A vendor can mark it received only with the
+     * buyer's delivery code; nobody can complete it while a problem report is open.
+     */
+    public function transition(User $user, FabricOrder $order, string $to, ?string $note, ?string $code = null): FabricOrder
     {
-        return DB::transaction(function () use ($user, $order, $to, $note) {
+        $codeError = null;
+        $result = DB::transaction(function () use ($user, $order, $to, $note, $code, &$codeError) {
             $order = FabricOrder::query()->with('vendor')->lockForUpdate()->findOrFail($order->id);
             $role = match (true) {
                 $user->isAdmin() => 'admin',
@@ -399,30 +414,71 @@ class CheckoutService
                     : 'The buyer chose delivery. Mark it out for delivery.', 'wrong_dispatch_step');
             }
             if ($to === FabricOrderStatus::CANCELLED && $role === 'customer') {
-                throw new DomainRuleViolation('To cancel a paid order, contact OSAPS support.', 'cancel_needs_support');
+                throw new DomainRuleViolation('To cancel a paid order, report a problem on it and OSAPS support will help.', 'cancel_needs_support');
             }
+            if ($role === 'admin' && in_array($to, [FabricOrderStatus::CANCELLED, FabricOrderStatus::DELIVERED, FabricOrderStatus::COMPLETED], true) && mb_strlen(trim((string) $note)) < 5) {
+                throw new DomainRuleViolation('Add a note saying why. The buyer and vendor will see it.', 'admin_note_required');
+            }
+            DisputeRules::assertNotBlocking($order->dispute_status, $to);
+            FabricOrderStatus::assert($order->status, $to, $role);
+
+            if ($to === FabricOrderStatus::DELIVERED) {
+                if ($role === 'vendor') {
+                    try {
+                        DeliveryCode::assertMatches($order->delivery_code, $code, $order->delivery_code_attempts);
+                    } catch (DomainRuleViolation $e) {
+                        if ($e->rule === 'delivery_code_wrong') {
+                            // Counted even though the move fails, so the code cannot be guessed.
+                            $order->delivery_code_attempts++;
+                            $order->save();
+                        }
+                        $codeError = $e;
+
+                        return null;
+                    }
+                }
+                $order->delivered_by = ['vendor' => 'code', 'customer' => 'buyer', 'admin' => 'admin'][$role];
+            }
+
             $this->moveOrder($order, $to, $user, $role, $note);
+            $days = $this->payouts->autoCompleteDays;
+            $ref = 'Order '.$order->reference;
             if ($role === 'vendor') {
                 $what = match ($to) {
                     FabricOrderStatus::PACKED => 'Your fabric is packed.',
-                    FabricOrderStatus::OUT_FOR_DELIVERY => 'Your fabric is on its way.',
-                    FabricOrderStatus::READY_FOR_PICKUP => 'Your fabric is ready to collect.',
-                    FabricOrderStatus::DELIVERED => 'The vendor marked your fabric as delivered. Confirm when you have it.',
+                    FabricOrderStatus::OUT_FOR_DELIVERY => 'Your fabric is on its way. Give the rider your delivery code only when you have it.',
+                    FabricOrderStatus::READY_FOR_PICKUP => 'Your fabric is ready to collect. Give the vendor your delivery code when you collect it.',
+                    FabricOrderStatus::DELIVERED => "Delivery confirmed with your code. Something wrong? Report it within {$days} days.",
                     default => null,
                 };
                 if ($what !== null) {
-                    $this->notifier->notify($order->customer_id, 'order_update', $what, 'Order '.$order->reference.' from '.$order->vendor?->business_name.'.', '/shop/orders/'.$order->reference);
+                    $this->notifier->notify($order->customer_id, 'order_update', $what, $ref.' from '.$order->vendor?->business_name.'.', '/shop/orders/'.$order->reference);
                 }
             }
-            if ($to === FabricOrderStatus::COMPLETED) {
-                $this->notifier->notify($order->vendor?->user_id, 'payout_releasable', 'Order '.$order->reference.' completed', 'The buyer confirmed receipt. Your payout is released for payment.', '/vendor?tab=orders');
+            if ($role === 'customer' && $to === FabricOrderStatus::DELIVERED) {
+                $this->notifier->notify($order->vendor?->user_id, 'order_update', $ref.' received', "The buyer confirmed they have it. Your payout is released after {$days} days unless they report a problem.", '/vendor?tab=orders');
+            }
+            if ($role === 'admin') {
+                \App\Models\AdminAction::record($user, 'order_'.$to, $order, $note);
+                foreach ([$order->customer_id => '/shop/orders/'.$order->reference, $order->vendor?->user_id => '/vendor?tab=orders'] as $uid => $link) {
+                    $this->notifier->notify($uid, 'order_update', $ref.': '.(FabricOrderStatus::LABELS[$to] ?? $to).' by OSAPS', $note, $link);
+                }
+            }
+            if ($to === FabricOrderStatus::COMPLETED && $role !== 'admin') {
+                $this->notifier->notify($order->vendor?->user_id, 'payout_releasable', $ref.' completed', 'The buyer confirmed all is well. Your payout is ready for OSAPS to send.', '/vendor?tab=orders');
             }
 
             return $order->fresh(['items', 'events', 'vendor', 'checkout']);
         });
+        if ($codeError !== null) {
+            throw $codeError;
+        }
+
+        return $result;
     }
 
-    private function moveOrder(FabricOrder $order, string $to, ?User $actor, string $role, ?string $note, bool $force = false): void
+    /** @internal Moves an order and keeps its payout status and history in step. Callers hold the row lock. */
+    public function moveOrder(FabricOrder $order, string $to, ?User $actor, string $role, ?string $note, bool $force = false): void
     {
         $from = $order->status;
         if ($from === $to) {
@@ -432,34 +488,40 @@ class CheckoutService
             FabricOrderStatus::assert($from, $to, $role);
         }
         $order->status = $to;
+        if ($to === FabricOrderStatus::PAID && ($order->delivery_code === null || $order->delivery_code === '')) {
+            $order->delivery_code = DeliveryCode::generate();
+        }
         if ($to === FabricOrderStatus::DELIVERED) {
             $order->delivered_at = now();
         }
         if ($to === FabricOrderStatus::COMPLETED) {
             $order->completed_at = now();
+            $order->delivered_at ??= now();
         }
-        if ($order->payout_status !== PayoutRules::PAID) {
+        if (! in_array($order->payout_status, [PayoutRules::PAID, PayoutRules::APPROVED], true)) {
             $order->payout_status = PayoutRules::forStatus($to);
         }
         $order->save();
         $order->events()->create(['actor_id' => $actor?->id, 'actor_role' => $role, 'from_status' => $from, 'to_status' => $to, 'note' => $note]);
     }
 
-    /** Complete orders the buyer has not confirmed some days after delivery, releasing the vendor's payout. */
+    /** Complete confirmed deliveries once the buyer's problem-report window has passed with nothing reported. */
     public function autoCompleteDelivered(): int
     {
         $n = 0;
         $cutoff = now()->subDays($this->payouts->autoCompleteDays);
-        $due = FabricOrder::query()->where('status', FabricOrderStatus::DELIVERED)->where('delivered_at', '<=', $cutoff)->limit(100)->pluck('id');
+        $due = FabricOrder::query()->where('status', FabricOrderStatus::DELIVERED)->where('delivered_at', '<=', $cutoff)
+            ->where(fn ($q) => $q->whereNull('dispute_status')->orWhere('dispute_status', '!=', DisputeRules::OPEN))
+            ->limit(100)->pluck('id');
         foreach ($due as $id) {
             DB::transaction(function () use ($id, &$n) {
                 $order = FabricOrder::query()->with('vendor')->lockForUpdate()->find($id);
                 $deliveredAt = $order?->delivered_at ? \DateTimeImmutable::createFromMutable($order->delivered_at->toDateTime()) : null;
-                if ($order === null || ! $this->payouts->shouldAutoComplete($order->status, $deliveredAt, new \DateTimeImmutable)) {
+                if ($order === null || ! $this->payouts->shouldAutoComplete($order->status, $deliveredAt, new \DateTimeImmutable, DisputeRules::isOpen($order->dispute_status))) {
                     return;
                 }
-                $this->moveOrder($order, FabricOrderStatus::COMPLETED, null, 'system', "Completed automatically {$this->payouts->autoCompleteDays} days after delivery.");
-                $this->notifier->notify($order->vendor?->user_id, 'payout_releasable', 'Order '.$order->reference.' completed', 'No problems reported since delivery. Your payout is released for payment.', '/vendor?tab=orders');
+                $this->moveOrder($order, FabricOrderStatus::COMPLETED, null, 'system', "Completed automatically {$this->payouts->autoCompleteDays} days after a confirmed delivery.");
+                $this->notifier->notify($order->vendor?->user_id, 'payout_releasable', 'Order '.$order->reference.' completed', 'No problems reported since delivery. Your payout is ready for OSAPS to send.', '/vendor?tab=orders');
                 $n++;
             });
         }
@@ -483,7 +545,7 @@ class CheckoutService
             listUnitMinor: (int) $fabric->price_minor,
             available: $fabric->availableQuantity(),
             minQuantity: (int) $fabric->min_order_quantity,
-            listed: $fabric->status === 'active' && $fabric->vendor?->user_id !== $guest->id,
+            listed: $fabric->isBuyable() && $fabric->vendor?->user_id !== $guest->id,
             fixedUnitMinor: $deal,
         );
     }
@@ -538,7 +600,7 @@ class CheckoutService
                 listUnitMinor: (int) ($fabric?->price_minor ?? 0),
                 available: $fabric?->availableQuantity() ?? 0,
                 minQuantity: (int) ($fabric?->min_order_quantity ?? 1),
-                listed: $fabric !== null && $fabric->status === 'active' && $fabric->vendor?->user_id !== $buyer->id,
+                listed: $fabric !== null && $fabric->isBuyable() && $fabric->vendor?->user_id !== $buyer->id,
                 offerId: $offerId,
                 offerUnitMinor: $offer?->unit_minor,
                 offerQuantity: $offer?->quantity,

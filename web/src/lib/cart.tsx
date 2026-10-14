@@ -1,9 +1,12 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import type { CartItemInput, Fabric, Fulfilment, PriceOffer } from '../api'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { api, type CartItemInput, type Fabric, type Fulfilment, type PriceOffer, type SavedCartLine } from '../api'
+import { useSession } from './session'
 
 /**
- * The fabric cart, kept in this browser. Prices here are for display only: the server re-prices
- * every line (and any agreed offer) before checkout, and the buyer pays the server's total.
+ * The fabric cart. Kept in this browser, and also saved to the account once signed in, so it
+ * follows the shopper between phone and laptop. On sign-in the two are merged (the larger
+ * quantity wins). Prices here are for display only: the server re-prices every line (and any
+ * agreed offer) before checkout, and the buyer pays the server's total.
  */
 export interface CartLine {
   fabric_id: number
@@ -59,8 +62,59 @@ function load(): { lines: CartLine[]; fulfilment: Fulfilment; country: string | 
   }
 }
 
+function fromSaved(s: SavedCartLine): CartLine {
+  return {
+    fabric_id: s.fabric_id, slug: s.fabric.slug, name: s.fabric.name, unit: s.fabric.unit, colors: s.fabric.colors, pattern: s.fabric.pattern,
+    image_url: s.fabric.image_url, vendor_name: s.fabric.vendor_name ?? '', list_minor: s.fabric.list_minor,
+    offer_unit_minor: s.offer?.unit_minor ?? null, price_offer_id: s.price_offer_id, offer_quantity: s.offer?.quantity ?? null,
+    quantity: s.quantity, min: s.fabric.min, max: s.offer ? s.offer.quantity : s.fabric.available,
+  }
+}
+
 export function CartProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState(load)
+  const { user } = useSession()
+  const synced = useRef<number | null>(null) // the user id whose saved cart is merged in
+  const lastSent = useRef('')
+
+  // Signed in: merge the saved cart with this browser's, once per account.
+  useEffect(() => {
+    if (!user) {
+      // Signed out: the cart is saved to the account, so clear it from this (maybe shared) browser.
+      if (synced.current !== null) setState((s) => ({ ...s, lines: [] }))
+      synced.current = null
+      lastSent.current = ''
+      return
+    }
+    if (synced.current === user.id) return
+    // Switched straight to another account: never carry one person's cart into someone else's.
+    if (synced.current !== null) { setState((s) => ({ ...s, lines: [] })); lastSent.current = '' }
+    let live = true
+    api.savedCart().then((saved) => {
+      if (!live) return
+      setState((s) => {
+        const byId = new Map(s.lines.map((l) => [l.fabric_id, l]))
+        for (const line of saved.map(fromSaved)) {
+          const mine = byId.get(line.fabric_id)
+          byId.set(line.fabric_id, mine ? { ...mine, quantity: Math.max(mine.quantity, line.quantity), price_offer_id: mine.price_offer_id ?? line.price_offer_id,
+            offer_unit_minor: mine.offer_unit_minor ?? line.offer_unit_minor, offer_quantity: mine.offer_quantity ?? line.offer_quantity } : line)
+        }
+        return { ...s, lines: [...byId.values()].slice(-30) }
+      })
+      synced.current = user.id
+    }).catch(() => { synced.current = user.id /* offline or not allowed: keep the local cart */ })
+    return () => { live = false }
+  }, [user])
+
+  // Signed in and merged: save changes to the account (debounced).
+  useEffect(() => {
+    if (!user || synced.current !== user.id) return
+    const items = state.lines.map((l) => ({ fabric_id: l.fabric_id, quantity: l.quantity, price_offer_id: l.price_offer_id }))
+    const body = JSON.stringify(items)
+    if (body === lastSent.current) return
+    const t = window.setTimeout(() => { lastSent.current = body; api.saveCart(items).catch(() => { lastSent.current = '' }) }, 800)
+    return () => window.clearTimeout(t)
+  }, [state.lines, user])
 
   useEffect(() => {
     try {

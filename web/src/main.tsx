@@ -42,6 +42,9 @@ const MyAsoEbi = lazy(() => import('./pages/AsoEbi').then((m) => ({ default: m.M
 const AccountPage = lazy(() => import('./pages/Account').then((m) => ({ default: m.AccountPage })))
 const MeasurementsPage = lazy(() => import('./pages/Account').then((m) => ({ default: m.MeasurementsPage })))
 const LivePage = lazy(() => import('./pages/Live').then((m) => ({ default: m.LivePage })))
+const AdminPage = lazy(() => import('./pages/Admin').then((m) => ({ default: m.AdminPage })))
+const ForgotPassword = lazy(() => import('./pages/Auth').then((m) => ({ default: m.ForgotPassword })))
+const ResetPassword = lazy(() => import('./pages/Auth').then((m) => ({ default: m.ResetPassword })))
 const VendorHub = lazy(() => import('./pages/Vendor').then((m) => ({ default: m.VendorHub })))
 
 const page = (el: ReactNode) => <Suspense fallback={<div className="page"><Skeleton lines={6} /></div>}>{el}</Suspense>
@@ -85,6 +88,9 @@ const router = createBrowserRouter(
             { path: 'stylist', element: page(<Stylist />) },
             { path: 'signin', element: page(<SignIn />) },
             { path: 'register', element: page(<Register />) },
+            { path: 'forgot-password', element: page(<ForgotPassword />) },
+            { path: 'reset-password', element: page(<ResetPassword />) },
+            { path: 'admin', element: signedIn(<AdminPage />) },
             { path: 'requests', element: customer(<MyRequests />) },
             { path: 'requests/new', element: customer(<PostRequest />) },
             { path: 'requests/:id', element: customer(<RequestDetail />) },

@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { api, ApiError, type FabricOrder, type LiveSession, type PriceOffer, type VendorListing } from '../api'
+import { api, ApiError, type FabricOrder, type LiveSession, type PriceOffer, type VendorListing, type VendorProfile } from '../api'
 import { OfferCard } from '../components/ShopKit'
+import { DeliveredWithCode } from '../components/Protection'
 import { Swatch } from '../components/Swatch'
 import { Badge, Button, EmptyState, ErrorState, Field, PageHeader, Skeleton, errorMessage } from '../components/ui'
 import { formatDate, groupDigits, humanise, nairaToMinor } from '../lib/format'
@@ -104,6 +105,12 @@ function VendorOrders({ state }: { state: ReturnType<typeof useAsync<{ data: Fab
             <span className="vorder__when">{o.created_at ? formatDate(o.created_at, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}</span>
           </header>
           <OrderTimeline order={o} />
+          {o.dispute?.status === 'open' && (
+            <p className="vorder__alert" role="status"><strong>Problem reported: {o.dispute.reason_label}.</strong> {o.dispute.details ? `“${o.dispute.details}” ` : ''}OSAPS support will contact you. Payout is on hold until it is settled.</p>
+          )}
+          {o.dispute?.status && o.dispute.status !== 'open' && (
+            <p className="muted">Problem report settled{o.dispute.resolution_note ? `: ${o.dispute.resolution_note}` : '.'}</p>
+          )}
           <ul className="order-items">
             {o.items?.map((i) => (
               <li key={i.fabric_id}>
@@ -121,9 +128,11 @@ function VendorOrders({ state }: { state: ReturnType<typeof useAsync<{ data: Fab
             </div>
           )}
           <footer className="vorder__foot">
-            <span>You receive <strong>{o.vendor_payout?.formatted}</strong> <small className={`payout payout--${o.payout_status}`}>{o.payout_status === 'paid' ? 'Paid out' : o.payout_status === 'releasable' ? 'Released, payment on the way' : o.payout_status === 'withheld' ? 'Not payable' : 'Held until the buyer confirms'}</small></span>
+            <span>You receive <strong>{o.vendor_payout?.formatted}</strong> <small className={`payout payout--${o.payout_status}`}>{o.payout_label ?? o.payout_status}</small></span>
             <span className="vorder__actions">
-              {o.next.map((n) => (
+              {o.next.map((n) => n.needs_code ? (
+                <DeliveredWithCode key={n.status} order={o} onDone={(u) => setList((l) => l?.map((x) => (x.reference === u.reference ? u : x)) ?? null)} />
+              ) : (
                 <Button key={n.status} busy={busy === o.reference + n.status} onClick={async () => {
                   setBusy(o.reference + n.status); setError(null)
                   try { const u = await api.transitionFabricOrder(o.reference, n.status); setList((l) => l?.map((x) => (x.reference === u.reference ? u : x)) ?? null) }
@@ -286,11 +295,12 @@ function ShopForm({ onSaved }: { onSaved: () => void | Promise<void> }) {
     const s = (k: string) => String(f.get(k) ?? '').trim()
     setBusy(true); setError(null)
     try {
-      await api.saveVendorProfile({
+      const saved = await api.saveVendorProfile({
         business_name: s('business_name'), city: s('city'), market: s('market') || null, phone: s('phone') || null, whatsapp: s('whatsapp') || null,
         bank_name: s('bank_name') || null, bank_account_name: s('bank_account_name') || null, bank_account_number: s('bank_account_number') || null,
       })
-      toast('Shop details saved.', 'good')
+      toast(saved.verification?.status === 'pending' ? 'Saved. OSAPS will check your shop, usually within a working day.' : 'Shop details saved.', 'good')
+      existing.reload()
       await onSaved()
     } catch (err) { setError(err instanceof ApiError ? err : new ApiError(errorMessage(err), 0, 'unknown')) } finally { setBusy(false) }
   }
@@ -298,6 +308,7 @@ function ShopForm({ onSaved }: { onSaved: () => void | Promise<void> }) {
   const v = existing.data
   return (
     <form className="new-listing" onSubmit={submit} key={v?.slug ?? 'new'}>
+      {v?.verification && <VerificationBanner v={v.verification} />}
       <Field label="Shop name" error={error?.field('business_name')}>{(p) => <input {...p} name="business_name" className="input" required minLength={2} defaultValue={v?.business_name ?? user?.name ?? ''} />}</Field>
       <div className="checkout__pair">
         <Field label="City" error={error?.field('city')}>{(p) => <input {...p} name="city" className="input" required defaultValue={v?.city ?? user?.city ?? ''} />}</Field>
@@ -308,7 +319,7 @@ function ShopForm({ onSaved }: { onSaved: () => void | Promise<void> }) {
         <Field label="WhatsApp" optional error={error?.field('whatsapp')}>{(p) => <input {...p} name="whatsapp" className="input" type="tel" defaultValue={v?.whatsapp ?? ''} />}</Field>
       </div>
       <h3 className="checkout__h">Payouts</h3>
-      <p className="muted">You are paid by bank transfer once the buyer confirms they received the fabric, or {3} days after you mark it delivered if they say nothing.</p>
+      <p className="muted">You are paid by bank transfer after the buyer has the fabric: they confirm in the app, or give you their 6-digit delivery code to enter. They then have 7 days to report a problem. Changing bank details sends your shop back for a quick check.</p>
       <div className="checkout__pair">
         <Field label="Bank" optional>{(p) => <input {...p} name="bank_name" className="input" defaultValue={v?.bank_name ?? ''} placeholder="GTBank" />}</Field>
         <Field label="Account name" optional>{(p) => <input {...p} name="bank_account_name" className="input" defaultValue={v?.bank_account_name ?? ''} />}</Field>
@@ -319,6 +330,28 @@ function ShopForm({ onSaved }: { onSaved: () => void | Promise<void> }) {
       {error && error.code !== 'validation_failed' && <p className="field__error">{error.message}</p>}
       <Button type="submit" busy={busy}>Save shop</Button>
     </form>
+  )
+}
+
+const MISSING: Record<string, string> = {
+  business_name: 'shop name', city: 'city', market: 'market', phone: 'phone', bank_name: 'bank', bank_account_name: 'account name', bank_account_number: '10-digit account number',
+}
+
+/** Where the shop stands with OSAPS. Buyers see listings only from verified shops. */
+function VerificationBanner({ v }: { v: NonNullable<VendorProfile['verification']> }) {
+  const tone = v.status === 'verified' ? 'good' : v.status === 'pending' ? 'waiting' : 'alert'
+  const text = {
+    verified: 'Buyers can see and buy your active listings.',
+    pending: 'OSAPS is checking your shop and bank details. Your listings go live as soon as it is verified.',
+    unverified: `Your listings are hidden until OSAPS verifies your shop. Add your ${v.missing.map((m) => MISSING[m] ?? m).join(', ')} and save to ask for review.`,
+    rejected: 'Your shop needs changes before it can go live. Fix the details below and save to ask again.',
+    suspended: 'Your shop is suspended and hidden from buyers. Contact OSAPS support.',
+  }[v.status]
+  return (
+    <div className={`verify verify--${tone}`} role="status">
+      <Badge tone={tone}>{v.label}</Badge>
+      <p>{text}{v.note ? <><br /><strong>OSAPS note:</strong> {v.note}</> : null}</p>
+    </div>
   )
 }
 

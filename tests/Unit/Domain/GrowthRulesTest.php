@@ -128,6 +128,8 @@ final class GrowthRulesTest extends TestCase
         $this->assertFalse($p->shouldAutoComplete('delivered', $d, $d->modify('+71 hours')));
         $this->assertTrue($p->shouldAutoComplete('delivered', $d, $d->modify('+72 hours')));
         $this->assertFalse($p->shouldAutoComplete('out_for_delivery', $d, $d->modify('+10 days')));
+        $this->assertFalse($p->shouldAutoComplete('delivered', $d, $d->modify('+10 days'), disputeOpen: true));
+        $this->assertSame(7, (new PayoutRules)->autoCompleteDays);
         $this->assertSame('held', PayoutRules::forStatus('delivered'));
         $this->assertSame('releasable', PayoutRules::forStatus('completed'));
         $this->assertSame('withheld', PayoutRules::forStatus('cancelled'));

@@ -510,6 +510,39 @@ export interface CheckoutInput {
 
 export type FabricOrderStatus = 'pending_payment' | 'paid' | 'packed' | 'out_for_delivery' | 'ready_for_pickup' | 'delivered' | 'completed' | 'cancelled'
 
+export type PayoutStatus = 'held' | 'releasable' | 'approved' | 'paid' | 'withheld'
+
+export type DisputeReason = 'not_received' | 'wrong_item' | 'damaged' | 'short' | 'not_as_described' | 'other'
+
+export const DISPUTE_REASONS: Record<DisputeReason, string> = {
+  not_received: 'I have not received it',
+  wrong_item: 'Wrong fabric or colour',
+  damaged: 'Damaged or faulty',
+  short: 'Less than I paid for',
+  not_as_described: 'Not as described',
+  other: 'Something else',
+}
+
+export interface OrderDispute {
+  can_open: boolean
+  status: 'open' | 'refunded' | 'released' | null
+  reason: DisputeReason | null
+  reason_label: string | null
+  details: string | null
+  opened_at: string | null
+  resolved_at: string | null
+  resolution_note: string | null
+}
+
+export interface OrderRefund {
+  id: number
+  amount: MoneyValue
+  status: 'pending' | 'processed' | 'failed'
+  label: string
+  failure: string | null
+  at: string | null
+}
+
 export interface FabricOrder {
   reference: string
   checkout_reference: string | null
@@ -517,7 +550,15 @@ export interface FabricOrder {
   status_label: string
   fulfilment: Fulfilment
   milestones: { status: FabricOrderStatus; label: string }[]
-  next: { status: FabricOrderStatus; label: string }[]
+  next: { status: FabricOrderStatus; label: string; needs_code?: boolean }[]
+  /** Only the buyer sees this, only while the fabric is on its way. */
+  delivery_code?: string | null
+  delivery_code_locked?: boolean
+  delivered_by?: 'buyer' | 'code' | 'admin' | null
+  protection_days?: number
+  dispute?: OrderDispute
+  refunds?: OrderRefund[]
+  payout_label?: string | null
   subtotal: MoneyValue
   delivery: MoneyValue
   service_fee: MoneyValue | null
@@ -525,7 +566,7 @@ export interface FabricOrder {
   vendor_payout: MoneyValue | null
   vendor?: { business_name: string; market: string | null; city: string }
   deliver_to: { name: string | null; phone: string | null; address: Record<string, string> | null } | null
-  payout_status?: 'held' | 'releasable' | 'paid' | 'withheld' | null
+  payout_status?: PayoutStatus | null
   aso_ebi?: { code: string; title: string } | null
   ship?: { country: string | null; arrival_date: string | null } | null
   items?: {
@@ -683,7 +724,100 @@ export interface VendorProfile {
   phone: string | null
   whatsapp: string | null
   verified: boolean
+  verification?: { status: VendorVerificationStatus; label: string; note: string | null; missing: string[] }
   bank_name: string | null
   bank_account_name: string | null
   bank_account_last4: string | null
+}
+
+/** A cart line saved to the account, with enough to draw it on another device. */
+export interface SavedCartLine {
+  fabric_id: number
+  quantity: number
+  price_offer_id: number | null
+  fabric: { slug: string; name: string; unit: string; colors: string[]; pattern: string | null; image_url: string | null; vendor_name: string | null; list_minor: number; min: number; available: number }
+  offer: { unit_minor: number; quantity: number } | null
+}
+
+export type VendorVerificationStatus = 'unverified' | 'pending' | 'verified' | 'rejected' | 'suspended'
+
+// ---- Back office -------------------------------------------------------------------------
+
+export interface AdminOverview {
+  vendors_pending: number
+  disputes_open: number
+  refunds_owed: number
+  refunds_unconfirmed: number
+  payouts_releasable: number
+  payouts_approved: number
+  stuck: number
+  two_person_payouts: boolean
+  cron_last_run: string | null
+  queue: string
+  queued_jobs: number | null
+  payments_enabled: boolean
+  mail: string
+}
+
+export interface AdminVendor {
+  id: number
+  business_name: string
+  city: string | null
+  market: string | null
+  phone: string | null
+  whatsapp: string | null
+  owner: { name: string | null; email: string | null; joined: string | null }
+  bank: { name: string | null; account_name: string | null; account_number: string | null }
+  fabrics: number
+  status: VendorVerificationStatus
+  label: string
+  note: string | null
+  requested_at: string | null
+  is_demo: boolean
+}
+
+export interface AdminOrderRow {
+  reference: string
+  status: FabricOrderStatus
+  status_label: string
+  fulfilment: Fulfilment
+  total: MoneyValue
+  vendor: { business_name: string | null; phone: string | null } | null
+  buyer: { name: string | null; phone: string | null; email: string | null } | null
+  items: string | null
+  payout_status: PayoutStatus | null
+  created_at: string | null
+  reason?: string
+  details?: string | null
+  opened_at?: string | null
+  remaining?: MoneyValue
+  checkout_status?: string
+  since?: string | null
+}
+
+export interface AdminRefund {
+  id: number
+  order: string | null
+  checkout: string | null
+  amount: MoneyValue
+  status: 'pending' | 'processed' | 'failed'
+  label: string
+  failure: string | null
+  reason: string
+  at: string | null
+}
+
+export interface AdminPayoutGroup {
+  vendor: { id: number | null; business_name: string | null; verified: boolean; bank_name: string | null; bank_account_name: string | null; bank_account_number: string | null }
+  amount: MoneyValue
+  orders: { reference: string; completed_at: string | null; amount: MoneyValue; payout_status: PayoutStatus; approved_by_me: boolean; approved_at: string | null }[]
+}
+
+export interface AdminActionRow {
+  id: number
+  admin: string | null
+  action: string
+  subject: string
+  note: string | null
+  at: string | null
 }

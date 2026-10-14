@@ -5,9 +5,10 @@
  */
 import type { Api } from './client'
 import type {
-  AsoEbiGroup, CartItemInput, Checkout, Fabric, FabricOrder, FabricOrderStatus, Fulfilment, MoneyValue, PriceOffer, PriceOfferStatus,
-  ShopQuote, User, VendorListing, VendorProfile,
+  AdminActionRow, AdminOrderRow, AdminPayoutGroup, AdminRefund, AdminVendor, AsoEbiGroup, CartItemInput, Checkout, DisputeReason, Fabric, FabricOrder,
+  FabricOrderStatus, Fulfilment, MoneyValue, OrderRefund, PayoutStatus, PriceOffer, PriceOfferStatus, ShopQuote, User, VendorListing, VendorProfile,
 } from './types'
+import { DISPUTE_REASONS } from './types'
 
 interface Ctx {
   notify: (userId: number, title: string, body: string | null, link: string) => void
@@ -17,6 +18,7 @@ interface Ctx {
   money: (minor: number) => MoneyValue
   delay: <T>(v: T) => Promise<T>
   fail: (message: string, status: number, code: string, fieldErrors?: Record<string, string[]>) => never
+  onPaid?: (userId: number, fabricIds: number[]) => void
 }
 
 export const SHOP = {
@@ -47,7 +49,11 @@ interface OfferRow {
   createdAt: string; history: { by: 'buyer' | 'vendor' | 'system'; action: string; unit: number | null; at: string }[]
 }
 interface OrderRow {
-  groupCode: string | null; payout: 'held' | 'releasable' | 'paid' | 'withheld'
+  groupCode: string | null; payout: PayoutStatus
+  code: string | null; codeTries: number; deliveredBy: 'buyer' | 'code' | 'admin' | null; deliveredAt: string | null
+  dispute: { status: 'open' | 'refunded' | 'released'; reason: DisputeReason; details: string; openedAt: string; resolvedAt: string | null; note: string | null } | null
+  refunds: { id: number; amount: number; status: OrderRefund['status']; failure: string | null; reason: string; at: string }[]
+  approvedBy: number | null; approvedAt: string | null
   reference: string; checkoutRef: string; customerId: number; vendorSlug: string; status: FabricOrderStatus; fulfilment: Fulfilment
   subtotal: number; delivery: number; fee: number; commission: number; createdAt: string
   items: { fabricId: number; name: string; unitName: string; quantity: number; list: number; price: number; offerId: number | null }[]
@@ -74,11 +80,19 @@ const ORDER_LABELS: Record<FabricOrderStatus, string> = {
   pending_payment: 'Awaiting payment', paid: 'Paid', packed: 'Packed', out_for_delivery: 'Out for delivery',
   ready_for_pickup: 'Ready for pickup', delivered: 'Received', completed: 'Completed', cancelled: 'Cancelled',
 }
-const NEXT: Record<FabricOrderStatus, Partial<Record<'vendor' | 'customer', FabricOrderStatus[]>>> = {
-  pending_payment: {}, paid: { vendor: ['packed'] }, packed: { vendor: ['out_for_delivery', 'ready_for_pickup'] },
-  out_for_delivery: { vendor: ['delivered'], customer: ['delivered'] }, ready_for_pickup: { vendor: ['delivered'], customer: ['delivered'] },
-  delivered: { customer: ['completed'] }, completed: {}, cancelled: {},
+// Mirrors app/Domain/Shop/FabricOrderStatus: the vendor needs the buyer's code for "delivered" and never completes.
+const NEXT: Record<FabricOrderStatus, Partial<Record<'vendor' | 'customer' | 'admin', FabricOrderStatus[]>>> = {
+  pending_payment: {}, paid: { vendor: ['packed'], admin: ['cancelled'] }, packed: { vendor: ['out_for_delivery', 'ready_for_pickup'], admin: ['cancelled'] },
+  out_for_delivery: { vendor: ['delivered'], customer: ['delivered'], admin: ['delivered', 'cancelled'] },
+  ready_for_pickup: { vendor: ['delivered'], customer: ['delivered'], admin: ['delivered', 'cancelled'] },
+  delivered: { customer: ['completed'], admin: ['completed', 'cancelled'] }, completed: {}, cancelled: {},
 }
+const PAYOUT_LABELS: Record<PayoutStatus, string> = {
+  held: 'Held until the buyer has it', releasable: 'Ready for payout', approved: 'Payout approved', paid: 'Paid to you', withheld: 'Not payable (cancelled)',
+}
+const REFUND_LABELS: Record<OrderRefund['status'], string> = { pending: 'Refund on its way', processed: 'Refunded', failed: 'Refund failed, OSAPS is retrying' }
+const PROTECTION_DAYS = 7
+const OPENABLE: FabricOrderStatus[] = ['paid', 'packed', 'out_for_delivery', 'ready_for_pickup', 'delivered']
 const dispatch = (f: Fulfilment): FabricOrderStatus => (f === 'pickup' ? 'ready_for_pickup' : 'out_for_delivery')
 
 export function makePreviewShop(ctx: Ctx) {
@@ -210,23 +224,36 @@ export function makePreviewShop(ctx: Ctx) {
     }
   }
 
-  const orderView = (r: OrderRow, viewer: 'customer' | 'vendor'): FabricOrder => {
+  const orderView = (r: OrderRow, viewer: 'customer' | 'vendor' | 'admin'): FabricOrder => {
     const c = checkouts.find((x) => x.reference === r.checkoutRef)!
     const v = fabrics.find((f) => f.vendor?.slug === r.vendorSlug)?.vendor
-    const next = (NEXT[r.status][viewer] ?? []).filter((s) => !['out_for_delivery', 'ready_for_pickup'].includes(s) || s === dispatch(r.fulfilment))
+    const disputeOpen = r.dispute?.status === 'open'
+    const next = (NEXT[r.status][viewer] ?? []).filter((s) => (!['out_for_delivery', 'ready_for_pickup'].includes(s) || s === dispatch(r.fulfilment))
+      && (s !== 'cancelled' || viewer === 'admin') && !(disputeOpen && s === 'completed'))
     const paid = !['pending_payment', 'cancelled'].includes(r.status)
+    const seesMoney = viewer !== 'vendor'
     return {
       reference: r.reference, checkout_reference: r.checkoutRef, status: r.status, status_label: ORDER_LABELS[r.status], fulfilment: r.fulfilment,
       milestones: (['paid', 'packed', dispatch(r.fulfilment), 'delivered', 'completed'] as FabricOrderStatus[]).map((s) => ({ status: s, label: ORDER_LABELS[s] })),
-      next: next.map((s) => ({ status: s, label: ORDER_LABELS[s] })),
+      next: next.map((s) => ({ status: s, label: ORDER_LABELS[s], needs_code: viewer === 'vendor' && s === 'delivered' })),
+      delivery_code: viewer === 'customer' && ['paid', 'packed', 'out_for_delivery', 'ready_for_pickup'].includes(r.status) ? r.code : null,
+      delivery_code_locked: viewer === 'vendor' && r.codeTries >= 5,
+      delivered_by: r.deliveredBy, protection_days: PROTECTION_DAYS,
+      dispute: {
+        can_open: viewer === 'customer' && !r.dispute && OPENABLE.includes(r.status),
+        status: r.dispute?.status ?? null, reason: r.dispute?.reason ?? null, reason_label: r.dispute ? DISPUTE_REASONS[r.dispute.reason] : null,
+        details: r.dispute?.details ?? null, opened_at: r.dispute?.openedAt ?? null, resolved_at: r.dispute?.resolvedAt ?? null, resolution_note: r.dispute?.note ?? null,
+      },
+      refunds: seesMoney ? r.refunds.map((x) => ({ id: x.id, amount: money(x.amount), status: x.status, label: REFUND_LABELS[x.status], failure: viewer === 'admin' ? x.failure : null, at: x.at })) : [],
+      payout_label: viewer !== 'customer' ? PAYOUT_LABELS[r.payout] : null,
       subtotal: money(r.subtotal), delivery: money(r.delivery),
-      service_fee: viewer === 'customer' ? money(r.fee) : null, total: viewer === 'customer' ? money(r.subtotal + r.delivery + r.fee) : null,
-      vendor_payout: viewer === 'vendor' ? money(r.subtotal + r.delivery - r.commission) : null,
-      payout_status: viewer === 'vendor' ? r.payout : null,
+      service_fee: seesMoney ? money(r.fee) : null, total: seesMoney ? money(r.subtotal + r.delivery + r.fee) : null,
+      vendor_payout: viewer !== 'customer' ? money(r.subtotal + r.delivery - r.commission) : null,
+      payout_status: viewer !== 'customer' ? r.payout : null,
       aso_ebi: r.groupCode ? { code: r.groupCode, title: groups.find((g) => g.code === r.groupCode)?.title ?? '' } : null,
       ship: { country: c.country, arrival_date: c.arrivalDate },
       vendor: v ? { business_name: v.business_name, market: v.market, city: v.city } : undefined,
-      deliver_to: viewer === 'vendor' && paid ? { name: c.contact.name, phone: c.contact.phone, address: c.address } : null,
+      deliver_to: viewer !== 'customer' && paid ? { name: c.contact.name, phone: c.contact.phone, address: c.address } : null,
       items: r.items.map((i) => {
         const f = fabricById(i.fabricId)
         return { fabric_id: i.fabricId, slug: f?.slug ?? null, name: i.name, unit: i.unitName, quantity: i.quantity, unit_price: money(i.price), list_unit_price: money(i.list),
@@ -272,7 +299,8 @@ export function makePreviewShop(ctx: Ctx) {
       const at = new Date().toISOString()
       orders.push({ reference: 'FAB-' + rid(8), checkoutRef: ref, customerId: u.id, vendorSlug: v.slug, status: 'pending_payment', fulfilment,
         subtotal: v.subtotal, delivery: v.delivery, fee, commission: bps(v.subtotal, 500), createdAt: at, items: v.lines,
-        events: [{ to: 'pending_payment', by: 'customer', note: null, at }], groupCode: extra.groupCode, payout: 'held' })
+        events: [{ to: 'pending_payment', by: 'customer', note: null, at }], groupCode: extra.groupCode, payout: 'held',
+        code: null, codeTries: 0, deliveredBy: null, deliveredAt: null, dispute: null, refunds: [], approvedBy: null, approvedAt: null })
       for (const l of v.lines) { const f = fabricById(l.fabricId)!; setAvailable(f, f.available_quantity - l.quantity) }
     })
     return c
@@ -293,7 +321,7 @@ export function makePreviewShop(ctx: Ctx) {
 
   const api: Pick<Api,
     'makePriceOffer' | 'myPriceOffers' | 'vendorPriceOffers' | 'priceOffer' | 'acceptPriceOffer' | 'counterPriceOffer' | 'declinePriceOffer' | 'withdrawPriceOffer'
-    | 'quote' | 'createCheckout' | 'checkout' | 'verifyCheckout' | 'cancelCheckout' | 'fabricOrders' | 'fabricOrder' | 'transitionFabricOrder'
+    | 'quote' | 'createCheckout' | 'checkout' | 'verifyCheckout' | 'cancelCheckout' | 'fabricOrders' | 'fabricOrder' | 'transitionFabricOrder' | 'reportProblem'
     | 'vendorFabricOrders' | 'vendorListings' | 'updateListing' | 'createListing' | 'saveVendorProfile' | 'vendorProfile'
     | 'addListingMedia' | 'removeListingMedia' | 'asoEbi' | 'myAsoEbi' | 'createAsoEbi' | 'quoteAsoEbi' | 'joinAsoEbi'
     | 'closeAsoEbi' | 'reopenAsoEbi' | 'cancelAsoEbi'> = {
@@ -388,8 +416,10 @@ export function makePreviewShop(ctx: Ctx) {
       const c = checkouts.find((x) => x.reference === ref && x.customerId === u.id) ?? fail('Not found.', 404, 'not_found')
       if (c.status === 'pending' && c.simulatedPaid) {
         c.status = 'paid'; c.paidAt = new Date().toISOString()
+        // Like CheckoutService::confirmPaid: bought fabrics leave the account's saved cart.
+        if (!c.groupCode) ctx.onPaid?.(c.customerId, orders.filter((o) => o.checkoutRef === c.reference).flatMap((o) => o.items.map((i) => i.fabricId)))
         for (const o of orders.filter((x) => x.checkoutRef === ref)) {
-          o.status = 'paid'; o.events.push({ to: 'paid', by: 'system', note: 'Payment confirmed (simulated in the design preview).', at: c.paidAt })
+          o.status = 'paid'; o.code = String(Math.floor(Math.random() * 1_000_000)).padStart(6, '0'); o.events.push({ to: 'paid', by: 'system', note: 'Payment confirmed (simulated in the design preview).', at: c.paidAt })
           for (const i of o.items) { if (i.offerId) { const off = offers.find((x) => x.id === i.offerId); if (off && off.status === 'accepted') off.status = 'used' } }
           ctx.notify(VENDOR_USER_ID[o.vendorSlug] ?? 0, `New paid order ${o.reference}`, o.items.map((i) => `${i.quantity} × ${i.name}`).join(', '), '/vendor?tab=orders')
         }
@@ -415,23 +445,52 @@ export function makePreviewShop(ctx: Ctx) {
       const u = me()
       const o = orders.find((x) => x.reference === ref) ?? fail('Not found.', 404, 'not_found')
       if (o.customerId === u.id) return delay(orderView(o, 'customer'))
+      if (u.role === 'admin') return delay(orderView(o, 'admin'))
       if (ctx.vendorSlugOf(u) === o.vendorSlug && o.status !== 'pending_payment') return delay(orderView(o, 'vendor'))
       return fail('You do not have access to this.', 403, 'forbidden')
     },
-    transitionFabricOrder: async (ref, status, note) => {
+    transitionFabricOrder: async (ref, status, note, code) => {
       const u = me()
       const o = orders.find((x) => x.reference === ref) ?? fail('Not found.', 404, 'not_found')
-      const role = o.customerId === u.id ? 'customer' : ctx.vendorSlugOf(u) === o.vendorSlug ? 'vendor' : fail('You do not have access to this.', 403, 'forbidden')
+      const role = u.role === 'admin' ? 'admin' : o.customerId === u.id ? 'customer' : ctx.vendorSlugOf(u) === o.vendorSlug ? 'vendor' : fail('You do not have access to this.', 403, 'forbidden')
       if ((status === 'out_for_delivery' || status === 'ready_for_pickup') && status !== dispatch(o.fulfilment)) {
         fail(o.fulfilment === 'pickup' ? 'The buyer is collecting this order. Mark it ready for pickup.' : 'The buyer chose delivery. Mark it out for delivery.', 422, 'wrong_dispatch_step')
       }
+      if (role === 'admin' && ['cancelled', 'delivered', 'completed'].includes(status) && (note ?? '').trim().length < 5) fail('Add a note saying why. The buyer and vendor will see it.', 422, 'admin_note_required')
+      if (o.dispute?.status === 'open' && status === 'completed') fail('A problem report is open on this order. OSAPS support will settle it first.', 422, 'dispute_open')
       if (!(NEXT[o.status][role] ?? []).includes(status)) fail(`Order: cannot move from '${o.status}' to '${status}' by ${role}.`, 409, 'invalid_transition')
+      if (status === 'delivered' && role === 'vendor') {
+        if (o.codeTries >= 5) fail('Too many wrong codes. Ask the buyer to confirm in the app, or contact OSAPS support.', 422, 'delivery_code_locked')
+        const given = (code ?? '').replace(/\D/g, '')
+        if (!given) fail('Enter the 6-digit code the buyer shows you when they receive the fabric.', 422, 'delivery_code_required')
+        if (given !== o.code) {
+          o.codeTries++
+          const left = 5 - o.codeTries
+          fail(left > 0 ? `That code is not right. ${left} tries left.` : 'That code is not right. Ask the buyer to confirm in the app, or contact OSAPS support.', 422, 'delivery_code_wrong')
+        }
+      }
+      if (status === 'delivered') { o.deliveredBy = role === 'vendor' ? 'code' : role === 'customer' ? 'buyer' : 'admin'; o.deliveredAt = new Date().toISOString() }
       o.status = status
+      o.payout = status === 'completed' ? 'releasable' : status === 'cancelled' ? 'withheld' : o.payout
       o.events.push({ to: status, by: role, note: note ?? null, at: new Date().toISOString() })
-      if (status === 'completed') { o.payout = 'releasable'; ctx.notify(VENDOR_USER_ID[o.vendorSlug] ?? 0, `Order ${o.reference} completed`, 'The buyer confirmed receipt. Your payout is released for payment.', '/vendor?tab=orders') }
-      const what: Partial<Record<FabricOrderStatus, string>> = { packed: 'Your fabric is packed.', out_for_delivery: 'Your fabric is on its way.', ready_for_pickup: 'Your fabric is ready to collect.', delivered: 'The vendor marked your fabric as delivered. Confirm when you have it.' }
+      if (role === 'admin') adminLog(u, `order_${status}`, `FabricOrder ${o.reference}`, note ?? null)
+      if (status === 'completed' && role !== 'admin') ctx.notify(VENDOR_USER_ID[o.vendorSlug] ?? 0, `Order ${o.reference} completed`, 'The buyer confirmed all is well. Your payout is ready for OSAPS to send.', '/vendor?tab=orders')
+      const what: Partial<Record<FabricOrderStatus, string>> = { packed: 'Your fabric is packed.', out_for_delivery: 'Your fabric is on its way. Give the rider your delivery code only when you have it.',
+        ready_for_pickup: 'Your fabric is ready to collect. Give the vendor your delivery code when you collect it.', delivered: `Delivery confirmed with your code. Something wrong? Report it within ${PROTECTION_DAYS} days.` }
       if (role === 'vendor' && what[status]) ctx.notify(o.customerId, what[status]!, `Order ${o.reference}.`, `/shop/orders/${o.reference}`)
       return delay(orderView(o, role))
+    },
+    reportProblem: async (ref, reason, details) => {
+      const u = me()
+      const o = orders.find((x) => x.reference === ref && x.customerId === u.id) ?? fail('You do not have access to this.', 403, 'forbidden')
+      if (o.dispute) fail('You have already reported a problem with this order. OSAPS support will reply.', 422, 'dispute_exists')
+      if (!OPENABLE.includes(o.status)) fail(o.status === 'completed' ? 'This order is complete. Contact OSAPS support if something is wrong.' : 'You can report a problem once the order is paid.', 422, 'dispute_not_allowed')
+      if (details.trim().length < 10) fail('Tell us a little more (at least 10 characters) so we can help.', 422, 'dispute_details')
+      o.dispute = { status: 'open', reason, details: details.trim(), openedAt: new Date().toISOString(), resolvedAt: null, note: null }
+      o.events.push({ to: o.status, by: 'customer', note: `Problem reported: ${DISPUTE_REASONS[reason]}.`, at: new Date().toISOString() })
+      ctx.notify(VENDOR_USER_ID[o.vendorSlug] ?? 0, `Problem reported on ${o.reference}`, `${DISPUTE_REASONS[reason]}. OSAPS support will contact you. The payout is on hold until it is settled.`, '/vendor?tab=orders')
+      ctx.notify(ADMIN_ID, `Problem report: ${o.reference}`, DISPUTE_REASONS[reason], '/admin?tab=disputes')
+      return delay(orderView(o, 'customer'))
     },
 
     vendorFabricOrders: () => {
@@ -474,12 +533,20 @@ export function makePreviewShop(ctx: Ctx) {
       return delay(listing(f))
     },
     saveVendorProfile: async (input) => {
+      const bankChanged = (input.bank_account_number && input.bank_account_number.slice(-4) !== profile.bank_account_last4)
+        || (input.bank_name ?? null) !== profile.bank_name || (input.bank_account_name ?? null) !== profile.bank_account_name
+      if (input.bank_account_number) bankNumber = input.bank_account_number
       profile = { ...profile, ...input, market: input.market ?? null, phone: input.phone ?? null, whatsapp: input.whatsapp ?? null,
-        bank_name: input.bank_name ?? profile.bank_name, bank_account_name: input.bank_account_name ?? profile.bank_account_name,
+        bank_name: input.bank_name ?? null, bank_account_name: input.bank_account_name ?? null,
         bank_account_last4: input.bank_account_number ? input.bank_account_number.slice(-4) : profile.bank_account_last4 }
-      return delay(profile)
+      if (bankChanged && vStatus === 'verified') { vStatus = 'pending'; vNote = 'Bank details changed. OSAPS checks them again before the shop goes back live.'; vRequested = new Date().toISOString() }
+      if ((vStatus === 'unverified' || vStatus === 'rejected') && missing().length === 0) {
+        vStatus = 'pending'; vRequested = new Date().toISOString()
+        ctx.notify(ADMIN_ID, `Shop to verify: ${profile.business_name}`, `${profile.market ?? ''}, ${profile.city}`, '/admin?tab=vendors')
+      }
+      return delay(profileView())
     },
-    vendorProfile: () => delay(profile),
+    vendorProfile: () => delay(profileView()),
     addListingMedia: async (id, file) => {
       const slug = ctx.vendorSlugOf(me()) ?? fail('You do not have access to this.', 403, 'forbidden')
       const f = fabrics.find((x) => x.id === id && x.vendor?.slug === slug) ?? fail('You do not have access to this.', 403, 'forbidden')
@@ -547,8 +614,168 @@ export function makePreviewShop(ctx: Ctx) {
     },
   }
 
-  let profile: VendorProfile = { business_name: 'Balogun Bolts', slug: 'balogun-bolts', city: 'Lagos', market: 'Balogun Market', phone: null, whatsapp: null, verified: false,
-    bank_name: null, bank_account_name: null, bank_account_last4: null }
+  // The demo shop starts verified (its fabrics are on sale). A second, unverified demo shop waits for review.
+  let profile: VendorProfile = { business_name: 'Balogun Bolts', slug: 'balogun-bolts', city: 'Lagos', market: 'Balogun Market', phone: '0803 000 0000', whatsapp: null, verified: true,
+    bank_name: 'Demo Bank', bank_account_name: 'Balogun Bolts', bank_account_last4: '6789' }
+  let bankNumber = '0123456789'
+  let vStatus: AdminVendor['status'] = 'verified'
+  let vNote: string | null = null
+  let vRequested: string | null = null
+  const missing = () => {
+    const m = (['business_name', 'city', 'market', 'phone', 'bank_name', 'bank_account_name'] as const).filter((k) => !(profile[k] ?? '').toString().trim())
+    return /^\d{10}$/.test(bankNumber) ? [...m] : [...m, 'bank_account_number']
+  }
+  const V_LABELS: Record<AdminVendor['status'], string> = { unverified: 'Not submitted', pending: 'Waiting for review', verified: 'Verified', rejected: 'Changes needed', suspended: 'Suspended' }
+  const profileView = (): VendorProfile => ({ ...profile, verified: vStatus === 'verified', verification: { status: vStatus, label: V_LABELS[vStatus], note: vNote, missing: missing() } })
+  const otherShops: AdminVendor[] = [{
+    id: 902, business_name: 'Onitsha Lace House', city: 'Onitsha', market: 'Main Market', phone: '0806 000 0000', whatsapp: null,
+    owner: { name: 'Demo Owner', email: 'vendor-new@demo.osaps.test', joined: new Date().toISOString().slice(0, 10) },
+    bank: { name: 'Demo Bank', account_name: 'Onitsha Lace House', account_number: '0987654321' }, fabrics: 4,
+    status: 'pending', label: 'Waiting for review', note: null, requested_at: hours(-20), is_demo: true,
+  }]
+
+  // ---- Back office (mirrors AdminController + TrustService) ----
+  const ADMIN_ID = 4
+  let refundSeq = 1
+  const actions: AdminActionRow[] = []
+  const adminLog = (u: User, action: string, subject: string, note: string | null) =>
+    actions.unshift({ id: actions.length + 1, admin: u.name, action, subject, note, at: new Date().toISOString() })
+  const asAdmin = () => { const u = me(); if (u.role !== 'admin') fail('You do not have access to this.', 403, 'forbidden'); return u }
+  const orderOf = (ref: string) => orders.find((x) => x.reference === ref) ?? fail('Not found.', 404, 'not_found')
+  const totalOf = (o: OrderRow) => o.subtotal + o.delivery + o.fee
+  const committedRefund = (o: OrderRow) => o.refunds.filter((x) => x.status !== 'failed').reduce((n, x) => n + x.amount, 0)
+  const row = (o: OrderRow): AdminOrderRow => {
+    const c = checkouts.find((x) => x.reference === o.checkoutRef)!
+    const v = fabrics.find((f) => f.vendor?.slug === o.vendorSlug)?.vendor
+    return { reference: o.reference, status: o.status, status_label: ORDER_LABELS[o.status], fulfilment: o.fulfilment, total: money(totalOf(o)),
+      vendor: { business_name: v?.business_name ?? null, phone: profile.phone }, buyer: { name: c.contact.name, phone: c.contact.phone, email: null },
+      items: o.items.map((i) => `${i.quantity} × ${i.name}`).join(', '), payout_status: o.payout, created_at: o.createdAt }
+  }
+  const refundOrder = (u: User, o: OrderRow, reason: string, amount?: number | null) => {
+    const c = checkouts.find((x) => x.reference === o.checkoutRef)!
+    const remaining = Math.max(0, totalOf(o) - committedRefund(o))
+    const amt = amount ?? remaining
+    if (c.status !== 'paid' && c.status !== 'needs_refund') fail('This order was never paid, so there is nothing to refund.', 422, 'refund_not_paid')
+    if (o.status !== 'cancelled') fail('Cancel the order (or settle its problem report as a refund) before refunding.', 422, 'refund_order_not_cancelled')
+    if (o.payout === 'paid' || o.payout === 'approved') fail('The vendor payout for this order was already approved or sent. Recover it from the vendor first.', 422, 'refund_payout_sent')
+    if (remaining <= 0) fail('This order has already been refunded in full.', 422, 'refund_done')
+    if (amt < 100 || amt > remaining) fail('Refund between ₦1 and the amount still owed to the buyer.', 422, 'refund_amount')
+    const r = { id: refundSeq++, amount: amt, status: 'pending' as const, failure: null, reason, at: new Date().toISOString() }
+    o.refunds.push(r)
+    adminLog(u, 'refund_requested', `FabricOrder ${o.reference}`, reason)
+    ctx.notify(o.customerId, `Refund started for ${o.reference}`, `${money(amt).formatted} is on its way back to how you paid. Banks usually take a few working days.`, `/shop/orders/${o.reference}`)
+    // Simulated Paystack: the refund settles a few seconds later.
+    setTimeout(() => { if (r.status === 'pending') (r as { status: OrderRefund['status'] }).status = 'processed' }, 3_000)
+    return r
+  }
+  const payoutAmount = (o: OrderRow) => o.subtotal + o.delivery - o.commission
+  const adminApi: Pick<Api, 'adminOverview' | 'adminVendors' | 'adminReviewVendor' | 'adminDisputes' | 'adminResolveDispute' | 'adminRefunds' | 'adminRefund'
+    | 'adminMarkRefundFailed' | 'adminPayouts' | 'adminApprovePayout' | 'adminMarkPaid' | 'adminStuck' | 'adminActions'> = {
+    adminOverview: () => {
+      asAdmin(); sweep()
+      return delay({
+        vendors_pending: otherShops.filter((x) => x.status === 'pending').length + (vStatus === 'pending' ? 1 : 0),
+        disputes_open: orders.filter((o) => o.dispute?.status === 'open').length,
+        refunds_owed: orders.filter((o) => o.status === 'cancelled' && totalOf(o) > committedRefund(o) && ['paid', 'needs_refund'].includes(checkouts.find((c) => c.reference === o.checkoutRef)!.status)).length,
+        refunds_unconfirmed: 0,
+        payouts_releasable: orders.filter((o) => o.payout === 'releasable').length,
+        payouts_approved: orders.filter((o) => o.payout === 'approved').length,
+        stuck: 0, two_person_payouts: true, cron_last_run: new Date().toISOString(), queue: 'database', queued_jobs: 0, payments_enabled: true, mail: 'smtp',
+      })
+    },
+    adminVendors: (status) => {
+      asAdmin()
+      const mine: AdminVendor = { id: 901, business_name: profile.business_name, city: profile.city, market: profile.market, phone: profile.phone, whatsapp: profile.whatsapp,
+        owner: { name: 'Bola Balogun', email: 'vendor1@demo.osaps.test', joined: '2026-10-01' },
+        bank: { name: profile.bank_name, account_name: profile.bank_account_name, account_number: bankNumber }, fabrics: fabrics.filter((f) => f.vendor?.slug === 'balogun-bolts').length,
+        status: vStatus, label: V_LABELS[vStatus], note: vNote, requested_at: vRequested, is_demo: true }
+      return delay([mine, ...otherShops].filter((v) => v.status === status))
+    },
+    adminReviewVendor: async (id, to, note) => {
+      const u = asAdmin()
+      if ((to === 'rejected' || to === 'suspended') && (note ?? '').trim().length < 5) fail('Say what the vendor needs to fix, so they can act on it.', 422, 'verification_note_required')
+      if (id === 901) { vStatus = to; vNote = note; ctx.notify(VENDOR_USER_ID['balogun-bolts']!, `Shop review: ${V_LABELS[to]}`, to === 'verified' ? 'Your shop is verified. Your active listings are now visible to buyers.' : note, '/vendor?tab=shop') }
+      else { const v = otherShops.find((x) => x.id === id) ?? fail('Not found.', 404, 'not_found'); v.status = to; v.label = V_LABELS[to]; v.note = note }
+      adminLog(u, `vendor_${to}`, `FabricVendor #${id}`, note)
+      await delay(null)
+    },
+    adminDisputes: () => { asAdmin(); return delay(orders.filter((o) => o.dispute?.status === 'open').map((o) => ({ ...row(o), reason: DISPUTE_REASONS[o.dispute!.reason], details: o.dispute!.details, opened_at: o.dispute!.openedAt }))) },
+    adminResolveDispute: async (ref, resolution, note) => {
+      const u = asAdmin()
+      const o = orderOf(ref)
+      const d = o.dispute
+      if (!d || d.status !== 'open') return fail('This problem report is already settled.', 422, 'dispute_not_open')
+      if (note.trim().length < 5) fail('Write a short note on how this was settled. Both sides will see it.', 422, 'dispute_note_required')
+      o.dispute = { ...d, status: resolution === 'refund' ? 'refunded' : 'released', resolvedAt: new Date().toISOString(), note }
+      const at = new Date().toISOString()
+      if (resolution === 'refund') {
+        o.status = 'cancelled'; o.payout = 'withheld'; o.events.push({ to: 'cancelled', by: 'admin', note: `Problem report settled with a refund: ${note}`, at })
+        refundOrder(u, o, `Problem report: ${note}`)
+      } else {
+        o.status = 'completed'; o.payout = 'releasable'; o.events.push({ to: 'completed', by: 'admin', note: `Problem report settled in the vendor's favour: ${note}`, at })
+      }
+      adminLog(u, `dispute_${resolution}`, `FabricOrder ${o.reference}`, note)
+      ctx.notify(o.customerId, `Your problem report on ${o.reference} is settled`, resolution === 'refund' ? `We are refunding you. ${note}` : `We checked with both sides and closed the report. ${note}`, `/shop/orders/${o.reference}`)
+      await delay(null)
+    },
+    adminRefunds: () => {
+      asAdmin()
+      const owed = orders.filter((o) => o.status === 'cancelled' && !['paid', 'approved'].includes(o.payout) && totalOf(o) > committedRefund(o)
+        && ['paid', 'needs_refund'].includes(checkouts.find((c) => c.reference === o.checkoutRef)!.status))
+      const recent: AdminRefund[] = orders.flatMap((o) => o.refunds.map((r) => ({ id: r.id, order: o.reference, checkout: o.checkoutRef, amount: money(r.amount), status: r.status,
+        label: REFUND_LABELS[r.status], failure: r.failure, reason: r.reason, at: r.at }))).sort((a, b) => b.id - a.id)
+      return delay({ owed: owed.map((o) => ({ ...row(o), remaining: money(totalOf(o) - committedRefund(o)), checkout_status: checkouts.find((c) => c.reference === o.checkoutRef)!.status })), recent })
+    },
+    adminRefund: async (ref, reason, amount) => {
+      const u = asAdmin()
+      if (reason.trim().length < 5) fail('Give a reason (at least 5 characters).', 422, 'validation_failed', { reason: ['Give a reason (at least 5 characters).'] })
+      const r = refundOrder(u, orderOf(ref), reason, amount)
+      return delay({ id: r.id, status: r.status, failure: r.failure })
+    },
+    adminMarkRefundFailed: async (id, note) => {
+      const u = asAdmin()
+      const r = orders.flatMap((o) => o.refunds).find((x) => x.id === id) ?? fail('Not found.', 404, 'not_found')
+      if (r.status !== 'pending') fail('Only a pending refund can be marked failed.', 422, 'refund_not_pending')
+      r.status = 'failed'; r.failure = `Marked failed by admin: ${note}`
+      adminLog(u, 'refund_marked_failed', `Refund #${id}`, note)
+      await delay(null)
+    },
+    adminPayouts: () => {
+      const u = asAdmin()
+      const list = orders.filter((o) => o.payout === 'releasable' || o.payout === 'approved')
+      const groups: AdminPayoutGroup[] = list.length ? [{
+        vendor: { id: 901, business_name: profile.business_name, verified: vStatus === 'verified', bank_name: profile.bank_name, bank_account_name: profile.bank_account_name, bank_account_number: bankNumber },
+        amount: money(list.reduce((n, o) => n + payoutAmount(o), 0)),
+        orders: list.map((o) => ({ reference: o.reference, completed_at: [...o.events].reverse().find((e) => e.to === 'completed')?.at ?? null, amount: money(payoutAmount(o)),
+          payout_status: o.payout, approved_by_me: o.approvedBy === u.id, approved_at: o.approvedAt })),
+      }] : []
+      return delay({ data: groups, two_person: true })
+    },
+    adminApprovePayout: async (ref) => {
+      const u = asAdmin()
+      const o = orderOf(ref)
+      if (o.payout !== 'releasable') fail('This order is not waiting for a payout.', 422, 'payout_not_releasable')
+      if (vStatus !== 'verified') fail('This vendor is not verified. Verify or settle the shop before paying it.', 422, 'payout_vendor_unverified')
+      if (o.dispute?.status === 'open') fail('A problem report is open on this order.', 422, 'payout_dispute_open')
+      o.payout = 'approved'; o.approvedBy = u.id; o.approvedAt = new Date().toISOString()
+      adminLog(u, 'payout_approved', `FabricOrder ${o.reference}`, null)
+      await delay(null)
+    },
+    adminMarkPaid: async (ref, transferRef) => {
+      const u = asAdmin()
+      const o = orderOf(ref)
+      if (transferRef.trim().length < 4) fail('Enter the bank transfer reference so the payment can be traced.', 422, 'payout_reference_required')
+      if (o.payout !== 'approved') fail('Another admin must approve this payout before it is recorded as paid.', 422, 'payout_not_approved')
+      if (o.approvedBy === u.id) fail('You approved this payout. A different admin must send it and record it.', 422, 'payout_needs_second_admin')
+      o.payout = 'paid'
+      o.events.push({ to: o.status, by: 'admin', note: 'Vendor payout sent.', at: new Date().toISOString() })
+      adminLog(u, 'payout_paid', `FabricOrder ${o.reference}`, transferRef)
+      ctx.notify(VENDOR_USER_ID[o.vendorSlug] ?? 0, `Payout sent for ${o.reference}`, `${money(payoutAmount(o)).formatted} was sent to your bank account.`, '/vendor?tab=orders')
+      await delay(null)
+    },
+    adminStuck: () => { asAdmin(); return delay([]) },
+    adminActions: () => { asAdmin(); return delay(actions.slice(0, 100)) },
+  }
 
   const groupOf = (code: string) => groups.find((g) => g.code === code) ?? fail('Not found.', 404, 'not_found')
   const ownGroup = (code: string) => { const g = groupOf(code); if (g.organizerId !== me().id) fail('Only the organiser can change this group.', 422, 'forbidden'); return g }
@@ -593,5 +820,5 @@ export function makePreviewShop(ctx: Ctx) {
     else release(c, 'cancelled')
   }
 
-  return { api, simulatePayment }
+  return { api: { ...api, ...adminApi }, simulatePayment }
 }

@@ -32,6 +32,24 @@ class FakeGateway implements PaymentGateway
         return $this->charges[$reference] ?? ['reference' => $reference, 'status' => 'abandoned'];
     }
 
+    /** @var list<array<string,mixed>> */
+    public array $refunds = [];
+
+    public ?string $refundFails = null;
+
+    public function refund(string $reference, int $amountMinor, string $currency, string $note): array
+    {
+        if ($this->refundFails === 'unknown') {
+            throw new \App\Domain\Support\DomainRuleViolation('Paystack did not answer.', 'payment_outcome_unknown');
+        }
+        if ($this->refundFails !== null) {
+            throw new \App\Domain\Support\DomainRuleViolation('Paystack could not process this right now. Please try again.', 'payment_provider_error');
+        }
+        $this->refunds[] = compact('reference', 'amountMinor', 'currency', 'note');
+
+        return ['id' => 9000 + count($this->refunds), 'status' => 'pending', 'amount' => $amountMinor];
+    }
+
     public function verifyWebhook(string $rawBody, ?string $signature): bool
     {
         return PaystackSignature::verify($rawBody, $signature, $this->secret);
