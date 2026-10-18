@@ -53,7 +53,7 @@ class ShopFlowTest extends TestCase
 
     private function checkout(array $cart): array
     {
-        $total = $this->actingAs($this->buyer)->postJson('/api/v1/shop/quote', $cart)->assertOk()->json('data.total.amount_minor');
+        $total = $this->actingAs($this->buyer)->postJson('/api/v1/shop/quote', $cart + ['state' => 'FCT'])->assertOk()->json('data.total.amount_minor');
 
         return $this->actingAs($this->buyer)->postJson('/api/v1/checkouts', $cart + [
             'expected_total_minor' => $total,

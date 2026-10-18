@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { api, ApiError, type FabricStatus, type InspirationBriefResult, type PricingMode, type RequestDraft } from '../api'
 import { Swatch } from '../components/Swatch'
+import { MAX_DESIGN_PHOTOS, checkPhoto } from '../components/DesignPhotos'
 import { Button, Field, Label, errorMessage } from '../components/ui'
 import { formatDate, formatNaira, groupDigits, nairaToMinor } from '../lib/format'
 import { useSession } from '../lib/session'
@@ -108,6 +109,17 @@ export default function PostRequest() {
   const preFabric = draft?.fabric_id ?? (params.get('fabric') ? Number(params.get('fabric')) : null)
 
   const [step, setStep] = useState(0)
+  const [samples, setSamples] = useState<File[]>([])
+  const [sampleError, setSampleError] = useState<string | null>(null)
+  const sampleUrls = useMemo(() => samples.map((x) => URL.createObjectURL(x)), [samples])
+  useEffect(() => () => sampleUrls.forEach((u) => URL.revokeObjectURL(u)), [sampleUrls])
+  const addSamples = (files: FileList | null) => {
+    setSampleError(null)
+    const list = Array.from(files ?? [])
+    const bad = list.map(checkPhoto).find(Boolean)
+    if (bad) { setSampleError(bad); return }
+    setSamples((x) => [...x, ...list].slice(0, MAX_DESIGN_PHOTOS))
+  }
   const [f, setF] = useState<FormState>(() => ({
     garment_category: draft?.garment_category ?? '',
     occasion: draft?.occasion ?? '',
@@ -190,7 +202,11 @@ export default function PostRequest() {
         needed_by: f.needed_by,
         fitting_required: f.fitting_required,
       })
-      toast('Request posted. Tailors can now send offers.', 'good')
+      let failed = 0
+      for (const photo of samples) {
+        try { await api.addDesignPhoto(created.id, photo) } catch { failed++ }
+      }
+      toast(failed ? `Request posted, but ${failed} photo${failed === 1 ? '' : 's'} did not upload. Add ${failed === 1 ? 'it' : 'them'} again on the request page.` : 'Request posted. Tailors can now send offers.', failed ? 'alert' : 'good')
       navigate(`/requests/${created.id}`)
     } catch (err) {
       if (err instanceof ApiError && Object.keys(err.fieldErrors).length) {
@@ -268,6 +284,27 @@ export default function PostRequest() {
             <Field label="Style words" optional hint="Separate with commas, e.g. embroidered, slim fit." error={errors.style_tags}>
               {(p) => <input {...p} className="input" value={f.style_tags} onChange={(e) => set('style_tags', e.target.value)} />}
             </Field>
+            <div className="field">
+              <span className="field__label">Photos of the design <span className="field__optional"> (optional)</span></span>
+              <span className="field__hint">A style you saved from Instagram or WhatsApp, a friend's outfit, or a sketch. Tailors see them with your request. Up to {MAX_DESIGN_PHOTOS}.</span>
+              {samples.length > 0 && (
+                <ul className="design-photos__grid">
+                  {samples.map((_, i) => (
+                    <li key={i}>
+                      <img src={sampleUrls[i]} alt={`Design photo ${i + 1}`} />
+                      <button type="button" className="design-photos__remove" aria-label={`Remove photo ${i + 1}`} onClick={() => setSamples((list) => list.filter((_, j) => j !== i))}>×</button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {samples.length < MAX_DESIGN_PHOTOS && (
+                <label className="btn btn--secondary design-photos__add">
+                  <input type="file" accept="image/jpeg,image/png,image/webp" multiple className="sr-only" onChange={(e) => { addSamples(e.currentTarget.files); e.currentTarget.value = '' }} />
+                  {samples.length ? 'Add another photo' : 'Add design photos'}
+                </label>
+              )}
+              {sampleError && <span className="field__error" role="alert">{sampleError}</span>}
+            </div>
           </div>
         )}
 
@@ -364,6 +401,7 @@ export default function PostRequest() {
               <div><dt>Outfit</dt><dd>{garmentLabel}{occasionLabel ? `, for ${occasionLabel.toLowerCase()}` : ''}<button type="button" className="text-link" onClick={() => setStep(0)}>Edit</button></dd></div>
               <div><dt>Title</dt><dd>{f.title}</dd></div>
               <div><dt>Description</dt><dd className="summary__long">{f.description}</dd></div>
+              {samples.length > 0 && <div><dt>Design photos</dt><dd><span className="summary__thumbs">{sampleUrls.map((u, i) => <img key={u} src={u} alt={`Design photo ${i + 1}`} />)}</span><button type="button" className="text-link" onClick={() => setStep(0)}>Edit</button></dd></div>}
               <div><dt>Fabric</dt><dd>{f.fabric_status === 'own_fabric' ? 'You have it' : f.fabric_status === 'need_advice' ? 'Advice wanted' : chosen?.name ?? 'Chosen from the catalogue'}<button type="button" className="text-link" onClick={() => setStep(1)}>Edit</button></dd></div>
               <div><dt>Price</dt><dd>{f.mode === 'budget' ? `Your budget: ${formatNaira(nairaToMinor(f.budget) ?? 0)}` : nairaToMinor(f.budget) || nairaToMinor(f.budget_min) ? `Open offers${nairaToMinor(f.budget_min) ? ` from ${formatNaira(nairaToMinor(f.budget_min)!)}` : ''}${nairaToMinor(f.budget) ? ` up to ${formatNaira(nairaToMinor(f.budget)!)}` : ''}` : 'Open offers, no range'}<button type="button" className="text-link" onClick={() => setStep(2)}>Edit</button></dd></div>
               <div><dt>When and where</dt><dd>{f.city}, by {f.needed_by ? formatDate(f.needed_by) : '—'}{f.fitting_required ? ', with a fitting' : ''}<button type="button" className="text-link" onClick={() => setStep(3)}>Edit</button></dd></div>

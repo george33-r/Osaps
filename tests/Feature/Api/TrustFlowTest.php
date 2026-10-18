@@ -52,7 +52,7 @@ class TrustFlowTest extends TestCase
     private function paidOrder(): string
     {
         $cart = ['items' => [['fabric_id' => $this->fabric->id, 'quantity' => 2]], 'fulfilment' => 'delivery'];
-        $total = $this->actingAs($this->buyer)->postJson('/api/v1/shop/quote', $cart)->assertOk()->json('data.total.amount_minor');
+        $total = $this->actingAs($this->buyer)->postJson('/api/v1/shop/quote', $cart + ['state' => 'Lagos'])->assertOk()->json('data.total.amount_minor');
         $c = $this->actingAs($this->buyer)->postJson('/api/v1/checkouts', $cart + ['expected_total_minor' => $total,
             'contact' => ['name' => 'Ada', 'phone' => '08012345678'], 'address' => ['line1' => '1 Marina', 'city' => 'Lagos', 'state' => 'Lagos']])
             ->assertCreated()->json('data');
@@ -222,5 +222,33 @@ class TrustFlowTest extends TestCase
             ->assertHeader('X-Frame-Options', 'DENY')
             ->assertHeader('X-Content-Type-Options', 'nosniff')
             ->assertHeader('Content-Security-Policy');
+    }
+
+    public function test_a_guest_sees_prices_then_pays_without_a_sign_up_form(): void
+    {
+        $cart = ['items' => [['fabric_id' => $this->fabric->id, 'quantity' => 2]], 'fulfilment' => 'delivery'];
+        $lagos = $this->postJson('/api/v1/shop/quote', $cart + ['state' => 'Lagos'])->assertOk()->json('data.delivery.amount_minor');
+        $kano = $this->postJson('/api/v1/shop/quote', $cart + ['state' => 'Kano'])->assertOk()->json('data.delivery.amount_minor');
+        $this->assertSame(300_000, $lagos);
+        $this->assertSame(600_000, $kano);
+
+        Notification::fake();
+        $this->postJson('/api/v1/auth/quick', ['name' => 'Ngozi Eze', 'email' => 'ngozi@example.com', 'phone' => '0803 111 2222'])
+            ->assertCreated()->assertJsonPath('data.role', 'customer');
+        $this->postJson('/api/v1/auth/quick', ['name' => 'Someone', 'email' => $this->buyer->email, 'phone' => '0803 111 2222'])
+            ->assertStatus(409)->assertJsonPath('code', 'account_exists');
+        $this->assertTrue(User::query()->where('email', 'ngozi@example.com')->exists());
+    }
+
+    public function test_checkout_charges_delivery_for_the_state_and_refuses_unknown_states(): void
+    {
+        $cart = ['items' => [['fabric_id' => $this->fabric->id, 'quantity' => 2]], 'fulfilment' => 'delivery'];
+        $total = $this->actingAs($this->buyer)->postJson('/api/v1/shop/quote', $cart + ['state' => 'Kano'])->json('data.total.amount_minor');
+        $body = $cart + ['expected_total_minor' => $total, 'contact' => ['name' => 'Ada', 'phone' => '08012345678'],
+            'address' => ['line1' => '1 Zoo Road', 'city' => 'Kano', 'state' => 'Kano']];
+        $this->actingAs($this->buyer)->postJson('/api/v1/checkouts', $body)->assertCreated()->assertJsonPath('data.delivery.amount_minor', 600_000);
+        $body['address']['state'] = 'Atlantis';
+        $this->actingAs($this->buyer)->postJson('/api/v1/checkouts', $body)->assertStatus(422);
+        $this->actingAs($this->buyer)->postJson('/api/v1/checkouts', ['fulfilment' => 'pickup'] + $body)->assertStatus(422);
     }
 }

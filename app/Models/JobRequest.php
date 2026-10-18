@@ -54,6 +54,11 @@ class JobRequest extends Model
         return $this->belongsTo(Fabric::class);
     }
 
+    public function photos(): HasMany
+    {
+        return $this->hasMany(JobRequestPhoto::class)->orderBy('sort')->orderBy('id');
+    }
+
     public function offers(): HasMany
     {
         return $this->hasMany(Offer::class);

@@ -8,7 +8,7 @@
  */
 import { ApiError, type Api } from './client'
 import { OCCASIONS, previewAi } from './preview-ai'
-import { makePreviewShop, offerFloor, offerSuggestions, PREVIEW_FX, PREVIEW_SHIP, SHOP } from './preview-shop'
+import { DELIVERY, makePreviewShop, offerFloor, offerSuggestions, PIECE_YARDS, PREVIEW_FX, PREVIEW_SHIP, SHOP } from './preview-shop'
 import { makePreviewGrowth } from './preview-growth'
 import storeCatalogue from '../../../database/catalogue/osaps-store.json'
 import type {
@@ -78,6 +78,7 @@ export const fabrics: Fabric[] = storeCatalogue.fabrics.map((r, i) => ({
   purchase_mode: 'checkout',
   offer_floor: money(offerFloor(r.price_naira * 100)),
   offer_suggestions: offerSuggestions(r.price_naira * 100).map(money),
+  piece_yards: PIECE_YARDS[r.category] ?? null,
 }))
 
 type T = [string, string, string[], string[], string[], number, string]
@@ -136,7 +137,15 @@ interface OfferRow extends Offer {
 const requests: JobRequest[] = []
 const offers: OfferRow[] = []
 const orders: (Order & { customerId: number; tailorUserId: number })[] = []
-const messages: Record<number, { id: number; author_role: 'customer' | 'tailor'; body: string; created_at: string }[]> = {}
+const messages: Record<number, { id: number; author_role: 'customer' | 'tailor'; body: string; photo_url?: string | null; created_at: string }[]> = {}
+/** Design photos on requests, kept in memory as object URLs (the live site stores them privately). */
+const designPhotos: Record<string, { id: number; url: string; caption: string | null }[]> = {}
+let photoSeq = 1
+const checkPhotoFile = (file: File, field: string) => {
+  if (!/^image\/(jpeg|png|webp)$/.test(file.type)) fail('Choose a JPG, PNG or WebP photo.', 422, 'validation_failed', { [field]: ['Choose a JPG, PNG or WebP photo.'] })
+  if (file.size > 8 * 1024 * 1024) fail('That photo is over 8 MB.', 422, 'validation_failed', { [field]: ['That photo is over 8 MB.'] })
+}
+const YARDS_GUIDE: Record<string, number> = { agbada: 10, senator: 5, kaftan: 5, buba_sokoto: 5, iro_buba: 6, gown: 5, skirt_blouse: 5, suit: 4, bridal: 8, aso_ebi: 5, kids: 3, alteration: 0 }
 let messageSeq = 1
 let offerSeq = 100
 
@@ -296,13 +305,13 @@ export const previewApi: Api = {
       currency: 'NGN',
       garment_categories: Object.entries(GARMENTS).map(([key, label]) => ({ key, label })),
       occasions: Object.entries(OCCASIONS).map(([key, label]) => ({ key, label })),
-      support: {},
+      support: { whatsapp: '+2348162898760' },
       fabric_categories: Object.entries(FABRIC_CATS).map(([key, label]) => ({ key, label })),
       fabric_units: ['yard', 'metre', 'piece', 'bundle'],
       colors: ['navy', 'indigo', 'gold', 'terracotta', 'emerald', 'burgundy', 'cream', 'black', 'white', 'orange', 'royal_blue', 'purple', 'green', 'red', 'brown', 'pink', 'silver', 'yellow'],
       fees: { customer_service_fee_bps: FEE_BPS, customer_service_fee_cap_minor: FEE_CAP },
       offer_rules: { expiry_hours: EXPIRY_HOURS, max_counter_rounds_per_side: MAX_ROUNDS },
-      shop: SHOP,
+      shop: { ...SHOP, pickup_enabled: false, protection_days: 7, delivery: DELIVERY, piece_yards: PIECE_YARDS, typical_yards: { ...YARDS_GUIDE } },
       diaspora: { rates: PREVIEW_FX, rates_updated: 'Demo rates', ship_countries: Object.entries(PREVIEW_SHIP).map(([code, fee_minor]) => ({ code, fee_minor })) },
       features: { payments: true, ai_assistant: false, disputes: false, whatsapp: false, try_on: true },
     }),
@@ -406,10 +415,10 @@ export const previewApi: Api = {
     if (u.role === 'customer') {
       const sorted = [...list].sort((a, b) => a.amount.amount_minor - b.amount.amount_minor)
       const order = orders.find((o) => o.spec.title === r!.title)
-      return delay({ ...r!, offers: sorted.map((o) => viewOffer(o, 'customer', list)), order_reference: order?.reference ?? null })
+      return delay({ ...r!, photos: [...(designPhotos[id] ?? [])], offers: sorted.map((o) => viewOffer(o, 'customer', list)), order_reference: order?.reference ?? null })
     }
     const mine = list.find((o) => o.tailorUserId === u.id)
-    return delay({ ...r!, is_owner: false, my_offer: mine ? viewOffer(mine, 'tailor') : null, match: score(r!, tailors[0]!) })
+    return delay({ ...r!, photos: [...(designPhotos[id] ?? [])], is_owner: false, my_offer: mine ? viewOffer(mine, 'tailor') : null, match: score(r!, tailors[0]!) })
   },
   cancelRequest: (id) => {
     requireUser('customer')
@@ -542,14 +551,40 @@ export const previewApi: Api = {
     const role = u.role === 'tailor' ? 'tailor' : 'customer'
     return delay((messages[id] ?? []).map((m) => ({ ...m, mine: m.author_role === role })))
   },
-  sendMessage: async (id, body) => {
+  sendMessage: async (id, body, photo) => {
     const u = requireUser()
     const o = offers.find((x) => x.id === id)
     if (!o || !['awaiting_customer', 'awaiting_tailor', 'accepted'].includes(o.status)) fail('This offer is closed, so messages are turned off.', 422, 'offer_closed')
-    if (body.trim().length < 2) fail('Write a little more.', 422, 'validation_failed', { body: ['Write a little more.'] })
-    const m = { id: messageSeq++, author_role: (u.role === 'tailor' ? 'tailor' : 'customer') as 'customer' | 'tailor', body: body.trim(), created_at: new Date().toISOString() }
+    if (photo) checkPhotoFile(photo, 'photo')
+    if (!photo && body.trim().length < 2) fail('Write a little more.', 422, 'validation_failed', { body: ['Write a little more.'] })
+    const m = { id: messageSeq++, author_role: (u.role === 'tailor' ? 'tailor' : 'customer') as 'customer' | 'tailor', body: body.trim(), photo_url: photo ? URL.createObjectURL(photo) : null, created_at: new Date().toISOString() }
     ;(messages[id] ??= []).push(m)
     return delay({ ...m, mine: true })
+  },
+  addDesignPhoto: async (id, photo, caption) => {
+    const u = requireUser('customer')
+    const r = requests.find((x) => x.id === id)
+    if (!r || u.role !== 'customer') fail('Not found.', 404, 'not_found')
+    if (r!.status !== 'open') fail('This request is closed, so photos cannot be added.', 422, 'request_closed')
+    const list = (designPhotos[id] ??= [])
+    if (list.length >= 4) fail('You can add up to 4 photos.', 422, 'too_many_photos')
+    checkPhotoFile(photo, 'photo')
+    const p = { id: photoSeq++, url: URL.createObjectURL(photo), caption: caption ?? null }
+    list.push(p)
+    return delay(p)
+  },
+  removeDesignPhoto: async (id, photoId) => {
+    requireUser('customer')
+    designPhotos[id] = (designPhotos[id] ?? []).filter((p) => p.id !== photoId)
+    await delay(null)
+  },
+  quickAccount: async (input) => {
+    if (Object.values(users).some((u) => u.email.toLowerCase() === input.email.trim().toLowerCase())) {
+      fail('There is already an account with this email. Sign in to continue.', 409, 'account_exists')
+    }
+    current = { ...users.customer!, name: input.name.trim(), email: input.email.trim(), phone: input.phone.trim() }
+    try { sessionStorage.setItem('osaps-preview-user', 'customer') } catch { /* ignore */ }
+    return delay(current)
   },
   vendorContact: (slug) => {
     requireUser()

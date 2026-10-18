@@ -24,6 +24,8 @@ class JobRequestResource extends ApiResource
             'occasion_label' => $this->occasion ? config('marketplace.occasions.'.$this->occasion) : null,
             'description' => $this->description,
             'style_tags' => $this->style_tags ?? [],
+            // Sample designs from the customer, for the tailor to see what they want.
+            'photos' => $this->whenLoaded('photos', fn () => $this->photos->map(fn ($p) => \App\Http\Controllers\Api\V1\DesignPhotoController::present($p))->values()),
             'mode' => $this->mode,
             'budget_min' => self::money($this->budget_min_minor),
             'budget_max' => self::money($this->budget_max_minor),

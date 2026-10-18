@@ -58,9 +58,9 @@ class AsoEbiController extends Controller
 
     public function quote(Request $request, AsoEbiGroup $asoEbiGroup): JsonResponse
     {
-        $data = $request->validate(['yards' => ['required', 'integer', 'min:1', 'max:50']]);
+        $data = $request->validate(['yards' => ['required', 'integer', 'min:1', 'max:50'], 'state' => ['nullable', 'string', 'max:40']]);
 
-        return response()->json(['data' => ShopController::present($this->checkouts->quoteShare($request->user(), $asoEbiGroup, (int) $data['yards']))]);
+        return response()->json(['data' => ShopController::present($this->checkouts->quoteShare($request->user(), $asoEbiGroup, (int) $data['yards'], $data['state'] ?? null))]);
     }
 
     public function join(Request $request, AsoEbiGroup $asoEbiGroup): JsonResponse

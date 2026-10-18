@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, ApiError, type JobRequest, type Offer } from '../api'
 import { MessageThread } from '../components/Messages'
+import { DesignPhotos } from '../components/DesignPhotos'
 import {
   Badge,
   Button,
@@ -299,6 +300,7 @@ export function TailorJob() {
             <h2 className="brief__title">The brief</h2>
             <p>{r.description}</p>
             {r.style_tags.length > 0 && <p className="muted">Style: {r.style_tags.join(', ')}</p>}
+            <DesignPhotos requestId={String(r.id)} photos={r.photos ?? []} editable={false} />
             <dl className="terms terms--compact">
               <div><dt>Price</dt><dd>{r.mode === 'budget' && r.budget_max ? `${r.budget_max.formatted} (customer's price)` : r.budget_max ? `Open, up to ${r.budget_max.formatted}` : 'Open offers'}</dd></div>
               <div><dt>Needed by</dt><dd>{formatDate(r.needed_by)}</dd></div>

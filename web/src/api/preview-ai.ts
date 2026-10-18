@@ -27,7 +27,7 @@ const WORDS = {
   cat: { aso_oke: ['aso oke', 'aso-oke', 'asooke', 'sanyan', 'alaari'], ankara: ['ankara', 'wax print'], adire: ['adire', 'tie dye', 'tie-dye'], lace: ['lace', 'guipure'], plain: ['plain'], print: ['print', 'printed', 'chiffon', 'floral'], senator: ['senator'], suiting: ['suiting', 'wool'], george: ['george'], damask: ['damask', 'brocade'] } as Record<string, string[]>,
   color: { burgundy: ['burgundy', 'wine', 'maroon', 'oxblood'], navy: ['navy'], royal_blue: ['royal blue'], indigo: ['indigo'], gold: ['gold', 'golden', 'champagne'], emerald: ['emerald'], green: ['green'], cream: ['cream', 'ivory', 'off white', 'beige'], white: ['white'], black: ['black', 'charcoal'], purple: ['purple', 'lilac'], orange: ['orange', 'coral'], red: ['red'], pink: ['pink'], brown: ['brown'], terracotta: ['terracotta', 'rust'], silver: ['silver', 'grey', 'gray'], yellow: ['yellow', 'lemon', 'mustard'] } as Record<string, string[]>,
   occasion: { own_wedding: ['my wedding', 'bride', 'groom'], traditional_wedding: ['traditional wedding', 'introduction'], wedding_guest: ['wedding'], naming_ceremony: ['naming'], church_mosque: ['church', 'mosque', 'eid', 'sallah'], work: ['work', 'office'], party: ['party', 'birthday', 'dinner'], family_event: ['family', 'aso ebi', 'asoebi'], everyday: ['everyday', 'casual'], festival: ['festival', 'durbar', 'ojude oba', 'iri ji', 'new yam'], december: ['detty', 'december', 'christmas'] } as Record<string, string[]>,
-  garment: { agbada: ['agbada'], senator: ['senator'], kaftan: ['kaftan'], iro_buba: ['iro'], gown: ['gown', 'dress'], skirt_blouse: ['skirt', 'blouse'], suit: ['suit'], kids: ['kids', 'children'] } as Record<string, string[]>,
+  garment: { agbada: ['agbada'], senator: ['senator'], aso_ebi: ['aso ebi', 'aso-ebi', 'asoebi', 'family uniform'], kaftan: ['kaftan'], iro_buba: ['iro'], gown: ['gown', 'dress'], skirt_blouse: ['skirt', 'blouse'], suit: ['suit'], kids: ['kids', 'children'] } as Record<string, string[]>,
 }
 
 const norm = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
@@ -156,14 +156,18 @@ type AiApi = Pick<Api, 'aiSearch' | 'stylist' | 'fabricIdeas' | 'inspiration'>
 export const previewAi: AiApi = {
   aiSearch: (q) => {
     const r = read(q)
+    // A garment with no fabric named ("material for senator", "aso ebi") means the fabrics that suit it.
+    const suits = r.garment ? (GARMENT_FABRICS[r.garment] ?? []) : []
+    if (!r.categories.length && suits.length) r.categories = [...suits]
     let results = query(r.categories, r.colors, r.max ? r.max * 100 : null)
+    if (!results.length && suits.length && r.categories.join() !== suits.join()) { r.categories = [...suits]; results = query(r.categories, r.colors, r.max ? r.max * 100 : null) }
     const relaxed: string[] = []
     if (!results.length && r.max) { relaxed.push('price limit'); results = query(r.categories, r.colors, null) }
     if (!results.length && r.colors.length) { relaxed.push('colour'); results = query(r.categories, [], null) }
     const desc = [r.colors.length ? r.colors.map((c) => c.replace('_', ' ')).join(' or ') : '', r.categories.length ? r.categories.map((c) => FABRIC_CATS[c]).join(' or ') : 'fabric'].filter(Boolean).join(' ')
     return delay({
       source: 'keywords' as const,
-      understood: !r.categories.length && !r.colors.length && !r.max ? 'Showing all fabric in stock — try naming a type, colour or budget.' : desc.replace(/^./, (x) => x.toUpperCase()) + (r.max ? ` up to ₦${r.max.toLocaleString('en-NG')} per unit` : '') + '.',
+      understood: r.garment && suits.length && r.categories.join() === suits.join() && results.length ? `Fabrics usually used for ${(GARMENTS[r.garment] ?? 'that outfit').toLowerCase()}.` : !r.categories.length && !r.colors.length && !r.max ? 'Showing all fabric in stock — try naming a type, colour or budget.' : desc.replace(/^./, (x) => x.toUpperCase()) + (r.max ? ` up to ₦${r.max.toLocaleString('en-NG')} per unit` : '') + '.',
       criteria: { categories: r.categories, colors: r.colors, max_price_minor: r.max ? r.max * 100 : null, in_stock_only: true, terms: [], occasion: r.occasion },
       relaxed, notice: null, results: results.slice(0, 12),
     })

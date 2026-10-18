@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, type Fabric } from '../api'
 import { FabricCard } from '../components/cards'
+import { RecentlyViewed } from '../components/ProductKit'
 import { ButtonLink, Skeleton } from '../components/ui'
 import { HERO_VIDEO, LOOKBOOK } from '../data/photos'
 import { useSession } from '../lib/session'
@@ -166,6 +167,7 @@ export default function Home() {
         </div>
         <p className="sh-more"><ButtonLink to="/fabrics" variant="secondary">See all fabrics</ButtonLink></p>
       </section>
+      <div className="sh-section"><RecentlyViewed fabrics={fabrics} title="Continue shopping" /></div>
       <Promos />
       <StyleTeaser />
     </div>

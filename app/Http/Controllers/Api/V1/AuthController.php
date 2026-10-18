@@ -46,6 +46,31 @@ class AuthController extends Controller
     }
 
     /**
+     * Pay without a sign-up form. A shopper gives name, email and phone at checkout; we make a
+     * customer account with a random password, sign them in, and email a link to set their own
+     * password. If the email already has an account, they are asked to sign in instead — an
+     * existing account is never taken over this way.
+     */
+    public function quick(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'min:2', 'max:80'],
+            'email' => ['required', 'email:rfc', 'max:190'],
+            'phone' => ['required', 'string', 'regex:/^\+?[0-9 ]{7,20}$/'],
+        ]);
+        $email = strtolower(trim($data['email']));
+        if (User::query()->where('email', $email)->exists()) {
+            return response()->json(['message' => 'You already have an OSAPS account with this email. Sign in to continue; your cart is kept.', 'code' => 'account_exists'], 409);
+        }
+        $user = new User(['name' => trim($data['name']), 'email' => $email, 'phone' => trim($data['phone']), 'password' => \Illuminate\Support\Str::password(24)]);
+        $user->role = User::ROLE_CUSTOMER;
+        $user->save();
+        Password::sendResetLink(['email' => $email]); // "Set your password" — harmless if mail is not set up yet
+
+        return $this->issue($request, $user, 201);
+    }
+
+    /**
      * Email a reset link. Always the same answer, whether or not the email has an account,
      * so this cannot be used to find out who is registered.
      */

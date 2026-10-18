@@ -27,6 +27,8 @@ class FabricResource extends ApiResource
             'available_quantity' => $this->availableQuantity(),
             'stock_status' => $this->stockStatus(),
             'min_order_quantity' => $this->min_order_quantity,
+            // Yards in a full piece for fabric usually sold by the piece (lace 5, Ankara 6), else null.
+            'piece_yards' => $this->unit === 'yard' ? ((int) (config('marketplace.shop.piece_yards')[$this->category] ?? 0) ?: null) : null,
             // Null means no vendor photo yet; clients render an illustrated swatch, labelled as such.
             'image_url' => $this->relationLoaded('media') && ($first = $this->media->firstWhere('kind', 'photo'))
                 ? $first->url()

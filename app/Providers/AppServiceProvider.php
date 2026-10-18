@@ -61,6 +61,9 @@ class AppServiceProvider extends ServiceProvider
             autoCompleteDays: (int) config('marketplace.shop.auto_complete_days', 7),
             twoPersonPayouts: (bool) config('marketplace.shop.two_person_payouts', true),
         ));
+        $this->app->singleton(\App\Domain\Shop\DeliveryZones::class, fn () => new \App\Domain\Shop\DeliveryZones(
+            (array) config('marketplace.shop.delivery_zones'), (array) config('marketplace.shop.delivery_state_zones'),
+        ));
         $this->app->singleton(\App\Domain\Diaspora\ShippingZones::class, fn () => new \App\Domain\Diaspora\ShippingZones(
             array_map('intval', (array) config('marketplace.diaspora.shipping_minor')),
         ));

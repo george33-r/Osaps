@@ -35,6 +35,7 @@ import type {
   AdminActionRow,
   VendorVerificationStatus,
   SavedCartLine,
+  DesignPhoto,
   FabricOrderStatus,
   VendorListing,
   VendorProfileInput,
@@ -95,7 +96,11 @@ export interface Api {
   accept(offerId: number, seen: { amount_minor: number; delivery_fee_minor: number | null }): Promise<Order>
 
   messages(offerId: number): Promise<OfferMessage[]>
-  sendMessage(offerId: number, body: string): Promise<OfferMessage>
+  sendMessage(offerId: number, body: string, photo?: File | null): Promise<OfferMessage>
+  addDesignPhoto(requestId: string, photo: File, caption?: string | null): Promise<DesignPhoto>
+  removeDesignPhoto(requestId: string, photoId: number): Promise<void>
+  /** Checkout without a sign-up form; refused with code account_exists if the email is registered. */
+  quickAccount(input: { name: string; email: string; phone: string }): Promise<User>
   vendorContact(slug: string): Promise<VendorContact>
 
   aiSearch(q: string): Promise<AiFabricSearch>
@@ -119,7 +124,7 @@ export interface Api {
   withdrawPriceOffer(id: number): Promise<PriceOffer>
 
   // Fabric shop — cart, checkout, orders
-  quote(items: CartItemInput[], fulfilment: Fulfilment, country?: string | null): Promise<ShopQuote>
+  quote(items: CartItemInput[], fulfilment: Fulfilment, country?: string | null, state?: string | null): Promise<ShopQuote>
   createCheckout(input: CheckoutInput): Promise<Checkout>
   checkout(reference: string): Promise<Checkout>
   verifyCheckout(reference: string): Promise<Checkout>
@@ -166,7 +171,7 @@ export interface Api {
   asoEbi(code: string): Promise<AsoEbiGroup>
   myAsoEbi(): Promise<AsoEbiGroup[]>
   createAsoEbi(slug: string, input: NewAsoEbi): Promise<AsoEbiGroup>
-  quoteAsoEbi(code: string, yards: number): Promise<ShopQuote>
+  quoteAsoEbi(code: string, yards: number, state?: string | null): Promise<ShopQuote>
   joinAsoEbi(code: string, input: JoinAsoEbi): Promise<Checkout>
   closeAsoEbi(code: string): Promise<AsoEbiGroup>
   reopenAsoEbi(code: string): Promise<AsoEbiGroup>
@@ -287,7 +292,14 @@ export const httpApi: Api = {
   accept: (id, seen) => data(http('POST', `/offers/${id}/accept`, { expected_amount_minor: seen.amount_minor, expected_delivery_fee_minor: seen.delivery_fee_minor })),
 
   messages: (id) => data(http('GET', `/offers/${id}/messages`)),
-  sendMessage: (id, body) => data(http('POST', `/offers/${id}/messages`, { body })),
+  sendMessage: (id, body, photo) => {
+    if (!photo) return data(http('POST', `/offers/${id}/messages`, { body }))
+    const f = new FormData(); if (body.trim()) f.append('body', body); f.append('photo', photo)
+    return data(http('POST', `/offers/${id}/messages`, f))
+  },
+  addDesignPhoto: (id, photo, caption) => { const f = new FormData(); f.append('photo', photo); if (caption) f.append('caption', caption); return data(http('POST', `/job-requests/${encodeURIComponent(id)}/photos`, f)) },
+  removeDesignPhoto: (id, photoId) => http('DELETE', `/job-requests/${encodeURIComponent(id)}/photos/${photoId}`).then(() => undefined),
+  quickAccount: (input) => data(http('POST', '/auth/quick', input)),
   vendorContact: (slug) => data(http('GET', `/fabrics/${encodeURIComponent(slug)}/contact`)),
 
   aiSearch: (q) => data(http('GET', '/ai/fabric-search' + qs({ q }))),
@@ -313,7 +325,7 @@ export const httpApi: Api = {
   declinePriceOffer: (id) => data(http('POST', `/price-offers/${id}/decline`)),
   withdrawPriceOffer: (id) => data(http('POST', `/price-offers/${id}/withdraw`)),
 
-  quote: (items, fulfilment, country) => data(http('POST', '/shop/quote', { items, fulfilment, country: country ?? null })),
+  quote: (items, fulfilment, country, state) => data(http('POST', '/shop/quote', { items, fulfilment, country: country ?? null, state: state ?? null })),
   createCheckout: (input) => data(http('POST', '/checkouts', input)),
   checkout: (ref) => data(http('GET', `/checkouts/${encodeURIComponent(ref)}`)),
   verifyCheckout: (ref) => data(http('POST', `/checkouts/${encodeURIComponent(ref)}/verify`)),
@@ -357,7 +369,7 @@ export const httpApi: Api = {
   asoEbi: (code) => data(http('GET', `/aso-ebi/${encodeURIComponent(code)}`)),
   myAsoEbi: () => data(http('GET', '/aso-ebi')),
   createAsoEbi: (slug, input) => data(http('POST', `/fabrics/${encodeURIComponent(slug)}/aso-ebi`, input)),
-  quoteAsoEbi: (code, yards) => data(http('POST', `/aso-ebi/${encodeURIComponent(code)}/quote`, { yards })),
+  quoteAsoEbi: (code, yards, state) => data(http('POST', `/aso-ebi/${encodeURIComponent(code)}/quote`, { yards, state: state ?? null })),
   joinAsoEbi: (code, input) => data(http('POST', `/aso-ebi/${encodeURIComponent(code)}/join`, input)),
   closeAsoEbi: (code) => data(http('POST', `/aso-ebi/${encodeURIComponent(code)}/close`)),
   reopenAsoEbi: (code) => data(http('POST', `/aso-ebi/${encodeURIComponent(code)}/reopen`)),

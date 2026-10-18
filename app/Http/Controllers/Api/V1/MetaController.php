@@ -38,6 +38,16 @@ class MetaController extends Controller
                 'offer_response_hours' => config('marketplace.shop.offers.response_hours'),
                 'offer_hold_hours' => config('marketplace.shop.offers.hold_hours'),
                 'offer_max_rounds' => config('marketplace.shop.offers.max_rounds_per_side'),
+                'pickup_enabled' => (bool) config('marketplace.shop.pickup_enabled'),
+                'protection_days' => (int) config('marketplace.shop.auto_complete_days', 7),
+                'delivery' => [
+                    'zones' => app(\App\Domain\Shop\DeliveryZones::class)->table(),
+                    'states' => \App\Domain\Shop\DeliveryZones::STATES,
+                    'lowest_fee_minor' => app(\App\Domain\Shop\DeliveryZones::class)->lowestFee(),
+                ],
+                'piece_yards' => array_filter(array_map('intval', (array) config('marketplace.shop.piece_yards'))),
+                // Rough yards per garment, to help shoppers choose a quantity. A guide, not a promise.
+                'typical_yards' => config('marketplace.typical_yards'),
             ],
             'diaspora' => [
                 'rates' => app(\App\Domain\Diaspora\CurrencyDisplay::class)->rates(),

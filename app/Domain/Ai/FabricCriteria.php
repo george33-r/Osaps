@@ -100,6 +100,12 @@ final class FabricCriteria
         ], fn ($v) => $v !== null);
     }
 
+    /** @param list<string> $categories already checked against the catalogue */
+    public function withCategories(array $categories): self
+    {
+        return new self($categories, $this->colors, $this->maxPriceMinor, $this->inStockOnly, $this->terms, $this->occasion);
+    }
+
     /** @return array<string,mixed> */
     public function toArray(): array
     {

@@ -1,3 +1,4 @@
+import { formatNaira } from '../lib/format'
 import { Approx } from '../lib/fx'
 import { Link } from 'react-router-dom'
 import type { Fabric, Tailor } from '../api'
@@ -32,6 +33,7 @@ export function FabricCard({ fabric, feature = false }: { fabric: Fabric; featur
           <span> per {fabric.unit}</span>
           <Approx minor={fabric.price.amount_minor} />
         </p>
+        {fabric.piece_yards && fabric.unit === 'yard' ? <p className="fabric-card__piece">{fabric.piece_yards} yards: {formatNaira(fabric.price.amount_minor * fabric.piece_yards)}</p> : null}
         {fabric.has_video && <span className="fabric-card__video">▶ Real video</span>}
       </div>
     </Link>

@@ -11,7 +11,9 @@ class OfferMessage extends Model
 {
     public const UPDATED_AT = null;
 
-    protected $fillable = ['author_id', 'author_role', 'body'];
+    protected $fillable = ['author_id', 'author_role', 'body', 'photo_path', 'photo_mime'];
+
+    protected $hidden = ['photo_path'];
 
     protected function casts(): array
     {

@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, ApiError, type JobRequest, type Offer, type Tailor } from '../api'
 import { TrustLine } from '../components/cards'
 import { MessageThread } from '../components/Messages'
+import { DesignPhotos } from '../components/DesignPhotos'
 import {
   Badge,
   Button,
@@ -358,6 +359,7 @@ export function RequestDetail() {
             <h2 className="brief__title">Your brief</h2>
             <p>{r.description}</p>
             {r.style_tags.length > 0 && <p className="muted">Style: {r.style_tags.join(', ')}</p>}
+            <DesignPhotos requestId={String(r.id)} photos={r.photos ?? []} editable={r.status === 'open'} />
             <dl className="terms terms--compact">
               <div><dt>Fabric</dt><dd>{r.fabric_status === 'own_fabric' ? 'You have it' : r.fabric_status === 'need_advice' ? 'Advice wanted' : r.fabric?.name ?? 'Buying on OSAPS'}</dd></div>
               <div><dt>Fitting</dt><dd>{r.fitting_required ? 'Wanted' : 'Not needed'}</dd></div>

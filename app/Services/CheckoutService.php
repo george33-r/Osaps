@@ -44,11 +44,18 @@ class CheckoutService
         private readonly ShippingZones $zones,
         private readonly AsoEbiRules $asoEbi,
         private readonly PayoutRules $payouts,
+        private readonly \App\Domain\Shop\DeliveryZones $delivery,
     ) {}
 
-    /** Per-vendor delivery charge for this way of receiving fabric (international is priced by country). */
-    private function deliveryFee(string $fulfilment, ?string $country): ?int
+    /**
+     * Per-vendor delivery charge for this way of receiving fabric: by country abroad, by state in
+     * Nigeria (falls back to the default fee until a state is chosen). Pickup is free.
+     */
+    private function deliveryFee(string $fulfilment, ?string $country, ?string $state = null): ?int
     {
+        if (in_array($fulfilment, ['delivery', 'arrival'], true)) {
+            return $state !== null && $state !== '' ? $this->delivery->feeFor($state) : null;
+        }
         if ($fulfilment !== 'international') {
             return null;
         }
@@ -63,21 +70,22 @@ class CheckoutService
      * @param  list<array{fabric_id:int, quantity:int, price_offer_id?:int|null}>  $items
      * @return array<string,mixed>
      */
-    public function quote(User $buyer, array $items, string $fulfilment, ?string $country = null): array
+    public function quote(?User $buyer, array $items, string $fulfilment, ?string $country = null, ?string $state = null): array
     {
         $this->sweep();
         $fabrics = Fabric::query()->with('vendor')->whereIn('id', array_column($items, 'fabric_id'))->get()->keyBy('id');
 
-        return $this->pricing->quote($this->lines($buyer, $items, $fabrics), $fulfilment, $this->deliveryFee($fulfilment, $country));
+        return $this->pricing->quote($this->lines($buyer, $items, $fabrics), $fulfilment, $this->deliveryFee($fulfilment, $country, $state));
     }
 
     /** What one guest pays to join an aṣọ-ẹbí group. */
-    public function quoteShare(User $guest, AsoEbiGroup $group, int $yards): array
+    public function quoteShare(User $guest, AsoEbiGroup $group, int $yards, ?string $state = null): array
     {
         $this->sweep();
         $fabric = Fabric::query()->with('vendor')->findOrFail($group->fabric_id);
+        $fulfilment = AsoEbiRules::guestFulfilment($group->fulfilment);
 
-        return $this->pricing->quote([$this->shareLine($guest, $group, $fabric, $yards)], AsoEbiRules::guestFulfilment($group->fulfilment));
+        return $this->pricing->quote([$this->shareLine($guest, $group, $fabric, $yards)], $fulfilment, $this->deliveryFee($fulfilment, null, $state));
     }
 
     /** Housekeeping that also runs from cron: lapse unpaid checkouts, stale offers, quiet deliveries. */
@@ -97,7 +105,10 @@ class CheckoutService
     {
         $this->assertPayments();
         $this->sweep();
-        $fee = $this->deliveryFee($fulfilment, $country);
+        if ($fulfilment === 'pickup' && ! config('marketplace.shop.pickup_enabled')) {
+            throw new DomainRuleViolation('Pickup is not offered yet. Choose delivery.', 'pickup_unavailable');
+        }
+        $fee = $this->deliveryFee($fulfilment, $country, $address['state'] ?? null);
         // Starting again (e.g. after backing out of the Paystack page) replaces any earlier unpaid
         // cart checkout, so its stock and agreed prices are free for this one.
         foreach (Checkout::query()->where('customer_id', $buyer->id)->whereNull('aso_ebi_group_id')->where('payment_status', Checkout::PENDING)->get() as $old) {
@@ -137,7 +148,7 @@ class CheckoutService
             $this->asoEbi->assertCanJoin($group->status, \DateTimeImmutable::createFromMutable($group->deadline_at->toDateTime()), new \DateTimeImmutable, $yards, (int) $fabric->min_order_quantity);
 
             $fulfilment = AsoEbiRules::guestFulfilment($group->fulfilment);
-            $quote = $this->pricing->quote([$this->shareLine($guest, $group, $fabric, $yards)], $fulfilment);
+            $quote = $this->pricing->quote([$this->shareLine($guest, $group, $fabric, $yards)], $fulfilment, $this->deliveryFee($fulfilment, null, $address['state'] ?? null));
             $checkout = $this->persist($guest, $quote, $fulfilment, $contact, $fulfilment === 'delivery' ? $address : null, $expectedTotalMinor, ['aso_ebi_group_id' => $group->id]);
 
             $share = new AsoEbiShare(['yards' => $yards, 'show_name' => $showName]);
@@ -567,7 +578,7 @@ class CheckoutService
      * @param  Collection<int, Fabric>  $fabrics
      * @return list<CartLine>
      */
-    private function lines(User $buyer, array $items, Collection $fabrics, bool $forCheckout = false): array
+    private function lines(?User $buyer, array $items, Collection $fabrics, bool $forCheckout = false): array
     {
         $offerIds = array_values(array_filter(array_map(fn ($i) => isset($i['price_offer_id']) ? (int) $i['price_offer_id'] : null, $items)));
         $offers = $offerIds === [] ? collect() : PriceOffer::query()->whereIn('id', $offerIds)->when($forCheckout, fn ($q) => $q->lockForUpdate())->get()->keyBy('id');
@@ -576,7 +587,7 @@ class CheckoutService
         // checkout does not count: creating a new one cancels it first.
         $busy = $offerIds === [] ? [] : \App\Models\FabricOrderItem::query()
             ->whereIn('price_offer_id', $offerIds)
-            ->whereHas('fabricOrder', fn ($q) => $q->where('status', FabricOrderStatus::PENDING_PAYMENT)->where('customer_id', '!=', $buyer->id))
+            ->whereHas('fabricOrder', fn ($q) => $q->where('status', FabricOrderStatus::PENDING_PAYMENT)->where('customer_id', '!=', $buyer?->id ?? 0))
             ->pluck('price_offer_id')->all();
 
         $lines = [];
@@ -585,7 +596,7 @@ class CheckoutService
             $offerId = isset($item['price_offer_id']) ? (int) $item['price_offer_id'] : null;
             $offer = $offerId !== null ? ($offers[$offerId] ?? null) : null;
             $usable = $offer !== null && $fabric !== null
-                && $offer->buyer_id === $buyer->id
+                && $buyer !== null && $offer->buyer_id === $buyer->id
                 && $offer->fabric_id === $fabric->id
                 && $offer->isUsable()
                 && ! in_array($offer->id, $busy, true);
@@ -600,7 +611,7 @@ class CheckoutService
                 listUnitMinor: (int) ($fabric?->price_minor ?? 0),
                 available: $fabric?->availableQuantity() ?? 0,
                 minQuantity: (int) ($fabric?->min_order_quantity ?? 1),
-                listed: $fabric !== null && $fabric->isBuyable() && $fabric->vendor?->user_id !== $buyer->id,
+                listed: $fabric !== null && $fabric->isBuyable() && ($buyer === null || $fabric->vendor?->user_id !== $buyer->id),
                 offerId: $offerId,
                 offerUnitMinor: $offer?->unit_minor,
                 offerQuantity: $offer?->quantity,

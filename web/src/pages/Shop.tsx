@@ -4,6 +4,8 @@ import { api, ApiError, isPreview, type Checkout, type FabricOrder, type PriceOf
 import { Countdown, OfferCard, QtyStepper } from '../components/ShopKit'
 import { Swatch } from '../components/Swatch'
 import { Button, ButtonLink, EmptyState, ErrorState, Field, PageHeader, Skeleton, errorMessage } from '../components/ui'
+import { StatePicker, useDeliveryInfo } from '../components/StatePicker'
+import { WhatsAppLink } from '../components/WhatsApp'
 import { DeliveryCodeCard, ProblemReport, ProtectionNote, RefundList } from '../components/Protection'
 import { lineEstimate, useCart } from '../lib/cart'
 import { formatDate, formatNaira } from '../lib/format'
@@ -17,7 +19,7 @@ function useQuote(enabled: boolean) {
   const [quote, setQuote] = useState<ShopQuote | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const key = JSON.stringify([cart.items, cart.fulfilment, cart.country])
+  const key = JSON.stringify([cart.items, cart.fulfilment, cart.country, cart.shipState])
   const seq = useRef(0)
 
   const refresh = async () => {
@@ -26,7 +28,8 @@ function useQuote(enabled: boolean) {
     const n = ++seq.current
     setLoading(true)
     try {
-      const q = await api.quote(cart.items, cart.fulfilment, cart.fulfilment === 'international' ? cart.country : null)
+      const q = await api.quote(cart.items, cart.fulfilment, cart.fulfilment === 'international' ? cart.country : null,
+        cart.fulfilment === 'delivery' || cart.fulfilment === 'arrival' ? cart.shipState || null : null)
       if (n === seq.current) { setQuote(q); setError(null) }
       return q
     } catch (e) {
@@ -47,6 +50,9 @@ function useQuote(enabled: boolean) {
 }
 
 function Summary({ quote, estimate, children }: { quote: ShopQuote | null; estimate: number; children?: React.ReactNode }) {
+  const cart = useCart()
+  const info = useDeliveryInfo(cart.fulfilment === 'delivery' || cart.fulfilment === 'arrival' ? cart.shipState || null : null)
+  const deliveryNote = cart.fulfilment === 'delivery' || cart.fulfilment === 'arrival' ? (cart.shipState ? info?.days ?? null : 'Choose your state for the exact price') : null
   const saved = quote?.vendors.flatMap((v) => v.lines).reduce((n, l) => n + l.saving.amount_minor, 0) ?? 0
   return (
     <aside className="bag" aria-label="Order summary">
@@ -54,15 +60,15 @@ function Summary({ quote, estimate, children }: { quote: ShopQuote | null; estim
       {quote ? (
         <dl className="bag__lines">
           <div><dt>Fabric</dt><dd>{quote.subtotal.formatted}</dd></div>
-          <div><dt>Delivery{quote.vendors.length > 1 ? ` (${quote.vendors.length} vendors)` : ''}</dt><dd>{quote.delivery.amount_minor ? quote.delivery.formatted : 'Free pickup'}</dd></div>
+          <div><dt>Delivery{quote.vendors.length > 1 ? ` (${quote.vendors.length} shops)` : ''}{deliveryNote ? <small className="bag__sub">{deliveryNote}</small> : null}</dt><dd>{quote.delivery.amount_minor ? quote.delivery.formatted : 'Free pickup'}</dd></div>
           <div><dt>OSAPS service fee</dt><dd>{quote.service_fee.formatted}</dd></div>
           <div className="bag__total"><dt>Total</dt><dd>{quote.total.formatted}</dd></div>
           <Approx minor={quote.total.amount_minor} className="bag__approx" />
         </dl>
       ) : (
         <dl className="bag__lines">
-          <div><dt>Fabric (estimate)</dt><dd>{formatNaira(estimate)}</dd></div>
-          <div className="bag__note"><dt>Delivery and fees are worked out at checkout.</dt></div>
+          <div><dt>Fabric</dt><dd>{formatNaira(estimate)}</dd></div>
+          <div className="bag__note"><dt>Working out delivery and the total…</dt></div>
         </dl>
       )}
       {saved > 0 && <p className="bag__saved">You saved {formatNaira(saved)} by naming your price.</p>}
@@ -81,16 +87,22 @@ const COUNTRY_NAMES: Record<string, string> = {
 function Fulfilment() {
   const cart = useCart()
   const { meta } = useSession()
-  const fee = meta?.shop?.delivery_fee_per_vendor_minor
   const countries = meta?.diaspora?.ship_countries ?? []
+  const pickup = !!meta?.shop?.pickup_enabled
+  const info = useDeliveryInfo(cart.shipState || null)
   const opts: { key: typeof cart.fulfilment; title: string; sub: string; show: boolean }[] = [
-    { key: 'delivery', title: 'Deliver to me', sub: fee ? `${formatNaira(fee)} per vendor, in Nigeria` : 'In Nigeria', show: true },
-    { key: 'pickup', title: "Pick up at the vendor's market", sub: 'Free', show: true },
-    { key: 'arrival', title: 'Deliver when I land', sub: 'Flying in? Waiting at your Nigerian address on your date', show: true },
+    { key: 'delivery', title: 'Deliver to me', sub: info?.text ?? 'Anywhere in Nigeria', show: true },
+    { key: 'pickup', title: 'Pick up from the shop', sub: 'Free', show: pickup },
+    { key: 'arrival', title: 'Deliver when I land', sub: 'Coming from abroad? We deliver to your Nigerian address on your date', show: true },
     { key: 'international', title: 'Ship abroad', sub: countries.length ? 'UK, US, Europe and more' : 'Coming soon', show: countries.length > 0 },
   ]
+  useEffect(() => {
+    if (cart.fulfilment === 'pickup' && !pickup && meta) cart.setFulfilment('delivery')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pickup, meta])
   return (
     <div className="fulfil-wrap">
+      <p className="label">How do you want to get it?</p>
       <div className="fulfil" role="radiogroup" aria-label="How you get your fabric">
         {opts.filter((o) => o.show).map((o) => (
           <button key={o.key} type="button" role="radio" aria-checked={cart.fulfilment === o.key} className="fulfil__opt" onClick={() => cart.setFulfilment(o.key)}>
@@ -99,12 +111,18 @@ function Fulfilment() {
           </button>
         ))}
       </div>
+      {(cart.fulfilment === 'delivery' || cart.fulfilment === 'arrival') && (
+        <label className="fulfil__country">
+          <span className="label">Your state</span>
+          <StatePicker value={cart.shipState} onChange={cart.setShipState} />
+        </label>
+      )}
       {cart.fulfilment === 'international' && (
         <label className="fulfil__country">
           <span className="label">Ship to</span>
           <select className="input" value={cart.country ?? ''} onChange={(e) => cart.setCountry(e.target.value || null)}>
             <option value="">Choose a country</option>
-            {countries.map((c) => <option key={c.code} value={c.code}>{COUNTRY_NAMES[c.code] ?? c.code} · {formatNaira(c.fee_minor)} per vendor</option>)}
+            {countries.map((c) => <option key={c.code} value={c.code}>{COUNTRY_NAMES[c.code] ?? c.code} · {formatNaira(c.fee_minor)}</option>)}
           </select>
         </label>
       )}
@@ -115,7 +133,7 @@ function Fulfilment() {
 export function CartPage() {
   const cart = useCart()
   const { user } = useSession()
-  const { quote, error } = useQuote(!!user)
+  const { quote, error } = useQuote(true)
   const estimate = cart.lines.reduce((n, l) => n + lineEstimate(l), 0)
   const problems = (id: number) => [...(quote?.blocking ?? []), ...(quote?.notices ?? [])].filter((p) => p.fabric_id === id)
   const priced = (id: number) => quote?.vendors.flatMap((v) => v.lines).find((l) => l.fabric_id === id)
@@ -133,10 +151,9 @@ export function CartPage() {
 
   return (
     <div className="page">
-      <PageHeader title="Your cart" intro={`${cart.lines.length} ${cart.lines.length === 1 ? 'fabric' : 'fabrics'}. Fabric from different vendors arrives as separate orders.`} />
+      <PageHeader title="Your cart" intro={`${cart.lines.length} ${cart.lines.length === 1 ? 'fabric' : 'fabrics'} in your cart.`} />
       <div className="cart">
         <div className="cart__lines">
-          <Fulfilment />
           {cart.lines.map((l) => {
             const p = priced(l.fabric_id)
             const issues = problems(l.fabric_id)
@@ -160,18 +177,17 @@ export function CartPage() {
               </article>
             )
           })}
+          <Fulfilment />
         </div>
         <Summary quote={quote} estimate={estimate}>
           {error && <p className="field__error">{error}</p>}
-          {user ? (
-            <ButtonLink to="/checkout" className={`bag__cta ${quote && !quote.ok ? 'is-disabled' : ''}`} aria-disabled={quote ? !quote.ok : undefined}
-              onClick={(e) => { if (quote && !quote.ok) e.preventDefault() }}>
-              {quote && !quote.ok ? 'Fix your cart to continue' : 'Checkout'}
-            </ButtonLink>
-          ) : (
-            <ButtonLink to="/signin?next=%2Fcheckout" className="bag__cta">Sign in to check out</ButtonLink>
-          )}
-          <p className="bag__fine">Paid through Paystack. Card, bank transfer or USSD.</p>
+          <ButtonLink to="/checkout" className={`bag__cta ${quote && !quote.ok ? 'is-disabled' : ''}`} aria-disabled={quote ? !quote.ok : undefined}
+            onClick={(e) => { if (quote && !quote.ok) e.preventDefault() }}>
+            {quote && !quote.ok ? 'Fix your cart to continue' : 'Checkout'}
+          </ButtonLink>
+          {!user && <p className="bag__fine">No account needed: just your name, phone and email at checkout. <Link to="/signin?next=%2Fcheckout">Have an account? Sign in</Link></p>}
+          <p className="bag__fine">Paid through Paystack: card, bank transfer or USSD. <Link to="/buyer-protection">Your money is protected</Link>.</p>
+          <WhatsAppLink text="Hello OSAPS, I have a question about my cart." className="bag__wa">Questions? Chat with us on WhatsApp</WhatsAppLink>
         </Summary>
       </div>
     </div>
@@ -182,7 +198,7 @@ const PENDING_KEY = 'osaps-pending-checkout'
 
 export function CheckoutPage() {
   const cart = useCart()
-  const { user, meta } = useSession()
+  const { user, meta, setUser } = useSession()
   const navigate = useNavigate()
   const { quote, refresh, loading } = useQuote(true)
   const [busy, setBusy] = useState(false)
@@ -208,12 +224,18 @@ export function CheckoutPage() {
     const s = (k: string) => String(f.get(k) ?? '').trim()
     setBusy(true); setError(null); setNotice(null)
     try {
+      // No account yet: make one from these details in the same step (a "set your password" email follows).
+      if (!user) {
+        const u = await api.quickAccount({ name: s('name'), email: s('email'), phone: s('phone') })
+        setUser(u)
+      }
       const c = await api.createCheckout({
         items: cart.items,
         fulfilment: cart.fulfilment,
         expected_total_minor: quote.total.amount_minor,
         contact: { name: s('name'), phone: s('phone') },
-        address: cart.fulfilment === 'pickup' ? null : { line1: s('line1'), line2: s('line2') || undefined, city: s('city'), state: s('state') || undefined, postcode: s('postcode') || undefined, landmark: s('landmark') || undefined },
+        address: cart.fulfilment === 'pickup' ? null : { line1: s('line1'), line2: s('line2') || undefined, city: s('city'),
+          state: (cart.fulfilment === 'international' ? s('state') : cart.shipState) || undefined, postcode: s('postcode') || undefined, landmark: s('landmark') || undefined },
         country: cart.fulfilment === 'international' ? cart.country : null,
         arrival_date: cart.fulfilment === 'arrival' ? s('arrival_date') : null,
       })
@@ -231,7 +253,7 @@ export function CheckoutPage() {
 
   return (
     <div className="page">
-      <PageHeader title="Checkout" intro="Where should your fabric go? You pay on the next screen, through Paystack." />
+      <PageHeader title="Checkout" intro="Three short steps. You pay on the next screen, through Paystack." />
       <form className="cart" onSubmit={submit}>
         <div className="checkout">
           <section className="checkout__block">
@@ -240,8 +262,11 @@ export function CheckoutPage() {
           </section>
           <section className="checkout__block">
             <h2 className="checkout__h">2. Your details</h2>
-            <Field label="Full name" error={error?.field('contact.name')}>{(p) => <input {...p} name="name" className="input" defaultValue={user?.name ?? ''} autoComplete="name" required minLength={2} />}</Field>
-            <Field label="Phone number" hint="The vendor calls this number about your order." error={error?.field('contact.phone')}>{(p) => <input {...p} name="phone" className="input" type="tel" inputMode="tel" defaultValue={user?.phone ?? ''} autoComplete="tel" placeholder="0801 234 5678" required />}</Field>
+            {!user && <p className="muted">No sign-up form. We save these details so you can follow your order, and email you a link to set a password. <Link to="/signin?next=%2Fcheckout">Have an account? Sign in</Link></p>}
+            <Field label="Full name" error={error?.field('contact.name') ?? error?.field('name')}>{(p) => <input {...p} name="name" className="input" defaultValue={user?.name ?? ''} autoComplete="name" required minLength={2} />}</Field>
+            <Field label="Phone number" hint="We call or WhatsApp this number about your delivery." error={error?.field('contact.phone') ?? error?.field('phone')}>{(p) => <input {...p} name="phone" className="input" type="tel" inputMode="tel" defaultValue={user?.phone ?? ''} autoComplete="tel" placeholder="0801 234 5678" required />}</Field>
+            {!user && <Field label="Email" hint="For your receipt and order updates." error={error?.field('email')}>{(p) => <input {...p} name="email" className="input" type="email" inputMode="email" autoComplete="email" required />}</Field>}
+            {error?.code === 'account_exists' && <p className="field__error" role="alert">{error.message} <Link to="/signin?next=%2Fcheckout">Sign in</Link> · <Link to="/forgot-password">Forgot password?</Link></p>}
           </section>
           {cart.fulfilment === 'international' ? (
             <section className="checkout__block">
@@ -264,15 +289,15 @@ export function CheckoutPage() {
               <Field label="Street address" error={error?.field('address.line1')}>{(p) => <input {...p} name="line1" className="input" autoComplete="address-line1" required />}</Field>
               <Field label="Flat, estate or office" optional>{(p) => <input {...p} name="line2" className="input" autoComplete="address-line2" />}</Field>
               <div className="checkout__pair">
-                <Field label="City" error={error?.field('address.city')}>{(p) => <input {...p} name="city" className="input" defaultValue={user?.city ?? ''} autoComplete="address-level2" required />}</Field>
-                <Field label="State" error={error?.field('address.state')}>{(p) => <input {...p} name="state" className="input" autoComplete="address-level1" required />}</Field>
+                <Field label="City or town" error={error?.field('address.city')}>{(p) => <input {...p} name="city" className="input" defaultValue={user?.city ?? ''} autoComplete="address-level2" required />}</Field>
+                <Field label="State" error={error?.field('address.state')}>{(p) => <StatePicker {...p} value={cart.shipState} onChange={cart.setShipState} />}</Field>
               </div>
               <Field label="Nearest landmark" optional hint="Helps the rider find you.">{(p) => <input {...p} name="landmark" className="input" />}</Field>
             </section>
           ) : (
             <section className="checkout__block">
               <h2 className="checkout__h">3. Pickup</h2>
-              <p className="muted">Each vendor will call you when your fabric is ready to collect at their market.</p>
+              <p className="muted">We will call you when your fabric is ready to collect.</p>
             </section>
           )}
         </div>

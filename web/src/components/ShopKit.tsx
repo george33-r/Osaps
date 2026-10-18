@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { api, ApiError, type Fabric, type PriceOffer } from '../api'
 import { useCart } from '../lib/cart'
 import { formatNaira, groupDigits, nairaToMinor, timeLeft } from '../lib/format'
 import { useSession } from '../lib/session'
 import { useToast } from '../lib/toast'
+import { PieceChoice, YardHelper, useOffscreen } from './ProductKit'
+import { useDeliveryInfo } from './StatePicker'
 import { Swatch } from './Swatch'
+import { WhatsAppLink } from './WhatsApp'
 import { Button, errorMessage } from './ui'
 
 export function CartIcon() {
@@ -243,7 +246,11 @@ export function BuyBox({ fabric }: { fabric: Fabric }) {
   const toast = useToast()
   const location = useLocation()
   const min = Math.max(1, fabric.min_order_quantity)
-  const [qty, setQty] = useState(min)
+  const piece = fabric.unit === 'yard' && (fabric.piece_yards ?? 0) >= min && (fabric.piece_yards ?? 0) <= fabric.available_quantity ? fabric.piece_yards! : 0
+  const [qty, setQty] = useState(piece || min)
+  const box = useRef<HTMLElement>(null)
+  const offscreen = useOffscreen(box)
+  const delivery = useDeliveryInfo(cart.shipState || null)
   const [mode, setMode] = useState<'buy' | 'offer'>('buy')
   const [offer, setOffer] = useState<PriceOffer | null>(null)
   const soldOut = fabric.available_quantity < min
@@ -266,8 +273,12 @@ export function BuyBox({ fabric }: { fabric: Fabric }) {
 
   if (!payments) return null
 
+  const add = () => { cart.addFabric(fabric, qty); toast(`${fabric.name} added to your cart.`, 'good') }
+  const url = typeof window !== 'undefined' ? window.location.origin + location.pathname : ''
+
   return (
-    <section className="buybox" aria-label="Buy this fabric">
+    <>
+    <section className="buybox" aria-label="Buy this fabric" ref={box}>
       <div className="buybox__tabs" role="tablist">
         <button role="tab" aria-selected={mode === 'buy'} className="buybox__tab" onClick={() => setMode('buy')}>Buy now</button>
         <button role="tab" aria-selected={mode === 'offer'} className="buybox__tab" onClick={() => setMode('offer')}>Name your price</button>
@@ -278,12 +289,16 @@ export function BuyBox({ fabric }: { fabric: Fabric }) {
       ) : (
         <>
           {!(mode === 'offer' && offer) && (
-            <QtyStepper value={qty} min={min} max={fabric.available_quantity} unit={fabric.unit} onChange={setQty} />
+            <>
+              <PieceChoice fabric={fabric} qty={qty} onPick={setQty} />
+              <QtyStepper value={qty} min={min} max={fabric.available_quantity} unit={fabric.unit} onChange={setQty} />
+              <YardHelper fabric={fabric} onPick={setQty} />
+            </>
           )}
           {mode === 'buy' ? (
             <div className="buybox__buy">
               <p className="buybox__total">{formatNaira(total)}</p>
-              <Button className="buybox__cta" onClick={() => { cart.addFabric(fabric, qty); toast(`${fabric.name} added to your cart.`, 'good') }}>
+              <Button className="buybox__cta" onClick={add}>
                 {inCart ? 'Update cart' : 'Add to cart'}
               </Button>
               {inCart && <Link to="/cart" className="text-link">Go to cart</Link>}
@@ -302,7 +317,24 @@ export function BuyBox({ fabric }: { fabric: Fabric }) {
           )}
         </>
       )}
-      <p className="buybox__trust">Pay securely with card, transfer or USSD through Paystack. The vendor only sees your order once it is paid.</p>
+      {delivery && <p className="buybox__delivery">{delivery.text}. <Link to="/buyer-protection#delivery" className="text-link">Delivery prices</Link></p>}
+      <p className="buybox__trust">Pay with card, transfer or USSD through Paystack. The vendor is paid only after you confirm you have your fabric. <Link to="/buyer-protection" className="text-link">How you are protected</Link></p>
+      <div className="buybox__help">
+        <WhatsAppLink text={`Hello OSAPS, I have a question about ${fabric.name}: ${url}`}>Ask on WhatsApp</WhatsAppLink>
+        <a className="wa-link wa-link--share" href={`https://wa.me/?text=${encodeURIComponent(`${fabric.name}, ${fabric.price.formatted} per ${fabric.unit} on OSAPS: ${url}`)}`} target="_blank" rel="noopener noreferrer">
+          <span>Share with family</span>
+        </a>
+      </div>
     </section>
+    {!soldOut && mode === 'buy' && (
+      <div className={`buybar ${offscreen ? 'is-shown' : ''}`} aria-hidden={!offscreen}>
+        <div className="buybar__text">
+          <strong>{formatNaira(total)}</strong>
+          <span>{qty} {fabric.unit}{qty === 1 ? '' : 's'} · {fabric.name}</span>
+        </div>
+        <Button className="buybar__cta" onClick={add} tabIndex={offscreen ? 0 : -1}>{inCart ? 'Update cart' : 'Add to cart'}</Button>
+      </div>
+    )}
+    </>
   )
 }

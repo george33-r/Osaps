@@ -64,7 +64,8 @@ final class KeywordInterpreter
 
     private const GARMENT_WORDS = [
         'agbada' => ['agbada'],
-        'senator' => ['senator outfit', 'senator for'],
+        'senator' => ['senator outfit', 'senator for', 'for senator', 'senator'],
+        'aso_ebi' => ['aso ebi', 'aso-ebi', 'asoebi', 'family uniform'],
         'kaftan' => ['kaftan', 'caftan', 'jalabiya', 'kaftans'],
         'buba_sokoto' => ['buba and sokoto', 'buba & sokoto', 'sokoto'],
         'iro_buba' => ['iro and buba', 'iro & buba', 'iro'],

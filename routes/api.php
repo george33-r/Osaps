@@ -49,12 +49,17 @@ Route::prefix('v1')->name('v1.')->group(function () {
     Route::get('aso-ebi/{asoEbiGroup}', [AsoEbiController::class, 'show'])->where('asoEbiGroup', '[a-hj-km-np-z2-9]{10}')->name('aso-ebi.show');
     Route::get('live', [LiveController::class, 'index'])->name('live.index');
 
+    // Cart prices: open to everyone, so shoppers see the full total before making an account.
+    Route::post('shop/quote', [ShopController::class, 'quote'])->middleware('throttle:shop-quotes')->name('shop.quote');
+
     // Paystack server-to-server callback. No session or CSRF: it is authenticated by its HMAC signature.
     Route::post('webhooks/paystack', PaystackWebhookController::class)->middleware('throttle:webhooks')->name('webhooks.paystack');
 
     Route::middleware('throttle:auth')->group(function () {
         Route::post('auth/register', [AuthController::class, 'register'])->name('auth.register');
         Route::post('auth/login', [AuthController::class, 'login'])->name('auth.login');
+        // Checkout without a sign-up form: name, phone and email make the account in one step.
+        Route::post('auth/quick', [AuthController::class, 'quick'])->name('auth.quick');
         Route::post('auth/forgot-password', [AuthController::class, 'forgotPassword'])->name('auth.forgot');
         Route::post('auth/reset-password', [AuthController::class, 'resetPassword'])->name('auth.reset');
     });
@@ -86,6 +91,12 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('offers/{offer}/accept', [OfferController::class, 'accept'])->name('offers.accept');
         });
 
+        // Sample design photos on a request, and photos in the chat (served only to the people involved)
+        Route::post('job-requests/{jobRequest}/photos', [\App\Http\Controllers\Api\V1\DesignPhotoController::class, 'store'])->middleware('throttle:marketplace-writes')->name('job-requests.photos.store');
+        Route::delete('job-requests/{jobRequest}/photos/{photo}', [\App\Http\Controllers\Api\V1\DesignPhotoController::class, 'destroy'])->whereNumber('photo')->name('job-requests.photos.destroy');
+        Route::get('design-photos/{photo}', [\App\Http\Controllers\Api\V1\DesignPhotoController::class, 'show'])->whereNumber('photo')->name('design-photos.show');
+        Route::get('chat-photos/{message}', [\App\Http\Controllers\Api\V1\DesignPhotoController::class, 'message'])->whereNumber('message')->name('chat-photos.show');
+
         // Messages between the two parties to an offer
         Route::get('offers/{offer}/messages', [OfferMessageController::class, 'index'])->name('offers.messages.index');
         Route::post('offers/{offer}/messages', [OfferMessageController::class, 'store'])->middleware('throttle:marketplace-writes')->name('offers.messages.store');
@@ -107,7 +118,6 @@ Route::prefix('v1')->name('v1.')->group(function () {
         });
 
         // Fabric shop: cart, checkout and orders
-        Route::post('shop/quote', [ShopController::class, 'quote'])->middleware('throttle:shop-quotes')->name('shop.quote');
         Route::post('checkouts', [ShopController::class, 'store'])->middleware('throttle:marketplace-writes')->name('checkouts.store');
         Route::get('checkouts/{checkout}', [ShopController::class, 'show'])->name('checkouts.show');
         Route::post('checkouts/{checkout}/verify', [ShopController::class, 'verify'])->middleware('throttle:shop-quotes')->name('checkouts.verify');

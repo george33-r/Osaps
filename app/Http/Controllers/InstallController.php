@@ -69,7 +69,7 @@ class InstallController extends Controller
             }
 
             file_put_contents($lockPath, $ledger->record($token, now()->toDateTimeString(), $upgrading ? 'upgrade' : 'install')->toLock(), LOCK_EX);
-            $log[] = '(installer v3)';
+            $log[] = '(installer v4)';
             $log[] = ($upgrading ? 'Upgrade done.' : 'Install done.').' This link will not work again. Delete the INSTALL_TOKEN line from .env now.';
 
             return $this->text(implode("\n\n", array_filter($log)));

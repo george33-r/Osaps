@@ -51,7 +51,22 @@ class FabricSearch
             }
         }
 
+        // "Material for senator", "aso ebi": a garment with no fabric named (or none in stock) means
+        // the fabrics that usually make that garment.
+        $garmentCats = $keywords['garment'] ? array_values(array_intersect((array) config('marketplace.garment_fabrics.'.$keywords['garment'], []), $cats)) : [];
+        if ($garmentCats !== [] && $criteria->categories === []) {
+            $criteria = $criteria->withCategories($garmentCats);
+        }
         $results = $this->run($criteria);
+        if ($results->isEmpty() && $garmentCats !== [] && $criteria->categories !== $garmentCats) {
+            $alt = $criteria->withCategories($garmentCats);
+            $altResults = $this->run($alt);
+            if ($altResults->isNotEmpty()) {
+                [$criteria, $results] = [$alt, $altResults];
+                $label = (string) (config('marketplace.garment_categories.'.$keywords['garment']) ?? str_replace('_', ' ', (string) $keywords['garment']));
+                $understood = 'Fabrics usually used for '.mb_strtolower($label).'.';
+            }
+        }
         $relaxed = [];
         if ($results->isEmpty() && ! $criteria->isEmpty()) {
             foreach ($criteria->relaxations() as $step) {

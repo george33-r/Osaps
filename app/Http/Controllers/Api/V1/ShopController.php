@@ -24,13 +24,15 @@ class ShopController extends Controller
             'items.*.price_offer_id' => ['nullable', 'integer', 'min:1'],
             'fulfilment' => ['required', 'in:delivery,pickup,arrival,international'],
             'country' => ['nullable', 'required_if:fulfilment,international', 'string', 'size:2'],
+            'state' => ['nullable', 'string', 'max:40'],
         ];
     }
 
     public function quote(Request $request): JsonResponse
     {
         $data = $request->validate($this->cartRules());
-        $q = $this->checkouts->quote($request->user(), $data['items'], $data['fulfilment'], $data['country'] ?? null);
+        // Works signed out too, so a first-time shopper sees the full price before making an account.
+        $q = $this->checkouts->quote($request->user('sanctum'), $data['items'], $data['fulfilment'], $data['country'] ?? null, $data['state'] ?? $data['address']['state'] ?? null);
 
         return response()->json(['data' => self::present($q)]);
     }
@@ -44,12 +46,19 @@ class ShopController extends Controller
             'address.line1' => ['required_unless:fulfilment,pickup', 'nullable', 'string', 'max:160'],
             'address.line2' => ['nullable', 'string', 'max:160'],
             'address.city' => ['required_unless:fulfilment,pickup', 'nullable', 'string', 'max:80'],
-            'address.state' => ['required_if:fulfilment,delivery,arrival', 'nullable', 'string', 'max:80'],
+            'address.state' => ['required_if:fulfilment,delivery,arrival', 'nullable', 'string', 'max:80', function ($attr, $value, $fail) {
+                if ($value !== null && $value !== '' && \App\Domain\Shop\DeliveryZones::normalise((string) $value) === null) {
+                    $fail('Choose your state from the list.');
+                }
+            }],
             'address.postcode' => ['required_if:fulfilment,international', 'nullable', 'string', 'max:16'],
             'address.landmark' => ['nullable', 'string', 'max:160'],
             'arrival_date' => ['required_if:fulfilment,arrival', 'nullable', 'date_format:Y-m-d', 'after_or_equal:today', 'before:+180 days'],
         ]);
         $user = $request->user();
+        if (isset($data['address']['state'])) {
+            $data['address']['state'] = \App\Domain\Shop\DeliveryZones::normalise($data['address']['state']);
+        }
         $checkout = $this->checkouts->create(
             buyer: $user,
             items: $data['items'],

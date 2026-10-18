@@ -22,7 +22,7 @@ return [
     // Shown when customers need a human. Leave empty to hide.
     'support' => [
         'email' => env('SUPPORT_EMAIL'),
-        'whatsapp' => env('SUPPORT_WHATSAPP'),
+        'whatsapp' => env('SUPPORT_WHATSAPP', '+2348162898760'),
     ],
 
     // Disputes stay off until an admin can resolve them (see CHECKLIST.md). While off, customers are
@@ -70,8 +70,22 @@ return [
         'service_fee_bps' => (int) env('SHOP_SERVICE_FEE_BPS', 250),
         'service_fee_cap_minor' => (int) env('SHOP_SERVICE_FEE_CAP_MINOR', 500_000),
         'vendor_commission_bps' => (int) env('SHOP_VENDOR_COMMISSION_BPS', 500),
-        // Flat delivery charge per vendor in a checkout. Pickup at the vendor's market is free.
+        // Fallback delivery charge per vendor (used only when no state is known). Pickup is free.
         'delivery_fee_per_vendor_minor' => (int) env('SHOP_DELIVERY_FEE_MINOR', 300_000),
+        // Delivery inside Nigeria by the buyer's state. PLACEHOLDER fees and times: put your courier's real ones in .env.
+        'delivery_zones' => [
+            'lagos' => ['label' => 'Lagos', 'fee_minor' => (int) env('DELIVERY_LAGOS_MINOR', 300_000), 'days' => env('DELIVERY_LAGOS_DAYS', '1–2 working days')],
+            'south_west' => ['label' => 'Ogun, Oyo, Osun, Ondo, Ekiti', 'fee_minor' => (int) env('DELIVERY_SOUTH_WEST_MINOR', 450_000), 'days' => env('DELIVERY_SOUTH_WEST_DAYS', '2–3 working days')],
+            'other' => ['label' => 'Other states and Abuja', 'fee_minor' => (int) env('DELIVERY_OTHER_MINOR', 600_000), 'days' => env('DELIVERY_OTHER_DAYS', '3–5 working days')],
+        ],
+        'delivery_state_zones' => ['Lagos' => 'lagos', 'Ogun' => 'south_west', 'Oyo' => 'south_west', 'Osun' => 'south_west', 'Ondo' => 'south_west', 'Ekiti' => 'south_west'],
+        // Fabric usually sold by the piece: yards in a full piece, by category. Buyers can still buy any number of yards.
+        'piece_yards' => [
+            'lace' => (int) env('PIECE_YARDS_LACE', 5),
+            'ankara' => (int) env('PIECE_YARDS_ANKARA', 6),
+        ],
+        // Whether pickup is offered (the store needs an address buyers can come to).
+        'pickup_enabled' => (bool) env('SHOP_PICKUP_ENABLED', false),
         // How long stock is held while the buyer pays.
         'checkout_hold_minutes' => (int) env('SHOP_CHECKOUT_HOLD_MINUTES', 60),
         // Buyer protection: after a confirmed delivery (buyer tap or delivery code) the buyer has this

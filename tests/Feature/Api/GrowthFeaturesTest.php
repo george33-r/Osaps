@@ -50,7 +50,7 @@ class GrowthFeaturesTest extends TestCase
 
     private function payShare(User $guest, string $code, int $yards = 5): array
     {
-        $total = $this->actingAs($guest)->postJson("/api/v1/aso-ebi/{$code}/quote", ['yards' => $yards])->assertOk()->json('data.total.amount_minor');
+        $total = $this->actingAs($guest)->postJson("/api/v1/aso-ebi/{$code}/quote", ['yards' => $yards, 'state' => 'Lagos'])->assertOk()->json('data.total.amount_minor');
         $c = $this->actingAs($guest)->postJson("/api/v1/aso-ebi/{$code}/join", [
             'yards' => $yards, 'expected_total_minor' => $total, 'show_name' => true,
             'contact' => ['name' => $guest->name, 'phone' => '08098765432'],
@@ -115,7 +115,7 @@ class GrowthFeaturesTest extends TestCase
     {
         $buyer = User::factory()->create();
         $cart = ['items' => [['fabric_id' => $this->fabric->id, 'quantity' => 2]], 'fulfilment' => 'delivery'];
-        $total = $this->actingAs($buyer)->postJson('/api/v1/shop/quote', $cart)->json('data.total.amount_minor');
+        $total = $this->actingAs($buyer)->postJson('/api/v1/shop/quote', $cart + ['state' => 'FCT'])->json('data.total.amount_minor');
         $c = $this->actingAs($buyer)->postJson('/api/v1/checkouts', $cart + ['expected_total_minor' => $total,
             'contact' => ['name' => 'Ade', 'phone' => '08012345678'], 'address' => ['line1' => 'x', 'city' => 'Abuja', 'state' => 'FCT']])->json('data');
         $this->gateway->pay($c['reference'], $c['total']['amount_minor']);

@@ -36,6 +36,7 @@ const PreviewPay = lazy(() => import('./pages/Shop').then((m) => ({ default: m.P
 const MyOffers = lazy(() => import('./pages/Shop').then((m) => ({ default: m.MyOffers })))
 const FabricOrderList = lazy(() => import('./pages/Shop').then((m) => ({ default: m.FabricOrderList })))
 const FabricOrderDetail = lazy(() => import('./pages/Shop').then((m) => ({ default: m.FabricOrderDetail })))
+const BuyerProtection = lazy(() => import('./pages/BuyerProtection'))
 const AsoEbiNew = lazy(() => import('./pages/AsoEbi').then((m) => ({ default: m.AsoEbiNew })))
 const AsoEbiPage = lazy(() => import('./pages/AsoEbi').then((m) => ({ default: m.AsoEbiPage })))
 const MyAsoEbi = lazy(() => import('./pages/AsoEbi').then((m) => ({ default: m.MyAsoEbi })))
@@ -101,7 +102,7 @@ const router = createBrowserRouter(
             { path: 'orders', element: signedIn(<OrderList />) },
             { path: 'orders/:reference', element: signedIn(<OrderDetail />) },
             { path: 'cart', element: page(<CartPage />) },
-            { path: 'checkout', element: signedIn(<CheckoutPage />) },
+            { path: 'checkout', element: page(<CheckoutPage />) },
             { path: 'checkout/complete', element: signedIn(<CheckoutComplete />) },
             { path: 'checkout/preview-pay/:reference', element: signedIn(<PreviewPay />) },
             { path: 'offers', element: signedIn(<MyOffers />) },
@@ -115,6 +116,7 @@ const router = createBrowserRouter(
             { path: 'account/measurements', element: signedIn(<MeasurementsPage />) },
             { path: 'live', element: page(<LivePage />) },
             { path: 'inspiration', element: page(<Inspiration />) },
+            { path: 'buyer-protection', element: page(<BuyerProtection />) },
             { path: '*', element: <NotFound /> },
           ],
         },

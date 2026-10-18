@@ -8,6 +8,7 @@ import { Approx } from '../lib/fx'
 import { formatDate, formatNaira } from '../lib/format'
 import { useSession } from '../lib/session'
 import { useToast } from '../lib/toast'
+import { StatePicker } from '../components/StatePicker'
 import { useAsync } from '../lib/useAsync'
 
 const isoDay = (d: Date) => d.toISOString().slice(0, 10)
@@ -111,6 +112,7 @@ export function AsoEbiPage() {
   const [group, setGroup] = useState<AsoEbiGroup | null>(null)
   const [yards, setYards] = useState(0)
   const [quote, setQuote] = useState<ShopQuote | null>(null)
+  const [shipState, setShipState] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<ApiError | null>(null)
   const isNew = new URLSearchParams(window.location.search).get('new') === '1'
@@ -119,9 +121,9 @@ export function AsoEbiPage() {
   useEffect(() => {
     if (!user || !group || group.status !== 'open' || !yards) return
     let live = true
-    api.quoteAsoEbi(code, yards).then((q) => live && setQuote(q)).catch(() => undefined)
+    api.quoteAsoEbi(code, yards, shipState || null).then((q) => live && setQuote(q)).catch(() => undefined)
     return () => { live = false }
-  }, [user, group, yards, code])
+  }, [user, group, yards, code, shipState])
 
   const wa = useMemo(() => (group ? `https://wa.me/?text=${encodeURIComponent(shareText(group))}` : '#'), [group])
   if (res.status === 'error') return <div className="page"><ErrorState error={res.error} onRetry={res.reload} /></div>
@@ -152,7 +154,7 @@ export function AsoEbiPage() {
     } catch (err) {
       const e2 = err instanceof ApiError ? err : new ApiError(errorMessage(err), 0, 'unknown')
       setError(e2)
-      if (e2.code === 'cart_changed') setQuote(await api.quoteAsoEbi(code, yards).catch(() => null))
+      if (e2.code === 'cart_changed') setQuote(await api.quoteAsoEbi(code, yards, shipState || null).catch(() => null))
       setBusy(false)
     }
   }
@@ -205,7 +207,7 @@ export function AsoEbiPage() {
                       <Field label="Delivery address" error={error?.field('address.line1')}>{(p) => <input {...p} name="line1" className="input" required />}</Field>
                       <div className="checkout__pair">
                         <Field label="City">{(p) => <input {...p} name="city" className="input" defaultValue={user.city ?? ''} required />}</Field>
-                        <Field label="State">{(p) => <input {...p} name="state" className="input" required />}</Field>
+                        <Field label="State">{(p) => <StatePicker {...p} value={shipState} onChange={setShipState} />}</Field>
                       </div>
                       <Field label="Nearest landmark" optional>{(p) => <input {...p} name="landmark" className="input" />}</Field>
                     </>

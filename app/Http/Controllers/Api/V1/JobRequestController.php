@@ -33,7 +33,7 @@ class JobRequestController extends Controller
     {
         $requests = $request->user()->jobRequests()
             ->withCount(['offers', 'liveOffers'])
-            ->with(['order', 'customer'])
+            ->with(['order', 'customer', 'photos'])
             ->latest('id')
             ->paginate(20);
 
@@ -44,7 +44,7 @@ class JobRequestController extends Controller
     {
         Gate::authorize('create', JobRequest::class);
         $job = $this->negotiation->createRequest($request->user(), $request->validated());
-        $job->load(['fabric', 'customer']);
+        $job->load(['fabric', 'customer', 'photos']);
 
         return (new JobRequestResource($job))->response()->setStatusCode(201);
     }
@@ -57,7 +57,7 @@ class JobRequestController extends Controller
     {
         Gate::authorize('view', $jobRequest);
         $user = $request->user();
-        $jobRequest->load(['fabric', 'customer', 'order']);
+        $jobRequest->load(['fabric', 'customer', 'order', 'photos']);
         $resource = new JobRequestResource($jobRequest);
 
         if ($user->id === $jobRequest->customer_id || $user->isAdmin()) {
@@ -116,7 +116,7 @@ class JobRequestController extends Controller
         Gate::authorize('cancel', $jobRequest);
         $job = $this->negotiation->cancelRequest($request->user(), $jobRequest);
 
-        return new JobRequestResource($job->load(['fabric', 'customer']));
+        return new JobRequestResource($job->load(['fabric', 'customer', 'photos']));
     }
 
     /** Tailors best suited to this request, with plain-language reasons. Owner only. */
@@ -140,7 +140,7 @@ class JobRequestController extends Controller
 
         $requests = JobRequest::query()->openForTailors()
             ->where('customer_id', '!=', $user->id)
-            ->with(['customer', 'fabric'])
+            ->with(['customer', 'fabric', 'photos'])
             ->withCount('offers')
             ->latest('id')
             ->limit(100)

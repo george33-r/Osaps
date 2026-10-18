@@ -1,13 +1,14 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api, ApiError, type Fabric, type FabricFilters, type FabricIdea, type VendorContact } from '../api'
 import { BuyBox } from '../components/ShopKit'
+import { RecentlyViewed, rememberViewed } from '../components/ProductKit'
 import { TryOn } from '../components/TryOn'
 import { Approx } from '../lib/fx'
 import { FabricCard } from '../components/cards'
 import { COLOR_HEX, DrapedCloth, Swatch } from '../components/Swatch'
 import { Badge, Button, ButtonLink, EmptyState, ErrorState, Label, PageHeader, Skeleton, SourceNote, errorMessage } from '../components/ui'
-import { humanise, nairaToMinor } from '../lib/format'
+import { formatNaira, humanise, nairaToMinor } from '../lib/format'
 import { useSession } from '../lib/session'
 import { useAsync } from '../lib/useAsync'
 
@@ -17,7 +18,7 @@ const SORTS: { key: NonNullable<FabricFilters['sort']>; label: string }[] = [
   { key: 'price_desc', label: 'Price, high to low' },
 ]
 
-const ASK_EXAMPLES = ['A wine-coloured Ankara for a wedding guest', 'Soft lace for a classy evening dress', 'Blue fabric for a matching family outfit', 'Aṣọ-òkè for a traditional ceremony']
+const ASK_EXAMPLES = ['A wine-coloured Ankara for a wedding guest', 'Lace for owambe', 'Material for senator', 'Aṣọ-ẹbí for a family wedding', 'Ankara under ₦5,000']
 
 function AskBar({ initial }: { initial: string }) {
   const navigate = useNavigate()
@@ -48,6 +49,34 @@ function AskBar({ initial }: { initial: string }) {
   )
 }
 
+/** Never a dead end: when nothing matches, offer every fabric type in stock and a few popular fabrics. */
+function NoMatch({ title, children, onReset }: { title: string; children: ReactNode; onReset?: () => void }) {
+  const { meta } = useSession()
+  const rack = useAsync(() => api.fabrics({ in_stock: true }), [])
+  const fabrics = rack.data?.data ?? []
+  const inStock = new Set(fabrics.map((f) => f.category))
+  const cats = (meta?.fabric_categories ?? []).filter((c) => inStock.has(c.key))
+  return (
+    <div className="nomatch">
+      <EmptyState title={title} action={onReset ? <button className="btn btn--secondary" onClick={onReset}>Clear all filters</button> : <ButtonLink to="/fabrics" variant="secondary">Browse all fabric</ButtonLink>}>
+        {children}
+      </EmptyState>
+      {cats.length > 0 && (
+        <div className="nomatch__cats">
+          <p className="label">Shop by fabric type</p>
+          <div className="chips">{cats.map((c) => <Link key={c.key} className="chip" to={`/fabrics?category=${c.key}`}>{c.label}</Link>)}</div>
+        </div>
+      )}
+      {fabrics.length > 0 && (
+        <section className="related" aria-labelledby="popular-title">
+          <h2 id="popular-title" className="section-title section-title--small">Popular in the store</h2>
+          <div className="grid grid--fabrics">{fabrics.slice(0, 4).map((f) => <FabricCard key={f.id} fabric={f} />)}</div>
+        </section>
+      )}
+    </div>
+  )
+}
+
 function AskResults({ q }: { q: string }) {
   const res = useAsync(() => api.aiSearch(q), [q])
   if (res.status === 'error' && !res.data) return <ErrorState error={res.error} onRetry={res.reload} />
@@ -63,9 +92,9 @@ function AskResults({ q }: { q: string }) {
         <SourceNote source={r.source} notice={r.notice} />
       </div>
       {r.results.length === 0 ? (
-        <EmptyState title="Nothing in the catalogue matches that yet" action={<ButtonLink to="/fabrics" variant="secondary">Browse all fabric</ButtonLink>}>
-          Try a different colour or fabric type, or post a request and ask tailors to suggest fabric.
-        </EmptyState>
+        <NoMatch title="Nothing in the store matches that yet">
+          Try a different colour or fabric type below, or <Link to="/requests/new">post a request</Link> and let tailors suggest fabric.
+        </NoMatch>
       ) : (
         <div className="grid grid--fabrics">{r.results.map((f) => <FabricCard key={f.id} fabric={f} />)}</div>
       )}
@@ -170,9 +199,9 @@ export function FabricCatalogue() {
             ) : !result.data ? (
               <div className="grid grid--fabrics">{Array.from({ length: 8 }, (_, i) => <Skeleton key={i} block lines={2} />)}</div>
             ) : result.data.data.length === 0 ? (
-              <EmptyState title="No fabric matches these filters" action={<button className="btn btn--secondary" onClick={() => setParams({}, { replace: true })}>Clear all filters</button>}>
+              <NoMatch title="No fabric matches these filters" onReset={() => setParams({}, { replace: true })}>
                 Try another colour or type, or raise the price limit.
-              </EmptyState>
+              </NoMatch>
             ) : (
               <div className={`grid grid--fabrics ${result.status === 'loading' ? 'is-refreshing' : ''}`}>
                 {result.data.data.map((f) => <FabricCard key={f.id} fabric={f} />)}
@@ -265,6 +294,8 @@ export function FabricDetail() {
   const { slug = '' } = useParams()
   const res = useAsync(() => api.fabric(slug), [slug])
   const related = useAsync(() => (res.data ? api.fabrics({ category: [res.data.category], in_stock: true }) : Promise.resolve(null)), [res.data?.category])
+  const all = useAsync(() => api.fabrics({ in_stock: true }), [])
+  useEffect(() => { if (res.data) rememberViewed(res.data) }, [res.data])
 
   if (res.status === 'error') return <div className="page"><ErrorState error={res.error} onRetry={res.reload} /></div>
   if (!res.data) return <div className="page"><Skeleton block lines={4} /></div>
@@ -277,6 +308,10 @@ export function FabricDetail() {
         <Link to="/fabrics">Fabrics</Link> <span aria-hidden>/</span> <Link to={`/fabrics?category=${f.category}`}>{f.category_label}</Link>
       </nav>
       <div className="product">
+        <div className="product__phonehead" aria-hidden>
+          <p className="product__phonename">{f.name}</p>
+          <p className="product__phoneprice">{f.price.formatted} <span>per {f.unit}</span>{f.piece_yards && f.unit === 'yard' ? <span> · {f.piece_yards}-yard piece {formatNaira(f.price.amount_minor * f.piece_yards)}</span> : null}</p>
+        </div>
         <figure className="product__gallery">
           {f.media && f.media.length > 0 ? (
             <>
@@ -292,7 +327,7 @@ export function FabricDetail() {
                       </div>
                     ) : photos[0] ? <img className="product__main" src={photos[0].url} alt={f.name} /> : null}
                     {photos.slice(video ? 0 : 1, video ? 2 : 3).map((p) => <img key={p.id} className="product__detail" src={p.url} alt={`${f.name}, detail`} loading="lazy" />)}
-                    <figcaption className="product__caption">Photos and video by the vendor, of the fabric you will receive.</figcaption>
+                    <figcaption className="product__caption">{video ? 'Photos and video' : photos.length > 1 ? 'Photos' : 'Photo'} of the fabric you will receive, taken by the vendor. Colours can look slightly different on some phones.</figcaption>
                   </>
                 )
               })()}
@@ -313,6 +348,7 @@ export function FabricDetail() {
           <Label>{f.category_label}</Label>
           <h1 className="product__name">{f.name}</h1>
           <p className="product__price">{f.price.formatted} <span>per {f.unit}</span> <Approx minor={f.price.amount_minor} /></p>
+          {f.piece_yards && f.unit === 'yard' ? <p className="product__piece">Full piece ({f.piece_yards} yards): <strong>{formatNaira(f.price.amount_minor * f.piece_yards)}</strong></p> : null}
           <p className={`product__stock product__stock--${f.stock_status}`}>
             {f.stock_status === 'out_of_stock' ? 'Sold out' : f.stock_status === 'low_stock' ? `Only ${f.available_quantity} ${f.unit}s left` : `${f.available_quantity} ${f.unit}s available`}
           </p>
@@ -323,7 +359,7 @@ export function FabricDetail() {
             {f.pattern && !f.image_url && <div><dt>Pattern</dt><dd>{humanise(f.pattern)}</dd></div>}
             <div><dt>Minimum order</dt><dd>{f.min_order_quantity} {f.unit}{f.min_order_quantity > 1 ? 's' : ''}</dd></div>
           </dl>
-          <BuyBox fabric={f} />
+          <BuyBox key={f.id} fabric={f} />
           <div className="product__actions product__actions--extra">
             <TryOn fabric={f} />
             {f.purchase_mode === 'checkout' && <ButtonLink variant="secondary" to={`/fabrics/${f.slug}/aso-ebi`}>Start aṣọ-ẹbí</ButtonLink>}
@@ -343,6 +379,7 @@ export function FabricDetail() {
           <div className="grid grid--fabrics">{more.map((x) => <FabricCard key={x.id} fabric={x} />)}</div>
         </section>
       )}
+      <RecentlyViewed fabrics={all.data?.data ?? []} exclude={f.id} />
     </div>
   )
 }

@@ -46,6 +46,15 @@ export interface Meta {
     offer_response_hours: number
     offer_hold_hours: number
     offer_max_rounds: number
+    pickup_enabled?: boolean
+    protection_days?: number
+    delivery?: {
+      zones: { key: string; label: string; fee_minor: number; days: string; states: string[] }[]
+      states: string[]
+      lowest_fee_minor: number
+    }
+    piece_yards?: Record<string, number>
+    typical_yards?: Record<string, number>
   }
   diaspora?: {
     rates: Record<string, number>
@@ -71,6 +80,8 @@ export interface Fabric {
   available_quantity: number
   stock_status: 'in_stock' | 'low_stock' | 'out_of_stock'
   min_order_quantity: number
+  /** Yards in a full piece for fabric usually sold by the piece (lace 5, Ankara 6). */
+  piece_yards?: number | null
   image_url: string | null
   is_demo: boolean
   vendor?: { business_name: string; slug: string; city: string; market: string | null; verified: boolean }
@@ -161,8 +172,15 @@ export interface Offer {
 export type PricingMode = 'budget' | 'open'
 export type FabricStatus = 'own_fabric' | 'buying_on_platform' | 'need_advice'
 
+export interface DesignPhoto {
+  id: number
+  url: string
+  caption: string | null
+}
+
 export interface JobRequest {
   id: string
+  photos?: DesignPhoto[]
   title: string
   garment_category: string
   garment_label: string
@@ -301,6 +319,7 @@ export interface OfferMessage {
   author_role: 'customer' | 'tailor'
   mine: boolean
   body: string
+  photo_url?: string | null
   created_at: string
 }
 

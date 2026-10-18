@@ -25,6 +25,26 @@ export const SHOP = {
   service_fee_bps: 250, service_fee_cap_minor: 500_000, delivery_fee_per_vendor_minor: 300_000, checkout_hold_minutes: 60,
   offer_floor_bps: 7000, offer_response_hours: 24, offer_hold_hours: 48, offer_max_rounds: 3,
 }
+const STATES = ['Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa', 'Benue', 'Borno', 'Cross River', 'Delta',
+  'Ebonyi', 'Edo', 'Ekiti', 'Enugu', 'FCT (Abuja)', 'Gombe', 'Imo', 'Jigawa', 'Kaduna', 'Kano', 'Katsina', 'Kebbi',
+  'Kogi', 'Kwara', 'Lagos', 'Nasarawa', 'Niger', 'Ogun', 'Ondo', 'Osun', 'Oyo', 'Plateau', 'Rivers', 'Sokoto', 'Taraba', 'Yobe', 'Zamfara']
+const SW = ['Ogun', 'Oyo', 'Osun', 'Ondo', 'Ekiti']
+/** Same zones and default fees as config/marketplace.php (placeholders the owner sets in .env). */
+export const DELIVERY = {
+  zones: [
+    { key: 'lagos', label: 'Lagos', fee_minor: 300_000, days: '1–2 working days', states: ['Lagos'] },
+    { key: 'south_west', label: 'Ogun, Oyo, Osun, Ondo, Ekiti', fee_minor: 450_000, days: '2–3 working days', states: SW },
+    { key: 'other', label: 'Other states and Abuja', fee_minor: 600_000, days: '3–5 working days', states: STATES.filter((x) => x !== 'Lagos' && !SW.includes(x)) },
+  ],
+  states: STATES,
+  lowest_fee_minor: 300_000,
+}
+export const PIECE_YARDS: Record<string, number> = { lace: 5, ankara: 6 }
+const stateFee = (state: string | null | undefined) => {
+  if (!state) return null
+  const s = /^(fct|abuja)/i.test(state.trim()) ? 'FCT (Abuja)' : STATES.find((x) => x.toLowerCase() === state.trim().toLowerCase())
+  return s ? DELIVERY.zones.find((z) => z.states.includes(s))!.fee_minor : null
+}
 const R = 5_000 // ₦50 rounding
 /** Demo international shipping per vendor parcel (kobo). Real values are set by OSAPS in .env. */
 export const PREVIEW_SHIP: Record<string, number> = { GB: 2_800_000, IE: 3_000_000, US: 3_500_000, CA: 3_600_000, DE: 3_000_000, FR: 3_000_000, NL: 3_000_000, GH: 1_500_000 }
@@ -173,7 +193,7 @@ export function makePreviewShop(ctx: Ctx) {
     }, 1_800)
   }
 
-  const quoteOf = (u: User, items: CartItemInput[], fulfilment: Fulfilment, ignoreBusy?: string, opts: { country?: string | null; fixedUnit?: number | null } = {}): ShopQuote & { raw: { vendors: { slug: string; name: string; subtotal: number; delivery: number; lines: OrderRow['items'] }[]; subtotal: number; delivery: number; fee: number; total: number } } => {
+  const quoteOf = (u: User | null, items: CartItemInput[], fulfilment: Fulfilment, ignoreBusy?: string, opts: { country?: string | null; fixedUnit?: number | null; state?: string | null } = {}): ShopQuote & { raw: { vendors: { slug: string; name: string; subtotal: number; delivery: number; lines: OrderRow['items'] }[]; subtotal: number; delivery: number; fee: number; total: number } } => {
     const blocking: ShopQuote['blocking'] = []
     const notices: ShopQuote['notices'] = []
     if (!items.length) blocking.push({ fabric_id: 0, code: 'empty_cart', message: 'Your cart is empty.' })
@@ -193,8 +213,8 @@ export function makePreviewShop(ctx: Ctx) {
         unit = Math.min(opts.fixedUnit, f.price.amount_minor)
       } else if (it.price_offer_id) {
         const o = offers.find((x) => x.id === it.price_offer_id)
-        const busy = orders.some((r) => r.status === 'pending_payment' && r.customerId !== u.id && r.checkoutRef !== ignoreBusy && r.items.some((i) => i.offerId === it.price_offer_id))
-        if (!o || o.buyerId !== u.id || o.fabricId !== f.id || o.status !== 'accepted' || busy) notices.push({ fabric_id: f.id, code: 'offer_not_usable', message: `${f.name}: your agreed price is no longer valid, so the listed price applies.` })
+        const busy = orders.some((r) => r.status === 'pending_payment' && r.customerId !== u?.id && r.checkoutRef !== ignoreBusy && r.items.some((i) => i.offerId === it.price_offer_id))
+        if (!o || o.buyerId !== u?.id || o.fabricId !== f.id || o.status !== 'accepted' || busy) notices.push({ fabric_id: f.id, code: 'offer_not_usable', message: `${f.name}: your agreed price is no longer valid, so the listed price applies.` })
         else if (it.quantity > o.quantity) notices.push({ fabric_id: f.id, code: 'offer_quantity', message: `${f.name}: your agreed price covers up to ${o.quantity} ${f.unit}. Lower the quantity to use it.` })
         else { unit = Math.min(o.unit, f.price.amount_minor); offerId = o.id }
       }
@@ -204,6 +224,7 @@ export function makePreviewShop(ctx: Ctx) {
       vendors.set(f.vendor.slug, v)
     }
     let fee0 = SHOP.delivery_fee_per_vendor_minor
+    if ((fulfilment === 'delivery' || fulfilment === 'arrival') && opts.state) fee0 = stateFee(opts.state) ?? fail('Choose your state from the list.', 422, 'validation_failed', { 'address.state': ['Choose your state from the list.'] })
     if (fulfilment === 'international') {
       const c = (opts.country ?? '').toUpperCase()
       if (!c) fail('Choose the country to ship to.', 422, 'country_required')
@@ -402,12 +423,15 @@ export function makePreviewShop(ctx: Ctx) {
       return delay(view(o, side))
     },
 
-    quote: (items, fulfilment, country) => { sweep(); const { raw: _raw, ...q } = quoteOf(me(), items, fulfilment, undefined, { country }); return delay(q) },
+    quote: (items, fulfilment, country, state) => { sweep(); const { raw: _raw, ...q } = quoteOf(ctx.user(), items, fulfilment, undefined, { country, state }); return delay(q) },
     createCheckout: async (input) => {
       sweep()
       const u = me()
       for (const old of checkouts.filter((c) => c.customerId === u.id && c.status === 'pending' && !c.groupCode)) release(old, 'cancelled')
-      const q = quoteOf(u, input.items, input.fulfilment, undefined, { country: input.country })
+      if (input.fulfilment === 'pickup') fail('Pickup is not available yet. Choose delivery.', 422, 'pickup_unavailable')
+      const st = (input.address as Record<string, string> | null)?.state ?? null
+      if ((input.fulfilment === 'delivery' || input.fulfilment === 'arrival') && !st) fail('Choose your state.', 422, 'validation_failed', { 'address.state': ['Choose your state.'] })
+      const q = quoteOf(u, input.items, input.fulfilment, undefined, { country: input.country, state: st })
       const c = persist(u, q, input.fulfilment, input.expected_total_minor, input.contact, (input.address as Record<string, string> | null) ?? null,
         { country: input.fulfilment === 'international' ? (input.country ?? '').toUpperCase() : null, arrivalDate: input.fulfilment === 'arrival' ? input.arrival_date ?? null : null, groupCode: null })
       return delay(checkoutView(c, `/checkout/preview-pay/${c.reference}`))
@@ -583,7 +607,7 @@ export function makePreviewShop(ctx: Ctx) {
       let dealUnit: number | null = null, dealQty: number | null = null
       if (input.price_offer_id) {
         const o = offers.find((x) => x.id === input.price_offer_id)
-        if (!o || o.buyerId !== u.id || o.fabricId !== f.id || o.status !== 'accepted') fail('That agreed price cannot be used for this group. It may have expired.', 422, 'offer_not_usable')
+        if (!o || o.buyerId !== u?.id || o.fabricId !== f.id || o.status !== 'accepted') fail('That agreed price cannot be used for this group. It may have expired.', 422, 'offer_not_usable')
         dealUnit = Math.min(o!.unit, f.price.amount_minor); dealQty = o!.quantity; o!.status = 'used'
       }
       const code = Array.from({ length: 10 }, () => 'abcdefghjkmnpqrstuvwxyz23456789'[Math.floor(Math.random() * 31)]).join('')
@@ -594,14 +618,14 @@ export function makePreviewShop(ctx: Ctx) {
       if (f.vendor) ctx.notify(VENDOR_USER_ID[f.vendor.slug] ?? 0, `Aṣọ-ẹbí started on ${f.name}`, `${g.target} guests × ${g.yards} ${f.unit}s for ${g.title}. Keep stock ready.`, '/vendor?tab=orders')
       return delay(groupView(g))
     },
-    quoteAsoEbi: (code, yards) => { sweep(); const g = groupOf(code); const { raw: _raw, ...q } = shareQuote(me(), g, yards); return delay(q) },
+    quoteAsoEbi: (code, yards, state) => { sweep(); const g = groupOf(code); const { raw: _raw, ...q } = shareQuote(me(), g, yards, state); return delay(q) },
     joinAsoEbi: async (code, input) => {
       sweep()
       const u = me()
       const g = groupOf(code)
       if (g.status !== 'open' || Date.parse(g.deadline) <= Date.now()) fail('This aṣọ-ẹbí is no longer taking payments. Ask the organiser.', 422, 'group_closed')
       for (const old of checkouts.filter((c) => c.customerId === u.id && c.groupCode === code && c.status === 'pending')) release(old, 'cancelled')
-      const q = shareQuote(u, g, input.yards)
+      const q = shareQuote(u, g, input.yards, g.fulfilment === 'deliver_each' ? (input.address as Record<string, string> | null)?.state ?? null : null)
       const fulfil: Fulfilment = g.fulfilment === 'pickup_organizer' ? 'pickup' : 'delivery'
       const c = persist(u, q, fulfil, input.expected_total_minor, input.contact, (input.address as Record<string, string> | null) ?? null, { country: null, arrivalDate: null, groupCode: code })
       g.shares.push({ guestId: u.id, guestName: u.name, yards: input.yards, showName: input.show_name, checkoutRef: c.reference, status: 'pending' })
@@ -783,9 +807,9 @@ export function makePreviewShop(ctx: Ctx) {
   const groupOf = (code: string) => groups.find((g) => g.code === code) ?? fail('Not found.', 404, 'not_found')
   const ownGroup = (code: string) => { const g = groupOf(code); if (g.organizerId !== me().id) fail('Only the organiser can change this group.', 422, 'forbidden'); return g }
   const committed = (g: GroupRow) => g.shares.filter((x) => x.status !== 'cancelled').reduce((n, x) => n + x.yards, 0)
-  const shareQuote = (u: User, g: GroupRow, yards: number) => {
+  const shareQuote = (u: User, g: GroupRow, yards: number, state?: string | null) => {
     const fixed = g.dealUnit !== null && g.dealQty !== null && committed(g) + yards <= g.dealQty ? g.dealUnit : null
-    return quoteOf(u, [{ fabric_id: g.fabricId, quantity: yards }], g.fulfilment === 'pickup_organizer' ? 'pickup' : 'delivery', undefined, { fixedUnit: fixed })
+    return quoteOf(u, [{ fabric_id: g.fabricId, quantity: yards }], g.fulfilment === 'pickup_organizer' ? 'pickup' : 'delivery', undefined, { fixedUnit: fixed, state })
   }
   const groupView = (g: GroupRow): AsoEbiGroup => {
     const f = fabricById(g.fabricId)!

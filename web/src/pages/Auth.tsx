@@ -106,23 +106,29 @@ export function Register() {
   }
 
   return (
-    <AuthFrame title="Create your account" intro="Shop fabric, name your price, have outfits made, or sell as a vendor or tailor.">
+    <AuthFrame title="Create your account" intro="Follow your orders, save your cart and your measurements. Takes a minute.">
       <form className="form" onSubmit={submit} noValidate>
-        <fieldset className="segmented" aria-label="I want to">
-          <legend className="field__label">I want to</legend>
-          <label className={`segmented__option ${role === 'customer' ? 'is-on' : ''}`}>
-            <input type="radio" name="role" value="customer" checked={role === 'customer'} onChange={() => setRole('customer')} />
-            Shop and get outfits made
-          </label>
-          <label className={`segmented__option ${role === 'tailor' ? 'is-on' : ''}`}>
-            <input type="radio" name="role" value="tailor" checked={role === 'tailor'} onChange={() => setRole('tailor')} />
-            Take tailoring work
-          </label>
-          <label className={`segmented__option ${role === 'fabric_vendor' ? 'is-on' : ''}`}>
-            <input type="radio" name="role" value="fabric_vendor" checked={role === 'fabric_vendor'} onChange={() => setRole('fabric_vendor')} />
-            Sell fabric
-          </label>
-        </fieldset>
+        {role === 'customer' ? (
+          <p className="muted">
+            Shopping for fabric or an outfit? This is all you need. <button type="button" className="text-link" onClick={() => setRole('fabric_vendor')}>I want to sell fabric or work as a tailor</button>
+          </p>
+        ) : (
+          <fieldset className="segmented" aria-label="I want to">
+            <legend className="field__label">I want to</legend>
+            <label className="segmented__option">
+              <input type="radio" name="role" value="customer" checked={false} onChange={() => setRole('customer')} />
+              Just shop
+            </label>
+            <label className={`segmented__option ${role === 'tailor' ? 'is-on' : ''}`}>
+              <input type="radio" name="role" value="tailor" checked={role === 'tailor'} onChange={() => setRole('tailor')} />
+              Take tailoring work
+            </label>
+            <label className={`segmented__option ${role === 'fabric_vendor' ? 'is-on' : ''}`}>
+              <input type="radio" name="role" value="fabric_vendor" checked={role === 'fabric_vendor'} onChange={() => setRole('fabric_vendor')} />
+              Sell fabric
+            </label>
+          </fieldset>
+        )}
         {error && Object.keys(error.fieldErrors).length === 0 && <p className="form__error" role="alert">{error.message}</p>}
         <Field label={role !== 'customer' ? 'Your name or business name' : 'Your name'} error={error?.field('name')}>
           {(p) => <input {...p} name="name" autoComplete="name" required className="input" />}
