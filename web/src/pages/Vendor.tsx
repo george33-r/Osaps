@@ -98,6 +98,7 @@ function VendorOrders({ state }: { state: ReturnType<typeof useAsync<{ data: Fab
         <article key={o.reference} className={`vorder ${o.next.length ? 'needs-action' : ''}`}>
           <header className="vorder__head">
             <strong>{o.reference}</strong>
+            {o.express && <span className="express-tag">⚡ Express: pack today, send by fast courier</span>}
             {o.aso_ebi && <span className="cart-line__deal">Aṣọ-ẹbí · {o.aso_ebi.title}</span>}
             {o.ship?.country && <span className="cart-line__deal">Ship to {o.ship.country}</span>}
             {o.ship?.arrival_date && <span className="cart-line__deal">Deliver from {formatDate(o.ship.arrival_date)}</span>}

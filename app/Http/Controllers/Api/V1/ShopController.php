@@ -25,6 +25,7 @@ class ShopController extends Controller
             'fulfilment' => ['required', 'in:delivery,pickup,arrival,international'],
             'country' => ['nullable', 'required_if:fulfilment,international', 'string', 'size:2'],
             'state' => ['nullable', 'string', 'max:40'],
+            'express' => ['sometimes', 'boolean'],
         ];
     }
 
@@ -32,7 +33,7 @@ class ShopController extends Controller
     {
         $data = $request->validate($this->cartRules());
         // Works signed out too, so a first-time shopper sees the full price before making an account.
-        $q = $this->checkouts->quote($request->user('sanctum'), $data['items'], $data['fulfilment'], $data['country'] ?? null, $data['state'] ?? $data['address']['state'] ?? null);
+        $q = $this->checkouts->quote($request->user('sanctum'), $data['items'], $data['fulfilment'], $data['country'] ?? null, $data['state'] ?? $data['address']['state'] ?? null, (bool) ($data['express'] ?? false));
 
         return response()->json(['data' => self::present($q)]);
     }
@@ -69,6 +70,7 @@ class ShopController extends Controller
             callbackUrl: url('/checkout/complete'),
             country: $data['country'] ?? null,
             arrivalDate: $data['arrival_date'] ?? null,
+            express: (bool) ($data['express'] ?? false),
         );
 
         return (new CheckoutResource($checkout->load('orders.items.fabric', 'orders.vendor', 'orders.checkout')))

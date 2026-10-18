@@ -15,6 +15,7 @@ class CheckoutResource extends ApiResource
             'reference' => $this->reference,
             'payment_status' => $this->payment_status,
             'fulfilment' => $this->fulfilment,
+            'express' => (bool) $this->express,
             'subtotal' => self::money($this->subtotal_minor),
             'delivery' => self::money($this->delivery_minor),
             'service_fee' => self::money($this->service_fee_minor),

@@ -34,6 +34,7 @@ class FabricOrderResource extends ApiResource
             'status' => $this->status,
             'status_label' => FabricOrderStatus::LABELS[$this->status] ?? $this->status,
             'fulfilment' => $this->fulfilment,
+            'express' => (bool) $this->express,
             'milestones' => array_map(fn ($s) => ['status' => $s, 'label' => FabricOrderStatus::LABELS[$s]], FabricOrderStatus::milestones($this->fulfilment)),
             // A vendor's "received" step needs the buyer's delivery code.
             'next' => array_map(fn ($s) => ['status' => $s, 'label' => FabricOrderStatus::LABELS[$s],

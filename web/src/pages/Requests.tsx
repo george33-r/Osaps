@@ -48,6 +48,7 @@ export function MyRequests() {
                   </p>
                 </div>
                 <div className="row__side">
+                  {r.is_express && <span className="express-tag express-tag--small">⚡ Express</span>}
                   <RequestStatusBadge status={r.status} />
                   {r.status === 'open' && <span className="row__count">{plural(r.live_offer_count ?? 0, 'live offer')}</span>}
                 </div>
@@ -315,7 +316,7 @@ export function RequestDetail() {
             {r.mode === 'budget' && r.budget_max ? <>Your price: {r.budget_max.formatted}.</> : <>Open to offers{r.budget_max ? ` up to ${r.budget_max.formatted}` : ''}.</>}
           </>
         }
-        aside={<RequestStatusBadge status={r.status} />}
+        aside={<>{r.is_express && <span className="express-tag">⚡ Express</span>}<RequestStatusBadge status={r.status} /></>}
       />
 
       {r.status === 'awarded' && r.order_reference && (

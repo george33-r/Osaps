@@ -49,7 +49,7 @@ export interface Meta {
     pickup_enabled?: boolean
     protection_days?: number
     delivery?: {
-      zones: { key: string; label: string; fee_minor: number; days: string; states: string[] }[]
+      zones: { key: string; label: string; fee_minor: number; days: string; states: string[]; express_fee_minor?: number | null; express_days?: string | null }[]
       states: string[]
       lowest_fee_minor: number
     }
@@ -196,6 +196,7 @@ export interface JobRequest {
   city: string
   needed_by: string
   fitting_required: boolean
+  is_express?: boolean
   status: 'open' | 'awarded' | 'cancelled' | 'expired'
   offers_close_at: string
   is_owner: boolean
@@ -223,6 +224,7 @@ export interface NewJobRequest {
   city: string
   needed_by: string
   fitting_required: boolean
+  is_express?: boolean
 }
 
 export interface NewOffer {
@@ -525,6 +527,7 @@ export interface CheckoutInput {
   address?: { line1: string; line2?: string; city: string; state?: string; postcode?: string; landmark?: string } | null
   country?: string | null
   arrival_date?: string | null
+  express?: boolean
 }
 
 export type FabricOrderStatus = 'pending_payment' | 'paid' | 'packed' | 'out_for_delivery' | 'ready_for_pickup' | 'delivered' | 'completed' | 'cancelled'
@@ -568,6 +571,7 @@ export interface FabricOrder {
   status: FabricOrderStatus
   status_label: string
   fulfilment: Fulfilment
+  express?: boolean
   milestones: { status: FabricOrderStatus; label: string }[]
   next: { status: FabricOrderStatus; label: string; needs_code?: boolean }[]
   /** Only the buyer sees this, only while the fabric is on its way. */
@@ -609,6 +613,7 @@ export interface Checkout {
   reference: string
   payment_status: 'pending' | 'paid' | 'expired' | 'cancelled' | 'needs_refund'
   fulfilment: Fulfilment
+  express?: boolean
   subtotal: MoneyValue
   delivery: MoneyValue
   service_fee: MoneyValue

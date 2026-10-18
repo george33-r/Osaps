@@ -71,6 +71,7 @@ export function TailorInbox() {
                   </p>
                 </div>
                 <div className="row__side">
+                  {r.is_express && <span className="express-tag express-tag--small">⚡ Express</span>}
                   {r.my_offer ? <OfferStatusBadge status={r.my_offer.status} viewer="tailor" /> : <Badge tone="waiting">New</Badge>}
                   <span className="row__count">{plural(r.offer_count ?? 0, 'offer')} so far</span>
                 </div>
@@ -290,7 +291,8 @@ export function TailorJob() {
       <nav className="crumbs" aria-label="Breadcrumb">
         <Link to="/tailor/inbox">Job inbox</Link> <span aria-hidden>/</span> <span>{r.title}</span>
       </nav>
-      <PageHeader title={r.title} intro={`${r.garment_label} for ${r.customer.first_name || 'a customer'} in ${r.city}`} />
+      <PageHeader title={r.title} intro={`${r.garment_label} for ${r.customer.first_name || 'a customer'} in ${r.city}`} aside={r.is_express ? <span className="express-tag">⚡ Express: needed urgently</span> : undefined} />
+      {r.is_express && <p className="express-note">The customer needs this urgently, by {formatDate(r.needed_by)}. Offer only if you can make it in time, and put your real number of days in the offer.</p>}
       <div className="request-layout">
         <section className="request-layout__offers">
           {mine ? <Negotiation offer={mine} request={r} onDone={res.reload} /> : r.status === 'open' ? <OfferForm request={r} onDone={res.reload} /> : <p>This request is closed.</p>}

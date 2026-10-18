@@ -124,7 +124,7 @@ export interface Api {
   withdrawPriceOffer(id: number): Promise<PriceOffer>
 
   // Fabric shop — cart, checkout, orders
-  quote(items: CartItemInput[], fulfilment: Fulfilment, country?: string | null, state?: string | null): Promise<ShopQuote>
+  quote(items: CartItemInput[], fulfilment: Fulfilment, country?: string | null, state?: string | null, express?: boolean): Promise<ShopQuote>
   createCheckout(input: CheckoutInput): Promise<Checkout>
   checkout(reference: string): Promise<Checkout>
   verifyCheckout(reference: string): Promise<Checkout>
@@ -325,7 +325,7 @@ export const httpApi: Api = {
   declinePriceOffer: (id) => data(http('POST', `/price-offers/${id}/decline`)),
   withdrawPriceOffer: (id) => data(http('POST', `/price-offers/${id}/withdraw`)),
 
-  quote: (items, fulfilment, country, state) => data(http('POST', '/shop/quote', { items, fulfilment, country: country ?? null, state: state ?? null })),
+  quote: (items, fulfilment, country, state, express) => data(http('POST', '/shop/quote', { items, fulfilment, country: country ?? null, state: state ?? null, express: !!express })),
   createCheckout: (input) => data(http('POST', '/checkouts', input)),
   checkout: (ref) => data(http('GET', `/checkouts/${encodeURIComponent(ref)}`)),
   verifyCheckout: (ref) => data(http('POST', `/checkouts/${encodeURIComponent(ref)}/verify`)),

@@ -32,9 +32,9 @@ const SW = ['Ogun', 'Oyo', 'Osun', 'Ondo', 'Ekiti']
 /** Same zones and default fees as config/marketplace.php (placeholders the owner sets in .env). */
 export const DELIVERY = {
   zones: [
-    { key: 'lagos', label: 'Lagos', fee_minor: 300_000, days: '1–2 working days', states: ['Lagos'] },
-    { key: 'south_west', label: 'Ogun, Oyo, Osun, Ondo, Ekiti', fee_minor: 450_000, days: '2–3 working days', states: SW },
-    { key: 'other', label: 'Other states and Abuja', fee_minor: 600_000, days: '3–5 working days', states: STATES.filter((x) => x !== 'Lagos' && !SW.includes(x)) },
+    { key: 'lagos', label: 'Lagos', fee_minor: 300_000, days: '1–2 working days', states: ['Lagos'], express_fee_minor: 600_000, express_days: 'Next working day' },
+    { key: 'south_west', label: 'Ogun, Oyo, Osun, Ondo, Ekiti', fee_minor: 450_000, days: '2–3 working days', states: SW, express_fee_minor: 900_000, express_days: '1–2 working days' },
+    { key: 'other', label: 'Other states and Abuja', fee_minor: 600_000, days: '3–5 working days', states: STATES.filter((x) => x !== 'Lagos' && !SW.includes(x)), express_fee_minor: 1_200_000, express_days: '2 working days' },
   ],
   states: STATES,
   lowest_fee_minor: 300_000,
@@ -44,6 +44,10 @@ const stateFee = (state: string | null | undefined) => {
   if (!state) return null
   const s = /^(fct|abuja)/i.test(state.trim()) ? 'FCT (Abuja)' : STATES.find((x) => x.toLowerCase() === state.trim().toLowerCase())
   return s ? DELIVERY.zones.find((z) => z.states.includes(s))!.fee_minor : null
+}
+const expressFee = (state: string) => {
+  const s = /^(fct|abuja)/i.test(state.trim()) ? 'FCT (Abuja)' : STATES.find((x) => x.toLowerCase() === state.trim().toLowerCase())
+  return s ? DELIVERY.zones.find((z) => z.states.includes(s))!.express_fee_minor : null
 }
 const R = 5_000 // ₦50 rounding
 /** Demo international shipping per vendor parcel (kobo). Real values are set by OSAPS in .env. */
@@ -83,7 +87,7 @@ interface CheckoutRow {
   reference: string; customerId: number; fulfilment: Fulfilment; subtotal: number; delivery: number; fee: number; total: number
   status: Checkout['payment_status']; expiresAt: string; paidAt: string | null; simulatedPaid: boolean
   contact: { name: string; phone: string }; address: Record<string, string> | null
-  country: string | null; arrivalDate: string | null; groupCode: string | null
+  country: string | null; arrivalDate: string | null; groupCode: string | null; express?: boolean
 }
 interface GroupRow {
   code: string; organizerId: number; organizerName: string; organizerPhone: string; fabricId: number; title: string; message: string | null
@@ -193,7 +197,7 @@ export function makePreviewShop(ctx: Ctx) {
     }, 1_800)
   }
 
-  const quoteOf = (u: User | null, items: CartItemInput[], fulfilment: Fulfilment, ignoreBusy?: string, opts: { country?: string | null; fixedUnit?: number | null; state?: string | null } = {}): ShopQuote & { raw: { vendors: { slug: string; name: string; subtotal: number; delivery: number; lines: OrderRow['items'] }[]; subtotal: number; delivery: number; fee: number; total: number } } => {
+  const quoteOf = (u: User | null, items: CartItemInput[], fulfilment: Fulfilment, ignoreBusy?: string, opts: { country?: string | null; fixedUnit?: number | null; state?: string | null; express?: boolean } = {}): ShopQuote & { raw: { vendors: { slug: string; name: string; subtotal: number; delivery: number; lines: OrderRow['items'] }[]; subtotal: number; delivery: number; fee: number; total: number } } => {
     const blocking: ShopQuote['blocking'] = []
     const notices: ShopQuote['notices'] = []
     if (!items.length) blocking.push({ fabric_id: 0, code: 'empty_cart', message: 'Your cart is empty.' })
@@ -224,7 +228,9 @@ export function makePreviewShop(ctx: Ctx) {
       vendors.set(f.vendor.slug, v)
     }
     let fee0 = SHOP.delivery_fee_per_vendor_minor
-    if ((fulfilment === 'delivery' || fulfilment === 'arrival') && opts.state) fee0 = stateFee(opts.state) ?? fail('Choose your state from the list.', 422, 'validation_failed', { 'address.state': ['Choose your state from the list.'] })
+    if (opts.express && fulfilment !== 'delivery') fail('Express is for delivery to a Nigerian address. Choose "Deliver to me".', 422, 'express_unavailable')
+    if (opts.express && opts.state) fee0 = expressFee(opts.state) ?? fail(`Express delivery is not offered to ${opts.state} yet. Choose standard delivery.`, 422, 'express_unavailable')
+    else if ((fulfilment === 'delivery' || fulfilment === 'arrival') && opts.state) fee0 = stateFee(opts.state) ?? fail('Choose your state from the list.', 422, 'validation_failed', { 'address.state': ['Choose your state from the list.'] })
     if (fulfilment === 'international') {
       const c = (opts.country ?? '').toUpperCase()
       if (!c) fail('Choose the country to ship to.', 422, 'country_required')
@@ -257,7 +263,7 @@ export function makePreviewShop(ctx: Ctx) {
     const paid = !['pending_payment', 'cancelled'].includes(r.status)
     const seesMoney = viewer !== 'vendor'
     return {
-      reference: r.reference, checkout_reference: r.checkoutRef, status: r.status, status_label: ORDER_LABELS[r.status], fulfilment: r.fulfilment,
+      reference: r.reference, checkout_reference: r.checkoutRef, status: r.status, status_label: ORDER_LABELS[r.status], fulfilment: r.fulfilment, express: !!c.express,
       milestones: (['paid', 'packed', dispatch(r.fulfilment), 'delivered', 'completed'] as FabricOrderStatus[]).map((s) => ({ status: s, label: ORDER_LABELS[s] })),
       next: next.map((s) => ({ status: s, label: ORDER_LABELS[s], needs_code: viewer === 'vendor' && s === 'delivered' })),
       delivery_code: viewer === 'customer' && ['paid', 'packed', 'out_for_delivery', 'ready_for_pickup'].includes(r.status) ? r.code : null,
@@ -289,7 +295,7 @@ export function makePreviewShop(ctx: Ctx) {
   }
 
   const checkoutView = (c: CheckoutRow, url?: string): Checkout => ({
-    reference: c.reference, payment_status: c.status, fulfilment: c.fulfilment, subtotal: money(c.subtotal), delivery: money(c.delivery),
+    reference: c.reference, payment_status: c.status, fulfilment: c.fulfilment, express: !!c.express, subtotal: money(c.subtotal), delivery: money(c.delivery),
     service_fee: money(c.fee), total: money(c.total), expires_at: c.expiresAt, paid_at: c.paidAt,
     ...(url ? { authorization_url: url } : {}),
     orders: orders.filter((o) => o.checkoutRef === c.reference).map((o) => orderView(o, 'customer')),
@@ -308,7 +314,7 @@ export function makePreviewShop(ctx: Ctx) {
 
   /** Write a checkout and its per-vendor orders, holding stock (mirrors CheckoutService::persist). */
   const persist = (u: User, q: ReturnType<typeof quoteOf>, fulfilment: Fulfilment, expected: number, contact: { name: string; phone: string },
-    address: Record<string, string> | null, extra: { country: string | null; arrivalDate: string | null; groupCode: string | null }): CheckoutRow => {
+    address: Record<string, string> | null, extra: { country: string | null; arrivalDate: string | null; groupCode: string | null; express?: boolean }): CheckoutRow => {
     if (!q.ok) fail(q.blocking[0]?.message ?? 'Your cart needs attention.', 422, 'cart_invalid')
     if (q.raw.total !== expected) fail('Prices or delivery changed since you looked. Review the new total before paying.', 422, 'cart_changed')
     const ref = 'OSP-' + rid(16)
@@ -423,7 +429,7 @@ export function makePreviewShop(ctx: Ctx) {
       return delay(view(o, side))
     },
 
-    quote: (items, fulfilment, country, state) => { sweep(); const { raw: _raw, ...q } = quoteOf(ctx.user(), items, fulfilment, undefined, { country, state }); return delay(q) },
+    quote: (items, fulfilment, country, state, express) => { sweep(); const { raw: _raw, ...q } = quoteOf(ctx.user(), items, fulfilment, undefined, { country, state, express }); return delay(q) },
     createCheckout: async (input) => {
       sweep()
       const u = me()
@@ -431,9 +437,9 @@ export function makePreviewShop(ctx: Ctx) {
       if (input.fulfilment === 'pickup') fail('Pickup is not available yet. Choose delivery.', 422, 'pickup_unavailable')
       const st = (input.address as Record<string, string> | null)?.state ?? null
       if ((input.fulfilment === 'delivery' || input.fulfilment === 'arrival') && !st) fail('Choose your state.', 422, 'validation_failed', { 'address.state': ['Choose your state.'] })
-      const q = quoteOf(u, input.items, input.fulfilment, undefined, { country: input.country, state: st })
+      const q = quoteOf(u, input.items, input.fulfilment, undefined, { country: input.country, state: st, express: !!input.express })
       const c = persist(u, q, input.fulfilment, input.expected_total_minor, input.contact, (input.address as Record<string, string> | null) ?? null,
-        { country: input.fulfilment === 'international' ? (input.country ?? '').toUpperCase() : null, arrivalDate: input.fulfilment === 'arrival' ? input.arrival_date ?? null : null, groupCode: null })
+        { country: input.fulfilment === 'international' ? (input.country ?? '').toUpperCase() : null, arrivalDate: input.fulfilment === 'arrival' ? input.arrival_date ?? null : null, groupCode: null, express: !!input.express })
       return delay(checkoutView(c, `/checkout/preview-pay/${c.reference}`))
     },
     checkout: (ref) => { sweep(); const u = me(); const c = checkouts.find((x) => x.reference === ref && x.customerId === u.id) ?? fail('Not found.', 404, 'not_found'); return delay(checkoutView(c)) },

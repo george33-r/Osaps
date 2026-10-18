@@ -251,4 +251,17 @@ class TrustFlowTest extends TestCase
         $this->actingAs($this->buyer)->postJson('/api/v1/checkouts', $body)->assertStatus(422);
         $this->actingAs($this->buyer)->postJson('/api/v1/checkouts', ['fulfilment' => 'pickup'] + $body)->assertStatus(422);
     }
+
+    public function test_express_delivery_costs_more_flags_the_order_and_is_delivery_only(): void
+    {
+        $cart = ['items' => [['fabric_id' => $this->fabric->id, 'quantity' => 2]], 'fulfilment' => 'delivery', 'express' => true];
+        $q = $this->postJson('/api/v1/shop/quote', $cart + ['state' => 'Lagos'])->assertOk();
+        $this->assertSame(600_000, $q->json('data.delivery.amount_minor'));
+        $body = $cart + ['expected_total_minor' => $q->json('data.total.amount_minor'), 'contact' => ['name' => 'Ada', 'phone' => '08012345678'],
+            'address' => ['line1' => '1 Allen Avenue', 'city' => 'Ikeja', 'state' => 'Lagos']];
+        $this->actingAs($this->buyer)->postJson('/api/v1/checkouts', $body)->assertCreated()
+            ->assertJsonPath('data.express', true)->assertJsonPath('data.delivery.amount_minor', 600_000);
+        $this->assertTrue((bool) \App\Models\FabricOrder::query()->latest('id')->value('express'));
+        $this->postJson('/api/v1/shop/quote', ['fulfilment' => 'arrival'] + $cart + ['state' => 'Lagos'])->assertStatus(422)->assertJsonPath('code', 'express_unavailable');
+    }
 }

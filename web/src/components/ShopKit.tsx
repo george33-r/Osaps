@@ -6,9 +6,9 @@ import { formatNaira, groupDigits, nairaToMinor, timeLeft } from '../lib/format'
 import { useSession } from '../lib/session'
 import { useToast } from '../lib/toast'
 import { PieceChoice, YardHelper, useOffscreen } from './ProductKit'
-import { useDeliveryInfo } from './StatePicker'
+import { useDeliveryInfo, useExpressInfo } from './StatePicker'
 import { Swatch } from './Swatch'
-import { WhatsAppLink } from './WhatsApp'
+import { WhatsAppLink, whatsappHref } from './WhatsApp'
 import { Button, errorMessage } from './ui'
 
 export function CartIcon() {
@@ -251,6 +251,7 @@ export function BuyBox({ fabric }: { fabric: Fabric }) {
   const box = useRef<HTMLElement>(null)
   const offscreen = useOffscreen(box)
   const delivery = useDeliveryInfo(cart.shipState || null)
+  const express = useExpressInfo(cart.shipState || null)
   const [mode, setMode] = useState<'buy' | 'offer'>('buy')
   const [offer, setOffer] = useState<PriceOffer | null>(null)
   const soldOut = fabric.available_quantity < min
@@ -271,10 +272,30 @@ export function BuyBox({ fabric }: { fabric: Fabric }) {
   const signIn = `/signin?next=${encodeURIComponent(location.pathname)}`
   const total = useMemo(() => fabric.price.amount_minor * qty, [fabric.price.amount_minor, qty])
 
-  if (!payments) return null
+  const url = typeof window !== 'undefined' ? window.location.origin + location.pathname : ''
+
+  // Until online payment is switched on, shoppers can still order: the same choices, sent on WhatsApp.
+  if (!payments) {
+    const wa = whatsappHref(meta?.support?.whatsapp, `Hello OSAPS, I would like to order ${qty} ${fabric.unit}${qty === 1 ? '' : 's'} of ${fabric.name} (${fabric.price.formatted} per ${fabric.unit}, ${formatNaira(total)} for the fabric). ${url}\nMy state: `)
+    return (
+      <section className="buybox buybox--wa" aria-label="Order this fabric">
+        {soldOut ? <p className="buybox__soldout">Sold out for now.</p> : (
+          <>
+            <PieceChoice fabric={fabric} qty={qty} onPick={setQty} />
+            <QtyStepper value={qty} min={min} max={fabric.available_quantity} unit={fabric.unit} onChange={setQty} />
+            <YardHelper fabric={fabric} onPick={setQty} />
+            <p className="buybox__total">{formatNaira(total)}</p>
+            {wa ? (
+              <a className="btn btn--primary buybox__cta buybox__cta--wa" href={wa} target="_blank" rel="noopener noreferrer">Order on WhatsApp</a>
+            ) : <p className="muted">Ordering opens soon.</p>}
+            <p className="buybox__trust">Paying on the site is not switched on yet. Send your order on WhatsApp and OSAPS will confirm the delivery price for your state and how to pay. Buyer protection on this site covers orders paid through the site.</p>
+          </>
+        )}
+      </section>
+    )
+  }
 
   const add = () => { cart.addFabric(fabric, qty); toast(`${fabric.name} added to your cart.`, 'good') }
-  const url = typeof window !== 'undefined' ? window.location.origin + location.pathname : ''
 
   return (
     <>
@@ -318,6 +339,7 @@ export function BuyBox({ fabric }: { fabric: Fabric }) {
         </>
       )}
       {delivery && <p className="buybox__delivery">{delivery.text}. <Link to="/buyer-protection#delivery" className="text-link">Delivery prices</Link></p>}
+      {express && <p className="buybox__express">⚡ Need it fast? Express delivery {express.from ? 'from ' : ''}{formatNaira(express.fee)}{express.days ? `, ${express.days.toLowerCase()}` : ''}{express.from && 'label' in express ? ` (${express.label})` : ''}. Choose it in your cart.</p>}
       <p className="buybox__trust">Pay with card, transfer or USSD through Paystack. The vendor is paid only after you confirm you have your fabric. <Link to="/buyer-protection" className="text-link">How you are protected</Link></p>
       <div className="buybox__help">
         <WhatsAppLink text={`Hello OSAPS, I have a question about ${fabric.name}: ${url}`}>Ask on WhatsApp</WhatsAppLink>

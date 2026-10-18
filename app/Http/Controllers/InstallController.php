@@ -62,14 +62,15 @@ class InstallController extends Controller
             }
 
             // The OSAPS store's own fabrics (database/catalogue). Safe on the live site: adds what is missing only.
-            if ($request->boolean('catalogue')) {
+            // Runs on every install: it only adds what is missing and re-checks the store is listed.
+            {
                 $seeder = app(\Database\Seeders\StoreCatalogueSeeder::class);
                 $seeder->run();
                 $log = array_merge($log, $seeder->report);
             }
 
             file_put_contents($lockPath, $ledger->record($token, now()->toDateTimeString(), $upgrading ? 'upgrade' : 'install')->toLock(), LOCK_EX);
-            $log[] = '(installer v4)';
+            $log[] = '(installer v5)';
             $log[] = ($upgrading ? 'Upgrade done.' : 'Install done.').' This link will not work again. Delete the INSTALL_TOKEN line from .env now.';
 
             return $this->text(implode("\n\n", array_filter($log)));

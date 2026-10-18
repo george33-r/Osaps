@@ -12,7 +12,7 @@ final class DeliveryZonesTest extends TestCase
     private function zones(): DeliveryZones
     {
         return new DeliveryZones(
-            ['lagos' => ['label' => 'Lagos', 'fee_minor' => 300_000, 'days' => '1–2 working days'],
+            ['lagos' => ['label' => 'Lagos', 'fee_minor' => 300_000, 'days' => '1–2 working days', 'express_fee_minor' => 600_000, 'express_days' => 'Next working day'],
                 'south_west' => ['label' => 'South west', 'fee_minor' => 450_000, 'days' => '2–3 working days'],
                 'other' => ['label' => 'Other', 'fee_minor' => 600_000, 'days' => '3–5 working days']],
             ['Lagos' => 'lagos', 'Oyo' => 'south_west', 'Ogun' => 'south_west'],
@@ -59,5 +59,17 @@ final class DeliveryZonesTest extends TestCase
         $all = DeliveryZones::STATES;
         sort($all);
         $this->assertSame($all, $seen);
+    }
+
+    public function test_express_is_priced_per_zone_and_can_be_switched_off(): void
+    {
+        $z = $this->zones();
+        $this->assertSame(600_000, $z->expressFeeFor('Lagos'));
+        $this->assertSame('Next working day', $z->expressDaysFor('Lagos'));
+        $this->assertNull($z->expressFeeFor('Kano'));
+        $this->assertNull($z->expressDaysFor('Kano'));
+        $rows = array_column($z->table(), null, 'key');
+        $this->assertSame(600_000, $rows['lagos']['express_fee_minor']);
+        $this->assertNull($rows['other']['express_fee_minor']);
     }
 }

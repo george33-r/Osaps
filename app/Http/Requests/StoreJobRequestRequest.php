@@ -33,6 +33,7 @@ class StoreJobRequestRequest extends FormRequest
             'city' => ['required', 'string', 'max:80'],
             'needed_by' => ['required', 'date', 'after:today', 'before:+1 year'],
             'fitting_required' => ['boolean'],
+            'is_express' => ['boolean'],
         ];
     }
 

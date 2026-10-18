@@ -33,7 +33,10 @@ class FabricOrderController extends Controller
         // Vendors only see orders once they are paid: an unpaid order is not theirs to act on yet.
         $orders = FabricOrder::query()->where('fabric_vendor_id', $vendor->id)
             ->whereNotIn('status', ['pending_payment'])
-            ->with(self::WITH)->latest('id')->limit(100)->get();
+            ->with(self::WITH)
+            // Express orders still to send come first.
+            ->orderByRaw("case when express = 1 and status in ('paid','packed') then 0 else 1 end")
+            ->latest('id')->limit(100)->get();
 
         return response()->json([
             'data' => $orders->map(fn ($o) => $this->present($o, 'vendor', $request))->values(),

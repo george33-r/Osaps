@@ -16,6 +16,7 @@ class FabricOrder extends Model
     protected function casts(): array
     {
         return [
+            'express' => 'boolean',
             'subtotal_minor' => 'integer',
             'delivery_minor' => 'integer',
             'service_fee_minor' => 'integer',

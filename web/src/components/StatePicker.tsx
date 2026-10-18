@@ -31,3 +31,20 @@ export function useDeliveryInfo(state: string | null) {
   const lagos = d.zones.find((z) => z.key === 'lagos')
   return { text: `Delivery from ${formatNaira(Math.min(...fees))}${lagos ? ` (Lagos, ${lagos.days})` : ''} to ${formatNaira(Math.max(...fees))} across Nigeria`, fee: null, days: null }
 }
+
+/**
+ * Express delivery for a state: { fee, days }, or null where it is not offered.
+ * Without a state: the cheapest express anywhere, for "Need it fast? Express from …".
+ */
+export function useExpressInfo(state: string | null) {
+  const { meta } = useSession()
+  const zones = (meta?.shop?.delivery?.zones ?? []).filter((z) => (z.express_fee_minor ?? 0) > 0)
+  if (zones.length === 0) return null
+  if (state) {
+    const all = meta?.shop?.delivery?.zones ?? []
+    const z = all.find((x) => x.states.includes(state)) ?? all.find((x) => x.key === 'other')
+    return z && (z.express_fee_minor ?? 0) > 0 ? { fee: z.express_fee_minor!, days: z.express_days ?? '', from: false } : null
+  }
+  const cheapest = zones.reduce((a, b) => (b.express_fee_minor! < a.express_fee_minor! ? b : a))
+  return { fee: cheapest.express_fee_minor!, days: cheapest.express_days ?? '', from: true, label: cheapest.label }
+}

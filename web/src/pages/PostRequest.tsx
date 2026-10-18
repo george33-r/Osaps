@@ -21,7 +21,7 @@ const FABRIC_OPTIONS: { key: FabricStatus; label: string; hint: string }[] = [
 const FIELD_STEP: Record<string, number> = {
   garment_category: 0, occasion: 0, title: 0, description: 0, style_tags: 0,
   fabric_status: 1, fabric_id: 1, mode: 2, budget_max_minor: 2, budget_min_minor: 2,
-  city: 3, needed_by: 3, fitting_required: 3,
+  city: 3, needed_by: 3, fitting_required: 3, is_express: 3,
 }
 
 interface FormState {
@@ -38,6 +38,7 @@ interface FormState {
   city: string
   needed_by: string
   fitting_required: boolean
+  is_express: boolean
 }
 
 function minDate() {
@@ -134,6 +135,7 @@ export default function PostRequest() {
     city: user?.city ?? '',
     needed_by: '',
     fitting_required: true,
+    is_express: false,
   }))
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
@@ -201,6 +203,7 @@ export default function PostRequest() {
         city: f.city.trim(),
         needed_by: f.needed_by,
         fitting_required: f.fitting_required,
+        is_express: f.is_express,
       })
       let failed = 0
       for (const photo of samples) {
@@ -392,6 +395,13 @@ export default function PostRequest() {
               <input type="checkbox" checked={f.fitting_required} onChange={(e) => set('fitting_required', e.target.checked)} />
               I want a fitting before the final finish
             </label>
+            <label className={`express-pick ${f.is_express ? 'is-on' : ''}`}>
+              <input type="checkbox" checked={f.is_express} onChange={(e) => set('is_express', e.target.checked)} />
+              <span>
+                <strong>⚡ Express: I need it urgently</strong>
+                <span>Your request goes to the top of tailors' lists and offers close within 24 hours. Rush work often costs more, and tailors say in their offer how many days they need.</span>
+              </span>
+            </label>
           </div>
         )}
 
@@ -404,7 +414,7 @@ export default function PostRequest() {
               {samples.length > 0 && <div><dt>Design photos</dt><dd><span className="summary__thumbs">{sampleUrls.map((u, i) => <img key={u} src={u} alt={`Design photo ${i + 1}`} />)}</span><button type="button" className="text-link" onClick={() => setStep(0)}>Edit</button></dd></div>}
               <div><dt>Fabric</dt><dd>{f.fabric_status === 'own_fabric' ? 'You have it' : f.fabric_status === 'need_advice' ? 'Advice wanted' : chosen?.name ?? 'Chosen from the catalogue'}<button type="button" className="text-link" onClick={() => setStep(1)}>Edit</button></dd></div>
               <div><dt>Price</dt><dd>{f.mode === 'budget' ? `Your budget: ${formatNaira(nairaToMinor(f.budget) ?? 0)}` : nairaToMinor(f.budget) || nairaToMinor(f.budget_min) ? `Open offers${nairaToMinor(f.budget_min) ? ` from ${formatNaira(nairaToMinor(f.budget_min)!)}` : ''}${nairaToMinor(f.budget) ? ` up to ${formatNaira(nairaToMinor(f.budget)!)}` : ''}` : 'Open offers, no range'}<button type="button" className="text-link" onClick={() => setStep(2)}>Edit</button></dd></div>
-              <div><dt>When and where</dt><dd>{f.city}, by {f.needed_by ? formatDate(f.needed_by) : '—'}{f.fitting_required ? ', with a fitting' : ''}<button type="button" className="text-link" onClick={() => setStep(3)}>Edit</button></dd></div>
+              <div><dt>When and where</dt><dd>{f.city}, by {f.needed_by ? formatDate(f.needed_by) : '—'}{f.fitting_required ? ', with a fitting' : ''}{f.is_express ? ' · Express' : ''}<button type="button" className="text-link" onClick={() => setStep(3)}>Edit</button></dd></div>
             </dl>
             <p className="muted">Tailors see your first name and city only — never your phone or email — until you accept an offer.</p>
           </div>

@@ -313,7 +313,7 @@ export const previewApi: Api = {
       offer_rules: { expiry_hours: EXPIRY_HOURS, max_counter_rounds_per_side: MAX_ROUNDS },
       shop: { ...SHOP, pickup_enabled: false, protection_days: 7, delivery: DELIVERY, piece_yards: PIECE_YARDS, typical_yards: { ...YARDS_GUIDE } },
       diaspora: { rates: PREVIEW_FX, rates_updated: 'Demo rates', ship_countries: Object.entries(PREVIEW_SHIP).map(([code, fee_minor]) => ({ code, fee_minor })) },
-      features: { payments: true, ai_assistant: false, disputes: false, whatsapp: false, try_on: true },
+      features: { payments: (() => { try { return sessionStorage.getItem('osaps-preview-nopay') !== '1' } catch { return true } })(), ai_assistant: false, disputes: false, whatsapp: false, try_on: true },
     }),
   me: () => delay(current),
   register: async (input) => {
@@ -397,7 +397,7 @@ export const previewApi: Api = {
     const req: JobRequest = {
       id, title: input.title, garment_category: input.garment_category, garment_label: GARMENTS[input.garment_category] ?? input.garment_category,
       occasion: input.occasion, occasion_label: input.occasion ? OCCASIONS[input.occasion] ?? null : null,
-      description: input.description, style_tags: input.style_tags, mode: input.mode,
+      description: input.description, style_tags: input.style_tags, mode: input.mode, is_express: !!input.is_express,
       budget_min: input.mode === 'open' && input.budget_min_minor ? money(input.budget_min_minor) : null,
       budget_max: input.budget_max_minor ? money(input.budget_max_minor) : null,
       fabric_status: input.fabric_status, fabric: input.fabric_id ? { slug: fabrics[input.fabric_id - 1]!.slug, name: fabrics[input.fabric_id - 1]!.name } : null,

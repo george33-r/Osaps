@@ -4,7 +4,7 @@ import { api, ApiError, isPreview, type Checkout, type FabricOrder, type PriceOf
 import { Countdown, OfferCard, QtyStepper } from '../components/ShopKit'
 import { Swatch } from '../components/Swatch'
 import { Button, ButtonLink, EmptyState, ErrorState, Field, PageHeader, Skeleton, errorMessage } from '../components/ui'
-import { StatePicker, useDeliveryInfo } from '../components/StatePicker'
+import { StatePicker, useDeliveryInfo, useExpressInfo } from '../components/StatePicker'
 import { WhatsAppLink } from '../components/WhatsApp'
 import { DeliveryCodeCard, ProblemReport, ProtectionNote, RefundList } from '../components/Protection'
 import { lineEstimate, useCart } from '../lib/cart'
@@ -19,7 +19,7 @@ function useQuote(enabled: boolean) {
   const [quote, setQuote] = useState<ShopQuote | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const key = JSON.stringify([cart.items, cart.fulfilment, cart.country, cart.shipState])
+  const key = JSON.stringify([cart.items, cart.fulfilment, cart.country, cart.shipState, cart.express])
   const seq = useRef(0)
 
   const refresh = async () => {
@@ -29,7 +29,7 @@ function useQuote(enabled: boolean) {
     setLoading(true)
     try {
       const q = await api.quote(cart.items, cart.fulfilment, cart.fulfilment === 'international' ? cart.country : null,
-        cart.fulfilment === 'delivery' || cart.fulfilment === 'arrival' ? cart.shipState || null : null)
+        cart.fulfilment === 'delivery' || cart.fulfilment === 'arrival' ? cart.shipState || null : null, cart.express)
       if (n === seq.current) { setQuote(q); setError(null) }
       return q
     } catch (e) {
@@ -52,7 +52,10 @@ function useQuote(enabled: boolean) {
 function Summary({ quote, estimate, children }: { quote: ShopQuote | null; estimate: number; children?: React.ReactNode }) {
   const cart = useCart()
   const info = useDeliveryInfo(cart.fulfilment === 'delivery' || cart.fulfilment === 'arrival' ? cart.shipState || null : null)
-  const deliveryNote = cart.fulfilment === 'delivery' || cart.fulfilment === 'arrival' ? (cart.shipState ? info?.days ?? null : 'Choose your state for the exact price') : null
+  const express = useExpressInfo(cart.express ? cart.shipState || null : null)
+  const deliveryNote = cart.fulfilment === 'delivery' || cart.fulfilment === 'arrival'
+    ? (cart.shipState ? (cart.express && express ? `Express · ${express.days}` : info?.days ?? null) : 'Choose your state for the exact price')
+    : null
   const saved = quote?.vendors.flatMap((v) => v.lines).reduce((n, l) => n + l.saving.amount_minor, 0) ?? 0
   return (
     <aside className="bag" aria-label="Order summary">
@@ -90,6 +93,13 @@ function Fulfilment() {
   const countries = meta?.diaspora?.ship_countries ?? []
   const pickup = !!meta?.shop?.pickup_enabled
   const info = useDeliveryInfo(cart.shipState || null)
+  const express = useExpressInfo(cart.shipState || null)
+  const expressAnywhere = useExpressInfo(null)
+  // Express is only for delivery to a Nigerian address, and only where a fast courier is set up.
+  useEffect(() => {
+    if (cart.express && (cart.fulfilment !== 'delivery' || (cart.shipState && !express))) cart.setExpress(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart.fulfilment, cart.shipState, express?.fee])
   const opts: { key: typeof cart.fulfilment; title: string; sub: string; show: boolean }[] = [
     { key: 'delivery', title: 'Deliver to me', sub: info?.text ?? 'Anywhere in Nigeria', show: true },
     { key: 'pickup', title: 'Pick up from the shop', sub: 'Free', show: pickup },
@@ -116,6 +126,23 @@ function Fulfilment() {
           <span className="label">Your state</span>
           <StatePicker value={cart.shipState} onChange={cart.setShipState} />
         </label>
+      )}
+      {cart.fulfilment === 'delivery' && expressAnywhere && (
+        <div className="speed" role="radiogroup" aria-label="Delivery speed">
+          <p className="label">How fast?</p>
+          <button type="button" role="radio" aria-checked={!cart.express} className="speed__opt" onClick={() => cart.setExpress(false)}>
+            <strong>Standard</strong>
+            <span>{cart.shipState && info?.fee != null ? `${formatNaira(info.fee)} · ${info.days}` : 'The usual courier'}</span>
+          </button>
+          <button type="button" role="radio" aria-checked={cart.express} className="speed__opt speed__opt--express" disabled={!!cart.shipState && !express}
+            onClick={() => cart.setExpress(true)}>
+            <strong>Express <span className="speed__bolt" aria-hidden>⚡</span></strong>
+            <span>{cart.shipState
+              ? express ? `${formatNaira(express.fee)} · ${express.days}` : `Not available to ${cart.shipState} yet`
+              : `From ${formatNaira(expressAnywhere.fee)} · choose your state`}</span>
+          </button>
+          {cart.express && <p className="speed__note">The shop packs express orders first and sends them by a faster courier. Times count working days from payment.</p>}
+        </div>
       )}
       {cart.fulfilment === 'international' && (
         <label className="fulfil__country">
@@ -212,7 +239,9 @@ export function CheckoutPage() {
     return (
       <div className="page page--narrow">
         <PageHeader title="Checkout" />
-        <EmptyState title="Online payment is not switched on yet">You can still contact each vendor from the fabric page.</EmptyState>
+        <EmptyState title="Online payment is not switched on yet" action={
+          <WhatsAppLink className="btn btn--primary" text={`Hello OSAPS, I would like to order:\n${cart.lines.map((l) => `- ${l.quantity} ${l.unit}${l.quantity === 1 ? '' : 's'} of ${l.name}`).join('\n')}\nMy state: ${cart.shipState || ''}${cart.express ? ' (express, please)' : ''}`}>Send this order on WhatsApp</WhatsAppLink>
+        }>Send your cart to OSAPS on WhatsApp. We will confirm the delivery price for your state and how to pay.</EmptyState>
       </div>
     )
   }
@@ -238,6 +267,7 @@ export function CheckoutPage() {
           state: (cart.fulfilment === 'international' ? s('state') : cart.shipState) || undefined, postcode: s('postcode') || undefined, landmark: s('landmark') || undefined },
         country: cart.fulfilment === 'international' ? cart.country : null,
         arrival_date: cart.fulfilment === 'arrival' ? s('arrival_date') : null,
+        express: cart.express,
       })
       try { sessionStorage.setItem(PENDING_KEY, c.reference) } catch { /* ignore */ }
       if (!c.authorization_url) throw new ApiError('Payment could not be started. Please try again.', 0, 'payment_start_failed')
@@ -477,7 +507,7 @@ export function FabricOrderList() {
                 {o.items?.slice(0, 3).map((i) => <span key={i.fabric_id} className="forder__swatch"><Swatch pattern={i.pattern} colors={i.colors ?? ['indigo']} scale={0.5} /></span>)}
               </span>
               <span className="forder__body">
-                <strong>{o.vendor?.business_name}</strong>
+                <strong>{o.vendor?.business_name}{o.express && <span className="express-tag express-tag--small">⚡ Express</span>}</strong>
                 <span>{o.items?.map((i) => `${i.quantity} × ${i.name}`).join(', ')}</span>
                 <small>{o.reference}{o.created_at ? ` · ${formatDate(o.created_at)}` : ''}</small>
               </span>
@@ -508,7 +538,7 @@ export function FabricOrderDetail() {
 
   return (
     <div className="page page--narrow">
-      <PageHeader label={`Order ${order.reference}`} title={order.status_label} intro={`From ${order.vendor?.business_name ?? 'the vendor'}${order.vendor?.market ? `, ${order.vendor.market}` : ''}.`} />
+      <PageHeader label={`Order ${order.reference}`} title={order.status_label} intro={`From ${order.vendor?.business_name ?? 'the vendor'}${order.vendor?.market ? `, ${order.vendor.market}` : ''}.${order.express ? ' Express delivery.' : ''}`} />
       {order.status !== 'cancelled' && <OrderTimeline order={order} />}
       <ul className="order-items">
         {order.items?.map((i) => (

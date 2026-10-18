@@ -22,6 +22,7 @@ class Checkout extends Model
     protected function casts(): array
     {
         return [
+            'express' => 'boolean',
             'contact' => 'array',
             'address' => 'array',
             'subtotal_minor' => 'integer',

@@ -50,6 +50,10 @@ class NegotiationService
             $request->budget_min_minor = null; // budget mode names one price
         }
         $closes = now()->addDays((int) config('marketplace.requests.open_days'));
+        // Express: the customer needs it urgently, so offers close within a day.
+        if ($request->is_express) {
+            $closes = $closes->min(now()->addHours((int) config('marketplace.requests.express_offer_hours', 24)));
+        }
         $request->offers_close_at = $closes->min($request->needed_by->copy()->endOfDay());
         $request->save();
 
@@ -357,6 +361,7 @@ class NegotiationService
             'city' => $request->city,
             'needed_by' => $request->needed_by->toDateString(),
             'fitting_required' => $request->fitting_required,
+            'express' => (bool) $request->is_express,
             'terms' => [
                 'amount_minor' => $offer->amount_minor,
                 'delivery_days' => $offer->delivery_days,

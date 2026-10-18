@@ -18,7 +18,7 @@ class JobRequest extends Model
 
     protected $fillable = [
         'title', 'garment_category', 'occasion', 'description', 'style_tags', 'mode', 'budget_min_minor', 'budget_max_minor',
-        'fabric_status', 'fabric_id', 'city', 'needed_by', 'fitting_required',
+        'fabric_status', 'fabric_id', 'city', 'needed_by', 'fitting_required', 'is_express',
     ];
 
     /** Public ULID in URLs so sequential IDs are never exposed or guessable. */
@@ -38,6 +38,7 @@ class JobRequest extends Model
             'style_tags' => 'array',
             'needed_by' => 'date',
             'fitting_required' => 'boolean',
+            'is_express' => 'boolean',
             'offers_close_at' => 'datetime',
             'budget_min_minor' => 'integer',
             'budget_max_minor' => 'integer',

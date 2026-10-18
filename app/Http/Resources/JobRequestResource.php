@@ -36,6 +36,7 @@ class JobRequestResource extends ApiResource
             'city' => $this->city,
             'needed_by' => $this->needed_by->toDateString(),
             'fitting_required' => $this->fitting_required,
+            'is_express' => (bool) $this->is_express,
             'status' => $this->isOpen() || $this->status !== 'open' ? $this->status : 'expired',
             'offers_close_at' => $this->offers_close_at->toIso8601String(),
             'is_owner' => $isOwner,

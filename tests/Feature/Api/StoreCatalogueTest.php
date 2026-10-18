@@ -27,4 +27,15 @@ class StoreCatalogueTest extends TestCase
         $this->assertSame(1_500_000, Fabric::query()->where('slug', 'red-butterfly-ankara')->value('price_minor'));
         $this->assertSame(17, FabricMedia::query()->count());
     }
+
+    public function test_installer_relists_the_store_after_its_bank_details_sent_it_back_for_a_check(): void
+    {
+        (new StoreCatalogueSeeder)->run();
+        \App\Models\FabricVendor::query()->update(['verification_status' => 'pending']);
+        $this->getJson('/api/v1/fabrics')->assertJsonPath('meta.total', 0);
+        $seeder = new StoreCatalogueSeeder;
+        $seeder->run();
+        $this->getJson('/api/v1/fabrics')->assertJsonPath('meta.total', 17);
+        $this->assertStringContainsString('showing on the site now: 17', implode("\n", $seeder->report));
+    }
 }

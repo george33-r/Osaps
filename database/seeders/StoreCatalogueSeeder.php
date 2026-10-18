@@ -58,6 +58,8 @@ class StoreCatalogueSeeder extends Seeder
                 $this->attachPhoto($fabric, $row['slug']);
             }
             $this->report[] = "Store catalogue: {$added} new fabric(s) added, ".(count($catalogue['fabrics']) - $added).' already there (left as they are).';
+            $listed = Fabric::query()->listed()->where('fabric_vendor_id', $vendor->id)->count();
+            $this->report[] = "Store fabrics showing on the site now: {$listed}.".($listed === 0 ? ' If this is 0, check the shop in /admin → Shops to verify, and that each listing is Active in /vendor.' : '');
         });
     }
 
@@ -85,6 +87,12 @@ class StoreCatalogueSeeder extends Seeder
                 'verification_note' => 'OSAPS\'s own store, created by the installer.',
             ])->save();
             $this->report[] = "Shop \"{$name}\" created and verified. Add its phone, market and bank details in /vendor → Shop & payouts.";
+        } elseif (in_array($vendor->verification_status, ['pending', 'unverified'], true)) {
+            // Saving new bank details sends a shop back for a check, which hides its fabrics. This is
+            // OSAPS's own store and only the site owner can run the installer, so list it again.
+            $was = (string) $vendor->verification_status;
+            $vendor->forceFill(['verification_status' => 'verified', 'verified_at' => now(), 'verification_note' => "Re-verified by the installer (was {$was})."])->save();
+            $this->report[] = "Shop \"{$vendor->business_name}\" was {$was}, so its fabrics were hidden. It is verified again and its fabrics are back on the site.";
         }
 
         return $vendor;

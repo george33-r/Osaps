@@ -22,7 +22,8 @@ return [
     // Shown when customers need a human. Leave empty to hide.
     'support' => [
         'email' => env('SUPPORT_EMAIL'),
-        'whatsapp' => env('SUPPORT_WHATSAPP', '+2348162898760'),
+        // An empty SUPPORT_WHATSAPP= line in .env still falls back to the shop's number.
+        'whatsapp' => env('SUPPORT_WHATSAPP') ?: '+2348162898760',
     ],
 
     // Disputes stay off until an admin can resolve them (see CHECKLIST.md). While off, customers are
@@ -74,9 +75,13 @@ return [
         'delivery_fee_per_vendor_minor' => (int) env('SHOP_DELIVERY_FEE_MINOR', 300_000),
         // Delivery inside Nigeria by the buyer's state. PLACEHOLDER fees and times: put your courier's real ones in .env.
         'delivery_zones' => [
-            'lagos' => ['label' => 'Lagos', 'fee_minor' => (int) env('DELIVERY_LAGOS_MINOR', 300_000), 'days' => env('DELIVERY_LAGOS_DAYS', '1–2 working days')],
-            'south_west' => ['label' => 'Ogun, Oyo, Osun, Ondo, Ekiti', 'fee_minor' => (int) env('DELIVERY_SOUTH_WEST_MINOR', 450_000), 'days' => env('DELIVERY_SOUTH_WEST_DAYS', '2–3 working days')],
-            'other' => ['label' => 'Other states and Abuja', 'fee_minor' => (int) env('DELIVERY_OTHER_MINOR', 600_000), 'days' => env('DELIVERY_OTHER_DAYS', '3–5 working days')],
+            // Express: a faster courier for a higher fee. Set an express fee to 0 to switch it off for that zone.
+            'lagos' => ['label' => 'Lagos', 'fee_minor' => (int) env('DELIVERY_LAGOS_MINOR', 300_000), 'days' => env('DELIVERY_LAGOS_DAYS', '1–2 working days'),
+                'express_fee_minor' => (int) env('EXPRESS_LAGOS_MINOR', 600_000), 'express_days' => env('EXPRESS_LAGOS_DAYS', 'Next working day')],
+            'south_west' => ['label' => 'Ogun, Oyo, Osun, Ondo, Ekiti', 'fee_minor' => (int) env('DELIVERY_SOUTH_WEST_MINOR', 450_000), 'days' => env('DELIVERY_SOUTH_WEST_DAYS', '2–3 working days'),
+                'express_fee_minor' => (int) env('EXPRESS_SOUTH_WEST_MINOR', 900_000), 'express_days' => env('EXPRESS_SOUTH_WEST_DAYS', '1–2 working days')],
+            'other' => ['label' => 'Other states and Abuja', 'fee_minor' => (int) env('DELIVERY_OTHER_MINOR', 600_000), 'days' => env('DELIVERY_OTHER_DAYS', '3–5 working days'),
+                'express_fee_minor' => (int) env('EXPRESS_OTHER_MINOR', 1_200_000), 'express_days' => env('EXPRESS_OTHER_DAYS', '2 working days')],
         ],
         'delivery_state_zones' => ['Lagos' => 'lagos', 'Ogun' => 'south_west', 'Oyo' => 'south_west', 'Osun' => 'south_west', 'Ondo' => 'south_west', 'Ekiti' => 'south_west'],
         // Fabric usually sold by the piece: yards in a full piece, by category. Buyers can still buy any number of yards.
@@ -138,6 +143,8 @@ return [
     'requests' => [
         'open_days' => (int) env('REQUEST_OPEN_DAYS', 7),
         'max_open_per_customer' => (int) env('REQUEST_MAX_OPEN_PER_CUSTOMER', 10),
+        // Express requests ("I need it urgently") close for offers sooner, and are listed first for tailors.
+        'express_offer_hours' => (int) env('REQUEST_EXPRESS_OFFER_HOURS', 24),
     ],
 
     'matching' => [

@@ -51,8 +51,19 @@ class CheckoutService
      * Per-vendor delivery charge for this way of receiving fabric: by country abroad, by state in
      * Nigeria (falls back to the default fee until a state is chosen). Pickup is free.
      */
-    private function deliveryFee(string $fulfilment, ?string $country, ?string $state = null): ?int
+    private function deliveryFee(string $fulfilment, ?string $country, ?string $state = null, bool $express = false): ?int
     {
+        if ($express) {
+            if ($fulfilment !== 'delivery') {
+                throw new DomainRuleViolation('Express is for delivery to a Nigerian address. Choose "Deliver to me".', 'express_unavailable');
+            }
+            if ($state === null || $state === '') {
+                return null;
+            }
+
+            return $this->delivery->expressFeeFor($state)
+                ?? throw new DomainRuleViolation('Express delivery is not offered to '.$state.' yet. Choose standard delivery.', 'express_unavailable');
+        }
         if (in_array($fulfilment, ['delivery', 'arrival'], true)) {
             return $state !== null && $state !== '' ? $this->delivery->feeFor($state) : null;
         }
@@ -70,12 +81,12 @@ class CheckoutService
      * @param  list<array{fabric_id:int, quantity:int, price_offer_id?:int|null}>  $items
      * @return array<string,mixed>
      */
-    public function quote(?User $buyer, array $items, string $fulfilment, ?string $country = null, ?string $state = null): array
+    public function quote(?User $buyer, array $items, string $fulfilment, ?string $country = null, ?string $state = null, bool $express = false): array
     {
         $this->sweep();
         $fabrics = Fabric::query()->with('vendor')->whereIn('id', array_column($items, 'fabric_id'))->get()->keyBy('id');
 
-        return $this->pricing->quote($this->lines($buyer, $items, $fabrics), $fulfilment, $this->deliveryFee($fulfilment, $country, $state));
+        return $this->pricing->quote($this->lines($buyer, $items, $fabrics), $fulfilment, $this->deliveryFee($fulfilment, $country, $state, $express));
     }
 
     /** What one guest pays to join an aṣọ-ẹbí group. */
@@ -101,21 +112,21 @@ class CheckoutService
      * @param  array{name:string, phone:string, email:string}  $contact
      * @param  array<string,string>|null  $address
      */
-    public function create(User $buyer, array $items, string $fulfilment, array $contact, ?array $address, int $expectedTotalMinor, string $callbackUrl, ?string $country = null, ?string $arrivalDate = null): Checkout
+    public function create(User $buyer, array $items, string $fulfilment, array $contact, ?array $address, int $expectedTotalMinor, string $callbackUrl, ?string $country = null, ?string $arrivalDate = null, bool $express = false): Checkout
     {
         $this->assertPayments();
         $this->sweep();
         if ($fulfilment === 'pickup' && ! config('marketplace.shop.pickup_enabled')) {
             throw new DomainRuleViolation('Pickup is not offered yet. Choose delivery.', 'pickup_unavailable');
         }
-        $fee = $this->deliveryFee($fulfilment, $country, $address['state'] ?? null);
+        $fee = $this->deliveryFee($fulfilment, $country, $address['state'] ?? null, $express);
         // Starting again (e.g. after backing out of the Paystack page) replaces any earlier unpaid
         // cart checkout, so its stock and agreed prices are free for this one.
         foreach (Checkout::query()->where('customer_id', $buyer->id)->whereNull('aso_ebi_group_id')->where('payment_status', Checkout::PENDING)->get() as $old) {
             $this->cancel($old, 'customer', 'Replaced by a newer checkout.', $buyer);
         }
 
-        $checkout = DB::transaction(function () use ($buyer, $items, $fulfilment, $contact, $address, $expectedTotalMinor, $fee, $country, $arrivalDate) {
+        $checkout = DB::transaction(function () use ($buyer, $items, $fulfilment, $contact, $address, $expectedTotalMinor, $fee, $country, $arrivalDate, $express) {
             // Lock in id order so two checkouts for the same fabrics cannot deadlock.
             $ids = array_values(array_unique(array_map('intval', array_column($items, 'fabric_id'))));
             sort($ids);
@@ -126,6 +137,7 @@ class CheckoutService
             return $this->persist($buyer, $quote, $fulfilment, $contact, $address, $expectedTotalMinor, [
                 'ship_country' => $fulfilment === 'international' ? strtoupper((string) $country) : null,
                 'arrival_date' => $fulfilment === 'arrival' ? $arrivalDate : null,
+                'express' => $express,
             ]);
         });
 
@@ -214,6 +226,7 @@ class CheckoutService
             $order->aso_ebi_group_id = $extra['aso_ebi_group_id'] ?? null;
             $order->status = FabricOrderStatus::PENDING_PAYMENT;
             $order->fulfilment = $fulfilment;
+            $order->express = (bool) ($extra['express'] ?? false);
             $order->subtotal_minor = $v['subtotal'];
             $order->delivery_minor = $v['delivery'];
             $order->service_fee_minor = $fees[$i];
@@ -350,8 +363,8 @@ class CheckoutService
             foreach ($orders as $order) {
                 $this->moveOrder($order, FabricOrderStatus::PAID, null, 'system', 'Payment confirmed by Paystack.', force: $order->status !== FabricOrderStatus::PENDING_PAYMENT);
                 $order->loadMissing('vendor', 'items');
-                $this->notifier->notify($order->vendor?->user_id, 'order_paid', 'New paid order '.$order->reference,
-                    $order->items->map(fn ($i) => "{$i->quantity} × {$i->name}")->implode(', ').'. Pack it and mark it packed.', '/vendor?tab=orders');
+                $this->notifier->notify($order->vendor?->user_id, 'order_paid', ($order->express ? 'EXPRESS order ' : 'New paid order ').$order->reference,
+                    $order->items->map(fn ($i) => "{$i->quantity} × {$i->name}")->implode(', ').($order->express ? '. The buyer paid for express delivery: pack it today and send it by express courier.' : '. Pack it and mark it packed.'), '/vendor?tab=orders');
             }
             $this->notifier->notify($checkout->customer_id, 'payment_confirmed', 'Payment confirmed', 'We received '.\App\Domain\Money\Money::minor($checkout->total_minor)->format().'. Your delivery code is on your order page: give it only when the fabric is in your hands.', '/shop/orders');
 

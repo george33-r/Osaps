@@ -142,6 +142,7 @@ class JobRequestController extends Controller
             ->where('customer_id', '!=', $user->id)
             ->with(['customer', 'fabric', 'photos'])
             ->withCount('offers')
+            ->orderByDesc('is_express') // urgent requests first
             ->latest('id')
             ->limit(100)
             ->get();

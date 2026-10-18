@@ -57,6 +57,19 @@ final class DeliveryZones
         return (string) ($this->zones[$this->zoneFor($state)]['days'] ?? '');
     }
 
+    /** Express fee for this state, or null where express is not offered. */
+    public function expressFeeFor(?string $state): ?int
+    {
+        $fee = (int) ($this->zones[$this->zoneFor($state)]['express_fee_minor'] ?? 0);
+
+        return $fee > 0 ? $fee : null;
+    }
+
+    public function expressDaysFor(?string $state): ?string
+    {
+        return $this->expressFeeFor($state) === null ? null : (string) ($this->zones[$this->zoneFor($state)]['express_days'] ?? '');
+    }
+
     /** The cheapest delivery anywhere, for "Delivery from ₦…" before a state is chosen. */
     public function lowestFee(): int
     {
@@ -65,7 +78,7 @@ final class DeliveryZones
         return $fees === [] ? 0 : min($fees);
     }
 
-    /** @return list<array{key:string, label:string, fee_minor:int, days:string, states:list<string>}> */
+    /** @return list<array{key:string, label:string, fee_minor:int, days:string, states:list<string>, express_fee_minor:?int, express_days:?string}> */
     public function table(): array
     {
         $out = [];
@@ -73,7 +86,9 @@ final class DeliveryZones
             $states = $key === 'other'
                 ? array_values(array_filter(self::STATES, fn ($s) => ($this->stateZone[$s] ?? 'other') === 'other'))
                 : array_keys(array_filter($this->stateZone, fn ($v) => $v === $key));
-            $out[] = ['key' => $key, 'label' => (string) $z['label'], 'fee_minor' => (int) $z['fee_minor'], 'days' => (string) $z['days'], 'states' => $states];
+            $express = (int) ($z['express_fee_minor'] ?? 0);
+            $out[] = ['key' => $key, 'label' => (string) $z['label'], 'fee_minor' => (int) $z['fee_minor'], 'days' => (string) $z['days'], 'states' => $states,
+                'express_fee_minor' => $express > 0 ? $express : null, 'express_days' => $express > 0 ? (string) ($z['express_days'] ?? '') : null];
         }
 
         return $out;
