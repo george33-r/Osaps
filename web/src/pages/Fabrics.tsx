@@ -318,9 +318,9 @@ export function FabricDetail() {
           </p>
           {f.is_demo && <Badge tone="waiting">Demonstration listing</Badge>}
           <dl className="specs">
-            <div><dt>Material</dt><dd>{f.material ?? 'Not stated'}</dd></div>
+            <div><dt>Material</dt><dd>{f.material ?? 'Ask the vendor'}</dd></div>
             <div><dt>Colours</dt><dd>{f.colors.map(humanise).join(', ')}</dd></div>
-            {f.pattern && <div><dt>Pattern</dt><dd>{humanise(f.pattern)}</dd></div>}
+            {f.pattern && !f.image_url && <div><dt>Pattern</dt><dd>{humanise(f.pattern)}</dd></div>}
             <div><dt>Minimum order</dt><dd>{f.min_order_quantity} {f.unit}{f.min_order_quantity > 1 ? 's' : ''}</dd></div>
           </dl>
           <BuyBox fabric={f} />

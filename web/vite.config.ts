@@ -14,6 +14,8 @@ export default defineConfig(({ mode }) => ({
   },
   server: {
     port: 5173,
+    // The design preview reads the store catalogue from database/catalogue (one source of truth).
+    fs: { allow: ['..'] },
     proxy: {
       '/api': 'http://127.0.0.1:8000',
       '/sanctum': 'http://127.0.0.1:8000',

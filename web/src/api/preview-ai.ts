@@ -12,20 +12,20 @@ export const OCCASIONS: Record<string, string> = {
   naming_ceremony: 'Naming ceremony', church_mosque: 'Church or mosque', work: 'Work', party: 'Party or birthday',
   everyday: 'Everyday', family_event: 'Family event (aṣọ-ẹbí)', festival: 'Festival (Durbar, Ojude Oba, Iri Ji)', december: 'Detty December', other: 'Something else',
 }
-const COLORS = ['navy', 'indigo', 'gold', 'terracotta', 'emerald', 'burgundy', 'cream', 'black', 'white', 'orange', 'royal_blue', 'purple', 'green', 'red', 'brown', 'pink', 'silver']
+const COLORS = ['navy', 'indigo', 'gold', 'terracotta', 'emerald', 'burgundy', 'cream', 'black', 'white', 'orange', 'royal_blue', 'purple', 'green', 'red', 'brown', 'pink', 'silver', 'yellow']
 const NEEDS: Record<string, string> = { fabric_and_tailoring: 'Fabric and tailoring', tailoring_only: 'Tailoring only — I have fabric', fabric_only: 'Fabric only' }
 const TIMING: Record<string, string> = { two_weeks: 'Within 2 weeks', month: 'Within a month', three_months: 'Within 3 months', no_rush: 'No rush' }
 const GARMENT_FABRICS: Record<string, string[]> = {
-  agbada: ['aso_oke', 'damask', 'senator'], senator: ['senator', 'damask'], kaftan: ['senator', 'damask', 'adire'],
-  buba_sokoto: ['aso_oke', 'adire', 'damask'], iro_buba: ['aso_oke', 'adire', 'ankara', 'lace'], gown: ['lace', 'ankara', 'george'],
-  skirt_blouse: ['ankara', 'lace', 'adire'], suit: ['suiting'], bridal: ['lace', 'aso_oke', 'george'], aso_ebi: ['ankara', 'lace', 'aso_oke'],
+  agbada: ['aso_oke', 'damask', 'senator'], senator: ['senator', 'damask', 'plain'], kaftan: ['senator', 'damask', 'adire', 'plain'],
+  buba_sokoto: ['aso_oke', 'adire', 'damask'], iro_buba: ['aso_oke', 'adire', 'ankara', 'lace'], gown: ['lace', 'ankara', 'george', 'print', 'plain'],
+  skirt_blouse: ['ankara', 'lace', 'adire', 'print'], suit: ['suiting'], bridal: ['lace', 'aso_oke', 'george'], aso_ebi: ['ankara', 'lace', 'aso_oke'],
   kids: ['ankara', 'adire'], alteration: [],
 }
 const YARDS: Record<string, number> = { agbada: 10, senator: 5, kaftan: 5, buba_sokoto: 5, iro_buba: 6, gown: 5, skirt_blouse: 5, suit: 4, bridal: 8, aso_ebi: 5, kids: 3 }
 
 const WORDS = {
-  cat: { aso_oke: ['aso oke', 'aso-oke', 'asooke', 'sanyan', 'alaari'], ankara: ['ankara', 'wax print'], adire: ['adire', 'tie dye', 'tie-dye'], lace: ['lace', 'guipure'], senator: ['senator'], suiting: ['suiting', 'wool'], george: ['george'], damask: ['damask', 'brocade'] } as Record<string, string[]>,
-  color: { burgundy: ['burgundy', 'wine', 'maroon', 'oxblood'], navy: ['navy'], royal_blue: ['royal blue'], indigo: ['indigo'], gold: ['gold', 'golden', 'champagne'], emerald: ['emerald'], green: ['green'], cream: ['cream', 'ivory', 'off white', 'beige'], white: ['white'], black: ['black', 'charcoal'], purple: ['purple', 'lilac'], orange: ['orange', 'coral'], red: ['red'], pink: ['pink'], brown: ['brown'], terracotta: ['terracotta', 'rust'], silver: ['silver', 'grey', 'gray'] } as Record<string, string[]>,
+  cat: { aso_oke: ['aso oke', 'aso-oke', 'asooke', 'sanyan', 'alaari'], ankara: ['ankara', 'wax print'], adire: ['adire', 'tie dye', 'tie-dye'], lace: ['lace', 'guipure'], plain: ['plain'], print: ['print', 'printed', 'chiffon', 'floral'], senator: ['senator'], suiting: ['suiting', 'wool'], george: ['george'], damask: ['damask', 'brocade'] } as Record<string, string[]>,
+  color: { burgundy: ['burgundy', 'wine', 'maroon', 'oxblood'], navy: ['navy'], royal_blue: ['royal blue'], indigo: ['indigo'], gold: ['gold', 'golden', 'champagne'], emerald: ['emerald'], green: ['green'], cream: ['cream', 'ivory', 'off white', 'beige'], white: ['white'], black: ['black', 'charcoal'], purple: ['purple', 'lilac'], orange: ['orange', 'coral'], red: ['red'], pink: ['pink'], brown: ['brown'], terracotta: ['terracotta', 'rust'], silver: ['silver', 'grey', 'gray'], yellow: ['yellow', 'lemon', 'mustard'] } as Record<string, string[]>,
   occasion: { own_wedding: ['my wedding', 'bride', 'groom'], traditional_wedding: ['traditional wedding', 'introduction'], wedding_guest: ['wedding'], naming_ceremony: ['naming'], church_mosque: ['church', 'mosque', 'eid', 'sallah'], work: ['work', 'office'], party: ['party', 'birthday', 'dinner'], family_event: ['family', 'aso ebi', 'asoebi'], everyday: ['everyday', 'casual'], festival: ['festival', 'durbar', 'ojude oba', 'iri ji', 'new yam'], december: ['detty', 'december', 'christmas'] } as Record<string, string[]>,
   garment: { agbada: ['agbada'], senator: ['senator'], kaftan: ['kaftan'], iro_buba: ['iro'], gown: ['gown', 'dress'], skirt_blouse: ['skirt', 'blouse'], suit: ['suit'], kids: ['kids', 'children'] } as Record<string, string[]>,
 }
@@ -147,6 +147,8 @@ const GUIDE: Record<string, [string, string][]> = {
   suiting: [['suit', 'A two-piece suit with a soft shoulder.'], ['senator', 'A tailored senator with sharp cuffs.']],
   george: [['iro_buba', 'A george wrapper with a lace buba.'], ['gown', 'A draped george gown for evening.']],
   damask: [['agbada', 'A damask agbada with tonal embroidery.'], ['kaftan', 'A damask kaftan with a mandarin collar.']],
+  plain: [['gown', 'A clean, fitted gown that lets the colour do the work.'], ['senator', 'A simple senator with tonal stitching.'], ['kaftan', 'A relaxed kaftan with a contrast placket.']],
+  print: [['gown', 'A flowing wrap dress with a tie waist.'], ['skirt_blouse', 'A flared skirt with a plain blouse in one of the print colours.']],
 }
 
 type AiApi = Pick<Api, 'aiSearch' | 'stylist' | 'fabricIdeas' | 'inspiration'>

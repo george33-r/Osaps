@@ -112,7 +112,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const items = state.lines.map((l) => ({ fabric_id: l.fabric_id, quantity: l.quantity, price_offer_id: l.price_offer_id }))
     const body = JSON.stringify(items)
     if (body === lastSent.current) return
-    const t = window.setTimeout(() => { lastSent.current = body; api.saveCart(items).catch(() => { lastSent.current = '' }) }, 800)
+    const t = window.setTimeout(() => { lastSent.current = body; api.saveCart(items).catch(() => { lastSent.current = '' }) }, 250)
     return () => window.clearTimeout(t)
   }, [state.lines, user])
 

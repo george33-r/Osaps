@@ -12,3 +12,4 @@
 .env
 .phpunit.result.cache
 !**/.gitkeep
+public/uploads/

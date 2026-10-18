@@ -151,9 +151,12 @@ export function makePreviewShop(ctx: Ctx) {
     else ctx.notify(o.buyerId, action === 'accept' ? `Deal! ${p} per ${f.unit} for ${f.name}` : `Vendor countered: ${p} for ${f.name}`, action === 'accept' ? 'Your price is held for 48 hours.' : null, '/offers')
   }
 
-  /** Vendors other than the demo vendor account answer automatically, so a solo review feels live. */
+  /**
+   * Design preview only: offers on printed fabrics are answered automatically, so a solo review
+   * feels live. Every other fabric waits for the "View as: Vendor" account to answer by hand.
+   */
   const autoVendor = (o: OfferRow) => {
-    if (o.vendorSlug === 'balogun-bolts') return // the "View as: Vendor" account answers these by hand
+    if (fabricById(o.fabricId)?.category !== 'print') return
     setTimeout(() => {
       if (o.status !== 'awaiting_vendor') return
       const at = new Date().toISOString()
@@ -280,7 +283,7 @@ export function makePreviewShop(ctx: Ctx) {
     for (const g of groups) for (const sh of g.shares) if (sh.checkoutRef === c.reference && sh.status === 'pending') sh.status = 'cancelled'
   }
 
-  const VENDOR_USER_ID: Record<string, number> = { 'balogun-bolts': 3 }
+  const VENDOR_USER_ID: Record<string, number> = { 'osaps-store': 3 }
 
   /** Write a checkout and its per-vendor orders, holding stock (mirrors CheckoutService::persist). */
   const persist = (u: User, q: ReturnType<typeof quoteOf>, fulfilment: Fulfilment, expected: number, contact: { name: string; phone: string },
@@ -615,8 +618,8 @@ export function makePreviewShop(ctx: Ctx) {
   }
 
   // The demo shop starts verified (its fabrics are on sale). A second, unverified demo shop waits for review.
-  let profile: VendorProfile = { business_name: 'Balogun Bolts', slug: 'balogun-bolts', city: 'Lagos', market: 'Balogun Market', phone: '0803 000 0000', whatsapp: null, verified: true,
-    bank_name: 'Demo Bank', bank_account_name: 'Balogun Bolts', bank_account_last4: '6789' }
+  let profile: VendorProfile = { business_name: 'OSAPS Store', slug: 'osaps-store', city: 'Lagos', market: 'Lagos Island', phone: '0803 000 0000', whatsapp: null, verified: true,
+    bank_name: 'Demo Bank', bank_account_name: 'OSAPS Store', bank_account_last4: '6789' }
   let bankNumber = '0123456789'
   let vStatus: AdminVendor['status'] = 'verified'
   let vNote: string | null = null
@@ -687,14 +690,14 @@ export function makePreviewShop(ctx: Ctx) {
       asAdmin()
       const mine: AdminVendor = { id: 901, business_name: profile.business_name, city: profile.city, market: profile.market, phone: profile.phone, whatsapp: profile.whatsapp,
         owner: { name: 'Bola Balogun', email: 'vendor1@demo.osaps.test', joined: '2026-10-01' },
-        bank: { name: profile.bank_name, account_name: profile.bank_account_name, account_number: bankNumber }, fabrics: fabrics.filter((f) => f.vendor?.slug === 'balogun-bolts').length,
+        bank: { name: profile.bank_name, account_name: profile.bank_account_name, account_number: bankNumber }, fabrics: fabrics.filter((f) => f.vendor?.slug === 'osaps-store').length,
         status: vStatus, label: V_LABELS[vStatus], note: vNote, requested_at: vRequested, is_demo: true }
       return delay([mine, ...otherShops].filter((v) => v.status === status))
     },
     adminReviewVendor: async (id, to, note) => {
       const u = asAdmin()
       if ((to === 'rejected' || to === 'suspended') && (note ?? '').trim().length < 5) fail('Say what the vendor needs to fix, so they can act on it.', 422, 'verification_note_required')
-      if (id === 901) { vStatus = to; vNote = note; ctx.notify(VENDOR_USER_ID['balogun-bolts']!, `Shop review: ${V_LABELS[to]}`, to === 'verified' ? 'Your shop is verified. Your active listings are now visible to buyers.' : note, '/vendor?tab=shop') }
+      if (id === 901) { vStatus = to; vNote = note; ctx.notify(VENDOR_USER_ID['osaps-store']!, `Shop review: ${V_LABELS[to]}`, to === 'verified' ? 'Your shop is verified. Your active listings are now visible to buyers.' : note, '/vendor?tab=shop') }
       else { const v = otherShops.find((x) => x.id === id) ?? fail('Not found.', 404, 'not_found'); v.status = to; v.label = V_LABELS[to]; v.note = note }
       adminLog(u, `vendor_${to}`, `FabricVendor #${id}`, note)
       await delay(null)

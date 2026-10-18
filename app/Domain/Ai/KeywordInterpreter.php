@@ -20,6 +20,8 @@ final class KeywordInterpreter
         'suiting' => ['suit', 'suiting', 'wool', 'tweed'],
         'george' => ['george', 'wrapper'],
         'damask' => ['damask', 'brocade', 'jacquard', 'atiku'],
+        'plain' => ['plain fabric', 'plain', 'crepe', 'solid colour', 'solid color'],
+        'print' => ['printed fabric', 'print', 'chiffon', 'floral print', 'silk print'],
     ];
 
     private const COLOR_WORDS = [
@@ -37,7 +39,8 @@ final class KeywordInterpreter
         'orange' => ['orange', 'coral', 'peach'],
         'red' => ['red', 'scarlet'],
         'pink' => ['pink', 'rose', 'fuchsia'],
-        'brown' => ['brown', 'chocolate', 'coffee'],
+        'brown' => ['brown', 'chocolate', 'coffee', 'cocoa'],
+        'yellow' => ['yellow', 'lemon', 'mustard'],
         'terracotta' => ['terracotta', 'rust'],
         'silver' => ['silver', 'grey', 'gray'],
     ];

@@ -24,6 +24,7 @@ export const COLOR_HEX: Record<string, string> = {
   brown: '#6b4428',
   pink: '#d77b97',
   silver: '#b9b8bf',
+  yellow: '#e8d45a',
 }
 
 const hex = (c: string | undefined, fallback: string) => (c && COLOR_HEX[c]) || fallback

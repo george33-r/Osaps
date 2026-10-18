@@ -37,9 +37,9 @@ return [
 
     // Which fabric types usually suit each garment — used to shortlist real catalogue items for the stylist.
     'garment_fabrics' => [
-        'agbada' => ['aso_oke', 'damask', 'senator'], 'senator' => ['senator', 'damask'], 'kaftan' => ['senator', 'damask', 'adire'],
-        'buba_sokoto' => ['aso_oke', 'adire', 'damask'], 'iro_buba' => ['aso_oke', 'adire', 'ankara', 'lace'], 'gown' => ['lace', 'ankara', 'george'],
-        'skirt_blouse' => ['ankara', 'lace', 'adire'], 'suit' => ['suiting'], 'bridal' => ['lace', 'aso_oke', 'george'],
+        'agbada' => ['aso_oke', 'damask', 'senator'], 'senator' => ['senator', 'damask', 'plain'], 'kaftan' => ['senator', 'damask', 'adire', 'plain'],
+        'buba_sokoto' => ['aso_oke', 'adire', 'damask'], 'iro_buba' => ['aso_oke', 'adire', 'ankara', 'lace'], 'gown' => ['lace', 'ankara', 'george', 'print', 'plain'],
+        'skirt_blouse' => ['ankara', 'lace', 'adire', 'print'], 'suit' => ['suiting'], 'bridal' => ['lace', 'aso_oke', 'george'],
         'aso_ebi' => ['ankara', 'lace', 'aso_oke'], 'kids' => ['ankara', 'adire'], 'alteration' => [],
     ],
 
@@ -161,10 +161,12 @@ return [
         'suiting' => 'Suiting',
         'george' => 'George',
         'damask' => 'Damask',
+        'plain' => 'Plain fabric',
+        'print' => 'Printed fabric',
         'other' => 'Other textiles',
     ],
 
     'fabric_units' => ['yard', 'metre', 'piece', 'bundle'],
 
-    'colors' => ['navy', 'indigo', 'gold', 'terracotta', 'emerald', 'burgundy', 'cream', 'black', 'white', 'orange', 'royal_blue', 'purple', 'green', 'red', 'brown', 'pink', 'silver'],
+    'colors' => ['navy', 'indigo', 'gold', 'terracotta', 'emerald', 'burgundy', 'cream', 'black', 'white', 'orange', 'royal_blue', 'purple', 'green', 'red', 'brown', 'pink', 'silver', 'yellow'],
 ];

@@ -29,9 +29,9 @@ export function makePreviewGrowth(ctx: Ctx) {
   // Two demo sessions: one live now, one later today.
   const lives: LiveSession[] = [
     { id: 1, title: 'New Ankara drop: 40 prints under ₦5k', platform: 'tiktok', url: 'https://www.tiktok.com/@osaps', youtube_id: null, starts_at: at(-20), ends_at: at(70), is_live: true,
-      vendor: { business_name: 'Balogun Bolts', market: 'Balogun Market', city: 'Lagos' }, fabrics: [] },
+      vendor: { business_name: 'OSAPS Store', market: null, city: 'Lagos' }, fabrics: [] },
     { id: 2, title: 'Aṣọ-òkè for December weddings', platform: 'instagram', url: 'https://www.instagram.com/osaps', youtube_id: null, starts_at: at(240), ends_at: at(330), is_live: false,
-      vendor: { business_name: 'Wuse Textiles', market: 'Wuse Market', city: 'Abuja' }, fabrics: [] },
+      vendor: { business_name: 'OSAPS Store', market: null, city: 'Lagos' }, fabrics: [] },
   ]
   const fill = () => {
     lives[0]!.fabrics = ctx.fabrics.filter((f) => f.category === 'ankara').slice(0, 4)
@@ -74,7 +74,7 @@ export function makePreviewGrowth(ctx: Ctx) {
       return delay(m)
     },
     live: () => { fill(); return delay(lives) },
-    myLive: () => { fill(); const slug = ctx.vendorSlugOf(me()); return delay(lives.filter((l) => slug && l.vendor.business_name === 'Balogun Bolts')) },
+    myLive: () => { fill(); const slug = ctx.vendorSlugOf(me()); return delay(lives.filter((l) => slug && l.vendor.business_name === 'OSAPS Store')) },
     createLive: async (input) => {
       const hosts: Record<string, string[]> = { tiktok: ['tiktok.com', 'www.tiktok.com', 'vm.tiktok.com'], instagram: ['instagram.com', 'www.instagram.com'], youtube: ['youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtu.be'], facebook: ['facebook.com', 'www.facebook.com', 'fb.watch'] }
       let ok = false
@@ -84,8 +84,8 @@ export function makePreviewGrowth(ctx: Ctx) {
       const end = input.ends_at ? new Date(input.ends_at) : new Date(start.getTime() + 2 * 3_600_000)
       const yt = input.platform === 'youtube' ? (input.url.match(/(?:v=|youtu\.be\/|\/live\/)([A-Za-z0-9_-]{11})/)?.[1] ?? null) : null
       const s: LiveSession = { id: seq++ + 100, title: input.title, platform: input.platform, url: input.url, youtube_id: yt, starts_at: start.toISOString(), ends_at: end.toISOString(),
-        is_live: start.getTime() <= Date.now() && end.getTime() > Date.now(), vendor: { business_name: 'Balogun Bolts', market: 'Balogun Market', city: 'Lagos' },
-        fabrics: ctx.fabrics.filter((f) => input.fabric_ids?.includes(f.id) && f.vendor?.slug === 'balogun-bolts') }
+        is_live: start.getTime() <= Date.now() && end.getTime() > Date.now(), vendor: { business_name: 'OSAPS Store', market: null, city: 'Lagos' },
+        fabrics: ctx.fabrics.filter((f) => input.fabric_ids?.includes(f.id) && f.vendor?.slug === 'osaps-store') }
       lives.push(s)
       lives.sort((a, b) => Date.parse(a.starts_at) - Date.parse(b.starts_at))
       return delay(s)

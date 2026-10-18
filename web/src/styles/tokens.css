@@ -1,28 +1,33 @@
 /*
- * OSAPS design tokens — "Lagos after dark".
+ * OSAPS design tokens — "Varsity".
  *
- * The page is the indigo of an adire dye vat at night. The logo's varsity red drives every primary
- * action; aṣọ-òkè metallic gold marks focus, numerals and the AI. Cowrie white carries the text.
- * Contrast (WCAG): cowrie on night 15.5:1 · haze on night 8.5:1 · haze-2 on night 6.4:1 ·
- * white on action red 5.1:1 · gold on night 10.1:1 · status colours ≥ 5.4:1 on night-2.
+ * Taken straight from the logo: varsity red, black outline, white letters, on warm paper cream.
+ * The page is cream, cards are white, text is near-black, and the logo red drives every primary
+ * action, focus ring and highlight. No navy, no gold: nothing the logo does not have.
+ * (Token names are kept from the first theme so every component picks the new colours up.)
+ * Contrast (WCAG): ink on paper 17:1 · ink-soft on paper 9.2:1 · ink-faint on paper 5.6:1 ·
+ * white on red 8.6:1 · red on paper 7.6:1 · status colours ≥ 4.8:1 on white.
  */
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 
-  /* Palette */
-  --night: #0d1640;        /* page */
-  --night-2: #15225a;      /* raised surfaces */
-  --night-3: #1e2f73;      /* strong surfaces, hover */
-  --night-ink: #070c26;    /* deepest shadow */
-  --cowrie: #f6f1e7;       /* text */
-  --haze: #a9b4e0;         /* secondary text */
-  --haze-2: #8f9bd0;       /* tertiary text, placeholders */
-  --red: #d81f2a;          /* logo red, primary action */
-  --red-deep: #b8141f;
-  --red-text: #ff6b6b;     /* red as text on night */
-  --gold: #f2be45;         /* aṣọ-òkè metallic */
-  --leaf: #5fd3a5;
-  --amber: #ffb36b;
+  /* Palette (names from the first theme; values from the logo) */
+  --night: #f8f4ec;        /* page: paper cream */
+  --night-2: #ffffff;      /* cards and raised surfaces */
+  --night-3: #f1e9dc;      /* hover, strong surfaces */
+  --night-ink: #e7dccb;    /* sunk wells */
+  --cowrie: #161111;       /* text: logo black */
+  --haze: #4d4444;         /* secondary text */
+  --haze-2: #6c6262;       /* tertiary text, placeholders */
+  --red: #a3080d;          /* logo varsity red: primary action */
+  --red-deep: #7e0509;
+  --red-text: #a3080d;     /* red as text */
+  --gold: #a3080d;         /* former gold accent now the logo red */
+  --leaf: #1d7346;
+  --amber: #8f5300;
+  --paper: #f8f4ec;
+  --white: #ffffff;
+  --black: #161111;
 
   /* Semantic */
   --bg: var(--night);
@@ -33,7 +38,7 @@
   --ink-faint: var(--haze-2);
   --rule: color-mix(in srgb, var(--cowrie) 12%, transparent);
   --rule-strong: color-mix(in srgb, var(--cowrie) 26%, transparent);
-  --glass: color-mix(in srgb, var(--night) 62%, transparent);
+  --glass: color-mix(in srgb, #ffffff 86%, transparent);
   --action: var(--red);
   --action-hover: var(--red-deep);
   --focus: var(--gold);
@@ -80,7 +85,7 @@
   --r-panel: 28px;
   --r-input: 14px;
   --r-pill: 999px;
-  --shadow-float: 0 30px 80px -30px rgba(3, 6, 22, 0.85);
+  --shadow-float: 0 24px 60px -32px rgba(60, 20, 12, 0.35);
 
   --page: 86rem;
   --gutter: clamp(1rem, 4vw, 3rem);

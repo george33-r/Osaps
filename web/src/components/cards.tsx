@@ -26,10 +26,7 @@ export function FabricCard({ fabric, feature = false }: { fabric: Fabric; featur
       <div className="fabric-card__text">
         <span className="label">{fabric.category_label}</span>
         <h3 className="fabric-card__name">{fabric.name}</h3>
-        <p className="fabric-card__meta">
-          {fabric.material}
-          {fabric.vendor && <>, {fabric.vendor.city}</>}
-        </p>
+        <p className="fabric-card__meta">{[fabric.material, fabric.vendor?.business_name].filter(Boolean).join(' · ')}</p>
         <p className="fabric-card__price">
           {fabric.price.formatted}
           <span> per {fabric.unit}</span>

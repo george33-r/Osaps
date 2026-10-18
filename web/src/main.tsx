@@ -42,6 +42,7 @@ const MyAsoEbi = lazy(() => import('./pages/AsoEbi').then((m) => ({ default: m.M
 const AccountPage = lazy(() => import('./pages/Account').then((m) => ({ default: m.AccountPage })))
 const MeasurementsPage = lazy(() => import('./pages/Account').then((m) => ({ default: m.MeasurementsPage })))
 const LivePage = lazy(() => import('./pages/Live').then((m) => ({ default: m.LivePage })))
+const Inspiration = lazy(() => import('./pages/Inspiration'))
 const AdminPage = lazy(() => import('./pages/Admin').then((m) => ({ default: m.AdminPage })))
 const ForgotPassword = lazy(() => import('./pages/Auth').then((m) => ({ default: m.ForgotPassword })))
 const ResetPassword = lazy(() => import('./pages/Auth').then((m) => ({ default: m.ResetPassword })))
@@ -113,6 +114,7 @@ const router = createBrowserRouter(
             { path: 'account', element: signedIn(<AccountPage />) },
             { path: 'account/measurements', element: signedIn(<MeasurementsPage />) },
             { path: 'live', element: page(<LivePage />) },
+            { path: 'inspiration', element: page(<Inspiration />) },
             { path: '*', element: <NotFound /> },
           ],
         },

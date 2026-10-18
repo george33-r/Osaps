@@ -3,6 +3,7 @@ import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react
 import { useSession } from '../lib/session'
 import { StylistFab } from './StylistFab'
 import { CartIcon } from './ShopKit'
+import { useCart } from '../lib/cart'
 import { NotificationBell } from './Notifications'
 import { CurrencyPicker } from '../lib/fx'
 
@@ -102,6 +103,16 @@ function Header() {
     setAcct(false)
   }, [location.pathname, location.search])
 
+  // The phone menu covers the page: stop the page behind it scrolling, and let Escape close it.
+  useEffect(() => {
+    if (!menu) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setMenu(false)
+    document.addEventListener('keydown', onKey)
+    return () => { document.body.style.overflow = prev; document.removeEventListener('keydown', onKey) }
+  }, [menu])
+
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8)
     onScroll()
@@ -133,7 +144,7 @@ function Header() {
     : []
 
   return (
-    <header className={`site-header ${scrolled ? 'is-scrolled' : ''} ${location.pathname === '/' ? 'site-header--over' : ''}`}>
+    <header className={`site-header ${scrolled ? 'is-scrolled' : ''} ${menu ? 'menu-open' : ''} ${location.pathname === '/' ? 'site-header--over' : ''}`}>
       <div className="site-header__inner">
         <Logo />
         <nav className={`site-nav ${menu ? 'is-open' : ''}`} id="site-nav" aria-label="Main">
@@ -176,13 +187,33 @@ function Header() {
           <NotificationBell />
           <CartIcon />
           <button className="icon-btn site-header__menu" aria-expanded={menu} aria-controls="site-nav" onClick={() => setMenu((m) => !m)}>
-            <span className="sr-only">Menu</span>
+            <span className="sr-only">{menu ? 'Close menu' : 'Menu'}</span>
             <span className="burger" aria-hidden />
           </button>
         </div>
       </div>
       {search && <SearchPanel onClose={() => setSearch(false)} />}
     </header>
+  )
+}
+
+/** Phones: the five places shoppers go most, always one tap away at the bottom of the screen. */
+function TabBar() {
+  const { user } = useSession()
+  const { count } = useCart()
+  const icon = (d: ReactNode) => <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">{d}</svg>
+  const me = !user ? '/signin' : user.role === 'fabric_vendor' ? '/vendor' : user.role === 'tailor' ? '/tailor/inbox' : user.role === 'admin' ? '/admin' : '/shop/orders'
+  return (
+    <nav className="tabbar" aria-label="Quick links">
+      <NavLink to="/" end className="tabbar__item">{icon(<><path d="M4 11 12 4l8 7" /><path d="M6 10v10h12V10" /></>)}<span>Home</span></NavLink>
+      <NavLink to="/fabrics" className="tabbar__item">{icon(<><rect x="4" y="4" width="7" height="7" rx="1.5" /><rect x="13" y="4" width="7" height="7" rx="1.5" /><rect x="4" y="13" width="7" height="7" rx="1.5" /><rect x="13" y="13" width="7" height="7" rx="1.5" /></>)}<span>Shop</span></NavLink>
+      <NavLink to="/stylist" className="tabbar__item">{icon(<><path d="M12 3.5l1.8 4.7 4.7 1.8-4.7 1.8L12 16.5l-1.8-4.7L5.5 10l4.7-1.8z" /><path d="M18.5 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z" /></>)}<span>Stylist</span></NavLink>
+      <NavLink to="/cart" className="tabbar__item">
+        {icon(<><path d="M5 7h14l-1.2 11.2a2 2 0 0 1-2 1.8H8.2a2 2 0 0 1-2-1.8L5 7Z" /><path d="M9 9V6a3 3 0 0 1 6 0v3" /></>)}
+        <span>Cart</span>{count > 0 && <b className="tabbar__count" aria-label={`${count} in cart`}>{count}</b>}
+      </NavLink>
+      <NavLink to={me} className="tabbar__item">{icon(<><circle cx="12" cy="8.5" r="3.5" /><path d="M5 20c1.2-3.6 4-5.5 7-5.5s5.8 1.9 7 5.5" /></>)}<span>{user ? (user.role === 'fabric_vendor' ? 'My shop' : user.role === 'customer' ? 'Orders' : 'Me') : 'Sign in'}</span></NavLink>
+    </nav>
   )
 }
 
@@ -204,11 +235,12 @@ function Footer() {
             <Link to="/aso-ebi">Aṣọ-ẹbí group orders</Link>
             <Link to="/tailors">Tailors</Link>
             <Link to="/stylist">AI stylist</Link>
+            <Link to="/inspiration">Style & culture</Link>
           </div>
           <div>
             <p className="label">Create</p>
             <Link to="/requests/new">Post a tailoring request</Link>
-            <Link to="/#process">How it works</Link>
+            <Link to="/fabrics">How buying works</Link>
           </div>
           <div>
             <p className="label">For makers</p>
@@ -293,6 +325,7 @@ export function Layout() {
       </main>
       <Footer />
       <StylistFab />
+      <TabBar />
     </>
   )
 }

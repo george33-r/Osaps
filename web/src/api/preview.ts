@@ -10,6 +10,7 @@ import { ApiError, type Api } from './client'
 import { OCCASIONS, previewAi } from './preview-ai'
 import { makePreviewShop, offerFloor, offerSuggestions, PREVIEW_FX, PREVIEW_SHIP, SHOP } from './preview-shop'
 import { makePreviewGrowth } from './preview-growth'
+import storeCatalogue from '../../../database/catalogue/osaps-store.json'
 import type {
   CartItemInput,
   SavedCartLine,
@@ -32,7 +33,7 @@ export const GARMENTS: Record<string, string> = {
 }
 export const FABRIC_CATS: Record<string, string> = {
   ankara: 'Ankara', adire: 'Adire', aso_oke: 'Aṣọ-òkè', lace: 'Lace', senator: 'Senator fabric', suiting: 'Suiting',
-  george: 'George', damask: 'Damask', other: 'Other textiles',
+  george: 'George', damask: 'Damask', plain: 'Plain fabric', print: 'Printed fabric', other: 'Other textiles',
 }
 const FEE_BPS = 250
 const FEE_CAP = 500_000
@@ -44,59 +45,39 @@ export const money = (minor: number): MoneyValue => ({
   currency: 'NGN',
   formatted: '₦' + Math.floor(minor / 100).toLocaleString('en-NG') + (minor % 100 ? '.' + String(minor % 100).padStart(2, '0') : ''),
 })
-const slug = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+const slug = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
 export const delay = <T,>(v: T) => new Promise<T>((r) => setTimeout(() => r(structuredClone(v)), 120))
 export const fail = (message: string, status: number, code: string, fieldErrors: Record<string, string[]> = {}) => {
   throw new ApiError(message, status, code, fieldErrors)
 }
 
-// --- Demonstration data (mirrors database/seeders/DemoSeeder.php) ---
-type F = [string, string, string, string[], string, string, string, number, number, number]
-const vendors = [
-  { business_name: 'Balogun Bolts', slug: 'balogun-bolts', city: 'Lagos', market: 'Balogun Market', verified: false },
-  { business_name: 'Wuse Textiles', slug: 'wuse-textiles', city: 'Abuja', market: 'Wuse Market', verified: false },
-  { business_name: 'Kantin Kwari Cloth', slug: 'kantin-kwari-cloth', city: 'Kano', market: 'Kantin Kwari Market', verified: false },
-]
-const fabricRows: F[] = [
-  ['Indigo Sunburst Ankara', 'ankara', 'indigo', ['indigo', 'gold', 'cream'], 'sunburst', 'Cotton wax print', 'yard', 4500, 120, 0],
-  ['Terracotta Kola Ankara', 'ankara', 'terracotta', ['terracotta', 'cream', 'black'], 'circles', 'Cotton wax print', 'yard', 3800, 80, 0],
-  ['Emerald Lattice Ankara', 'ankara', 'emerald', ['emerald', 'gold', 'black'], 'lattice', 'Cotton wax print', 'yard', 4200, 6, 0],
-  ['Midnight Adire Eleko', 'adire', 'indigo', ['indigo', 'white'], 'resist', 'Hand-dyed cotton', 'yard', 6000, 40, 1],
-  ['Oniko Tie-Dye Adire', 'adire', 'royal_blue', ['royal_blue', 'white'], 'tie_dye', 'Hand-dyed cotton', 'yard', 5500, 25, 1],
-  ['Burgundy Sanyan Aṣọ-òkè', 'aso_oke', 'burgundy', ['burgundy', 'gold'], 'stripes', 'Hand-woven cotton & silk', 'bundle', 85000, 12, 1],
-  ['Gold Alaari Aṣọ-òkè', 'aso_oke', 'gold', ['gold', 'cream'], 'stripes', 'Hand-woven metallic yarn', 'bundle', 95000, 0, 1],
-  ['Ivory Guipure Lace', 'lace', 'cream', ['cream'], 'floral', 'Polyester guipure', 'yard', 18000, 30, 0],
-  ['Champagne Beaded Lace', 'lace', 'gold', ['gold', 'cream'], 'floral', 'Tulle with bead work', 'yard', 32000, 15, 0],
-  ['Navy Cashmere Senator', 'senator', 'navy', ['navy'], 'plain', 'Cashmere blend', 'yard', 7500, 200, 2],
-  ['Charcoal Senator Twill', 'senator', 'black', ['black'], 'twill', 'Polyester-wool blend', 'yard', 6200, 150, 2],
-  ['Cream Senator Linen', 'senator', 'cream', ['cream'], 'plain', 'Linen blend', 'yard', 6800, 90, 2],
-  ['Navy Super 120s Suiting', 'suiting', 'navy', ['navy'], 'plain', 'Wool', 'metre', 22000, 45, 0],
-  ['Wine Silk George', 'george', 'burgundy', ['burgundy', 'gold'], 'paisley', 'Silk george', 'piece', 65000, 8, 0],
-  ['Emerald Damask Brocade', 'damask', 'emerald', ['emerald'], 'jacquard', 'Cotton damask', 'yard', 9500, 70, 2],
-  ['Royal Purple Ankara', 'ankara', 'purple', ['purple', 'gold', 'orange'], 'feathers', 'Cotton wax print', 'yard', 4000, 55, 1],
-]
-export const fabrics: Fabric[] = fabricRows.map(([name, cat, primary, colors, pattern, material, unit, naira, stock, v], i) => ({
+// --- Catalogue: the OSAPS store's real fabrics (database/catalogue/osaps-store.json, also loaded on the live site) ---
+const STORE = { business_name: 'OSAPS Store', slug: 'osaps-store', city: 'Lagos', market: null, verified: true }
+const media = `${import.meta.env.BASE_URL}media/catalogue/`
+export const fabrics: Fabric[] = storeCatalogue.fabrics.map((r, i) => ({
   id: i + 1,
-  slug: slug(name),
-  name,
-  category: cat,
-  category_label: FABRIC_CATS[cat] ?? cat,
-  description: `${material}. Demonstration listing — illustrative price and stock.`,
-  primary_color: primary,
-  colors,
-  pattern,
-  material,
-  unit,
-  price: money(naira * 100),
-  available_quantity: stock,
-  stock_status: stock === 0 ? 'out_of_stock' : stock < 10 ? 'low_stock' : 'in_stock',
-  min_order_quantity: unit === 'yard' ? 2 : 1,
-  image_url: null,
-  is_demo: true,
-  vendor: vendors[v]!,
+  slug: r.slug,
+  name: r.name,
+  category: r.category,
+  category_label: FABRIC_CATS[r.category] ?? r.category,
+  description: `${r.note} Real photo from the OSAPS store. Sold per yard.`,
+  primary_color: r.primary_color,
+  colors: r.colors,
+  pattern: r.pattern,
+  material: null,
+  unit: 'yard',
+  price: money(r.price_naira * 100),
+  available_quantity: storeCatalogue.default_stock,
+  stock_status: 'in_stock',
+  min_order_quantity: 1,
+  image_url: `${media}${r.slug}-sq.webp`,
+  media: [{ id: 1000 + i, kind: 'photo' as const, url: `${media}${r.slug}.webp`, mime: 'image/webp' }],
+  has_video: false,
+  is_demo: false,
+  vendor: STORE,
   purchase_mode: 'checkout',
-  offer_floor: money(offerFloor(naira * 100)),
-  offer_suggestions: offerSuggestions(naira * 100).map(money),
+  offer_floor: money(offerFloor(r.price_naira * 100)),
+  offer_suggestions: offerSuggestions(r.price_naira * 100).map(money),
 }))
 
 type T = [string, string, string[], string[], string[], number, string]
@@ -277,7 +258,7 @@ const growth = makePreviewGrowth({
   fabrics,
   user: () => current,
   setUser: (u) => { current = u; const key = Object.entries(users).find(([, x]) => x.id === u.id)?.[0]; if (key) users[key] = u },
-  vendorSlugOf: (u) => (u.role === 'fabric_vendor' ? 'balogun-bolts' : null),
+  vendorSlugOf: (u) => (u.role === 'fabric_vendor' ? 'osaps-store' : null),
   delay,
   fail: fail as never,
 })
@@ -285,7 +266,7 @@ const shop = makePreviewShop({
   notify: growth.notify,
   onPaid: (userId, ids) => { savedCarts[userId] = (savedCarts[userId] ?? []).filter((i) => !ids.includes(i.fabric_id)) },
   fabrics,
-  vendorSlugOf: (u) => (u.role === 'fabric_vendor' ? 'balogun-bolts' : null),
+  vendorSlugOf: (u) => (u.role === 'fabric_vendor' ? 'osaps-store' : null),
   user: () => current,
   money,
   delay,
@@ -318,7 +299,7 @@ export const previewApi: Api = {
       support: {},
       fabric_categories: Object.entries(FABRIC_CATS).map(([key, label]) => ({ key, label })),
       fabric_units: ['yard', 'metre', 'piece', 'bundle'],
-      colors: ['navy', 'indigo', 'gold', 'terracotta', 'emerald', 'burgundy', 'cream', 'black', 'white', 'orange', 'royal_blue', 'purple'],
+      colors: ['navy', 'indigo', 'gold', 'terracotta', 'emerald', 'burgundy', 'cream', 'black', 'white', 'orange', 'royal_blue', 'purple', 'green', 'red', 'brown', 'pink', 'silver', 'yellow'],
       fees: { customer_service_fee_bps: FEE_BPS, customer_service_fee_cap_minor: FEE_CAP },
       offer_rules: { expiry_hours: EXPIRY_HOURS, max_counter_rounds_per_side: MAX_ROUNDS },
       shop: SHOP,
