@@ -28,6 +28,14 @@ class StoreCatalogueTest extends TestCase
         $this->assertSame(17, FabricMedia::query()->count());
     }
 
+    public function test_installer_creates_the_store_vendor_with_its_owner_account(): void
+    {
+        (new StoreCatalogueSeeder)->run();
+        $vendor = \App\Models\FabricVendor::query()->firstOrFail();
+        $this->assertNotNull($vendor->user_id);
+        $this->assertSame('fabric_vendor', \App\Models\User::query()->findOrFail($vendor->user_id)->role);
+    }
+
     public function test_installer_relists_the_store_after_its_bank_details_sent_it_back_for_a_check(): void
     {
         (new StoreCatalogueSeeder)->run();

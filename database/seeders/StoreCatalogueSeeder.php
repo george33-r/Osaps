@@ -75,9 +75,12 @@ class StoreCatalogueSeeder extends Seeder
             $user->save();
             $this->report[] = "Store account created. Sign in as {$email} with password {$password} — it is shown only now. Change it after signing in (Forgot password works too once email is set up).";
         }
-        $vendor = FabricVendor::query()->firstOrNew(['user_id' => $user->id]);
-        if (! $vendor->exists) {
+        $vendor = FabricVendor::query()->where('user_id', $user->id)->first();
+        if ($vendor === null) {
+            // user_id is not mass-assignable on FabricVendor, so it must be set explicitly here.
+            $vendor = new FabricVendor;
             $vendor->forceFill([
+                'user_id' => $user->id,
                 'business_name' => $name,
                 'slug' => Str::slug($name).'-'.Str::lower(Str::random(4)),
                 'city' => 'Nigeria',
