@@ -24,7 +24,7 @@ class MediaService
 
     public function add(Fabric $fabric, UploadedFile $file): FabricMedia
     {
-        $mime = (string) $file->getMimeType(); // from the file's contents, not the browser's claim
+        $mime = $this->sniffMime($file); // from the file's bytes, never the name or the browser's claim
         $ext = self::EXT[$mime] ?? null;
         if ($ext === null) {
             throw new DomainRuleViolation('Upload a JPG, PNG or WebP photo, or an MP4, WebM or MOV video.', 'media_type');
@@ -61,6 +61,18 @@ class MediaService
             @unlink($real);
         }
         $media->delete();
+    }
+
+    /** Read the type from the bytes (libmagic), so a PHP file renamed to .jpg is refused. */
+    private function sniffMime(UploadedFile $file): string
+    {
+        $path = $file->getRealPath();
+        if ($path === false || ! is_file($path)) {
+            return '';
+        }
+        $mime = (new \finfo(FILEINFO_MIME_TYPE))->file($path);
+
+        return is_string($mime) ? $mime : '';
     }
 
     /** Make sure the uploads folder exists and can never execute code. */

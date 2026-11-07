@@ -22,6 +22,8 @@ class UserFactory extends Factory
             'remember_token' => Str::random(10),
             'city' => 'Abuja',
             'role' => User::ROLE_CUSTOMER,
+            'whatsapp_opt_in' => false,
+            'currency' => null,
         ];
     }
 

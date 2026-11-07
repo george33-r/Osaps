@@ -21,7 +21,7 @@ class OfferMessageController extends Controller
     {
         Gate::authorize('view', $offer);
 
-        $messages = $offer->messages()->latest('id')->limit(100)->get()->reverse()->values();
+        $messages = $offer->messages()->reorder()->latest('id')->limit(100)->get()->reverse()->values();
 
         return response()->json(['data' => $messages->map(fn (OfferMessage $m) => $this->present($m, $request))]);
     }

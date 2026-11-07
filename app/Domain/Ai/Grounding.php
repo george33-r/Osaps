@@ -37,8 +37,10 @@ final class Grounding
     /** Strip text the model should never assert: prices, stock claims and guarantees. */
     public static function scrubClaims(string $text): string
     {
-        $text = preg_replace('/(₦|NGN|N)\s?\d[\d,\.]*\s?(k|m)?/iu', 'a price shown by the vendor', $text) ?? $text;
+        // The price pattern must not eat the space after it, or the next word loses its boundary.
+        $text = preg_replace('/(₦|NGN|N)\s?\d[\d,\.]*(?:\s?[km]\b)?/iu', 'a price shown by the vendor', $text) ?? $text;
         $text = preg_replace('/\b(guaranteed?|in stock|available now|will arrive by)\b/iu', '', $text) ?? $text;
+        $text = preg_replace('/\s+([,.;:])/u', '$1', $text) ?? $text;
 
         return trim(preg_replace('/\s{2,}/u', ' ', $text) ?? $text);
     }

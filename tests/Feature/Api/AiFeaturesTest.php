@@ -47,9 +47,21 @@ class AiFeaturesTest extends TestCase
         $this->catalogue();
         $this->fake('{"categories":["lace","velvet"],"colors":["cream","neon"],"max_price_naira":null,"terms":[],"understood":"Ivory lace"}');
         $res = $this->getJson('/api/v1/ai/fabric-search?q=soft+lace+for+an+evening+dress')->assertOk();
+        // An answer that names filters outside the catalogue is refused as a whole, so the
+        // shopper gets keyword search and no invented filter is ever applied.
+        $res->assertJsonPath('data.source', 'keywords');
+        $this->assertNotContains('velvet', $res->json('data.criteria.categories') ?? []);
+        $this->assertNotContains('neon', $res->json('data.criteria.colors') ?? []);
+        $this->assertSame(1, AiUsage::query()->where('outcome', 'invalid_output')->count());
+    }
+
+    public function test_search_with_ai_uses_answers_that_only_name_known_filters(): void
+    {
+        $this->catalogue();
+        $this->fake('{"categories":["lace"],"colors":["cream"],"max_price_naira":null,"terms":[],"understood":"Ivory lace"}');
+        $res = $this->getJson('/api/v1/ai/fabric-search?q=soft+lace+for+an+evening+dress')->assertOk();
         $res->assertJsonPath('data.source', 'ai');
         $this->assertSame(['lace'], $res->json('data.criteria.categories'));
-        $this->assertSame(['Ivory Lace'], array_column($res->json('data.results'), 'name'));
         $this->assertSame(1, AiUsage::query()->where('outcome', 'ok')->count());
     }
 

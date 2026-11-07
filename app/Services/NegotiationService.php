@@ -204,7 +204,7 @@ class NegotiationService
      */
     public function accept(User $customer, Offer $offer, ?int $expectedAmountMinor = null, ?int $expectedDeliveryFeeMinor = null): Order
     {
-        return DB::transaction(function () use ($customer, $offer) {
+        return DB::transaction(function () use ($customer, $offer, $expectedAmountMinor, $expectedDeliveryFeeMinor) {
             $request = JobRequest::query()->lockForUpdate()->findOrFail($offer->job_request_id);
             $offer = Offer::query()->lockForUpdate()->findOrFail($offer->id);
 

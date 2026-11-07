@@ -27,7 +27,7 @@ class AccountController extends Controller
         }
         $user->forceFill($data)->save();
 
-        return new UserResource($user);
+        return new UserResource($user->refresh());
     }
 
     public function notifications(Request $request): JsonResponse

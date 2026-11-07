@@ -541,7 +541,7 @@ class CheckoutService
             DB::transaction(function () use ($id, &$n) {
                 $order = FabricOrder::query()->with('vendor')->lockForUpdate()->find($id);
                 $deliveredAt = $order?->delivered_at ? \DateTimeImmutable::createFromMutable($order->delivered_at->toDateTime()) : null;
-                if ($order === null || ! $this->payouts->shouldAutoComplete($order->status, $deliveredAt, new \DateTimeImmutable, DisputeRules::isOpen($order->dispute_status))) {
+                if ($order === null || ! $this->payouts->shouldAutoComplete($order->status, $deliveredAt, now()->toImmutable(), DisputeRules::isOpen($order->dispute_status))) {
                     return;
                 }
                 $this->moveOrder($order, FabricOrderStatus::COMPLETED, null, 'system', "Completed automatically {$this->payouts->autoCompleteDays} days after a confirmed delivery.");
