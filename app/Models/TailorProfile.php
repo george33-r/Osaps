@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class TailorProfile extends Model
 {
@@ -26,12 +27,24 @@ class TailorProfile extends Model
             'accepting_work' => 'boolean',
             'is_demo' => 'boolean',
             'verified_at' => 'datetime',
+            'verification_requested_at' => 'datetime',
+            'verification_consent_at' => 'datetime',
         ];
     }
 
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function documents(): HasMany
+    {
+        return $this->hasMany(TailorVerificationDocument::class, 'tailor_profile_id');
+    }
+
+    public function approvedSelfie(): ?TailorVerificationDocument
+    {
+        return $this->documents()->where('kind', 'selfie')->where('status', 'approved')->latest('id')->first();
     }
 
     public function isVerified(): bool

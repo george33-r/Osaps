@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\OfferController;
 use App\Http\Controllers\Api\V1\OfferMessageController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\TailorController;
+use App\Http\Controllers\Api\V1\TailorVerificationController;
 use App\Http\Controllers\Api\V1\AccountController;
 use App\Http\Controllers\Api\V1\AdminController;
 use App\Http\Controllers\Api\V1\CartController;
@@ -35,6 +36,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
     Route::get('fabrics/{slug}', [FabricController::class, 'show'])->name('fabrics.show');
     Route::get('tailors', [TailorController::class, 'index'])->name('tailors.index');
     Route::get('tailors/{slug}', [TailorController::class, 'show'])->name('tailors.show');
+    Route::get('tailors/{slug}/face', [TailorVerificationController::class, 'face'])->name('tailors.face');
 
     // AI-assisted features (guests allowed, rate limited; each response says whether AI or rules produced it)
     Route::middleware('throttle:ai')->prefix('ai')->name('ai.')->group(function () {
@@ -69,6 +71,9 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::post('auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
         Route::get('me', [AuthController::class, 'me'])->name('me');
         Route::put('me/tailor-profile', [TailorController::class, 'upsertMine'])->name('me.tailor-profile');
+        Route::get('me/tailor-verification', [TailorVerificationController::class, 'mine'])->name('me.tailor-verification');
+        Route::post('me/tailor-verification/documents', [TailorVerificationController::class, 'upload'])->middleware('throttle:marketplace-writes')->name('me.tailor-verification.upload');
+        Route::post('me/tailor-verification/submit', [TailorVerificationController::class, 'submit'])->middleware('throttle:marketplace-writes')->name('me.tailor-verification.submit');
 
         // Customer: requests
         Route::get('job-requests', [JobRequestController::class, 'index'])->name('job-requests.index');
@@ -157,6 +162,10 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('overview', [AdminController::class, 'overview'])->withoutMiddleware('throttle:marketplace-writes')->name('overview');
             Route::get('vendors', [AdminController::class, 'vendors'])->withoutMiddleware('throttle:marketplace-writes')->name('vendors');
             Route::post('vendors/{fabricVendor}/review', [AdminController::class, 'reviewVendor'])->whereNumber('fabricVendor')->name('vendors.review');
+            Route::get('tailor-verifications', [TailorVerificationController::class, 'queue'])->withoutMiddleware('throttle:marketplace-writes')->name('tailor-verifications');
+            Route::get('tailor-documents/{document}/file', [TailorVerificationController::class, 'documentFile'])->whereNumber('document')->withoutMiddleware('throttle:marketplace-writes')->name('tailor-documents.file');
+            Route::post('tailor-documents/{document}/review', [TailorVerificationController::class, 'reviewDocument'])->whereNumber('document')->name('tailor-documents.review');
+            Route::post('tailor-profiles/{tailorProfile}/review', [TailorVerificationController::class, 'reviewProfile'])->whereNumber('tailorProfile')->name('tailor-profiles.review');
             Route::get('disputes', [AdminController::class, 'disputes'])->withoutMiddleware('throttle:marketplace-writes')->name('disputes');
             Route::post('fabric-orders/{fabricOrder}/resolve', [AdminController::class, 'resolveDispute'])->name('disputes.resolve');
             Route::get('refunds', [AdminController::class, 'refunds'])->withoutMiddleware('throttle:marketplace-writes')->name('refunds');

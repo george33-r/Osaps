@@ -26,6 +26,9 @@ class TailorResource extends ApiResource
             'starting_price' => self::money($this->starting_price_minor),
             'accepting_work' => $this->accepting_work,
             'verified' => $this->isVerified(),
+            'verification' => $this->verificationBadges(),
+            // The live selfie that matched the tailor's ID. Shown only while the profile is verified.
+            'face_url' => $this->isVerified() && $this->approvedSelfie() ? url('/api/v1/tailors/'.$this->slug.'/face') : null,
             'track_record' => [
                 'completed_orders' => $record['completed_orders'],
                 'on_time_rate' => $record['completed_orders'] > 0
@@ -35,6 +38,20 @@ class TailorResource extends ApiResource
             ],
             'is_demo' => $this->is_demo,
             'match' => $this->when($this->hasExtra('match'), fn () => $this->extra('match')),
+        ];
+    }
+
+    /** Badges show only when an admin has approved the matching document. */
+    private function verificationBadges(): array
+    {
+        $approved = $this->documents()->where('status', 'approved')->pluck('kind')->all();
+
+        return [
+            'status' => $this->verification_status,
+            'id_checked' => in_array('id_document', $approved, true),
+            'face_matched' => in_array('selfie', $approved, true),
+            'workshop_visited' => in_array('workshop_photo', $approved, true),
+            'cac_registered' => in_array('cac_certificate', $approved, true),
         ];
     }
 }
