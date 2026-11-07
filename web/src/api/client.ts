@@ -48,6 +48,9 @@ import type {
   LiveSession,
   TryOnResult,
   VendorProfile,
+  TailorDocKind,
+  TailorVerificationState,
+  AdminTailorQueueRow,
 } from './types'
 
 /** One error shape for every failure: what the server said, or what the network did. */
@@ -79,6 +82,14 @@ export interface Api {
   tailors(filters: { city?: string; specialty?: string }): Promise<Paginated<Tailor>>
   tailor(slug: string): Promise<Tailor>
   saveTailorProfile(input: TailorProfileInput): Promise<Tailor>
+  /** The signed-in tailor's identity checks: documents, what is missing, and the status. */
+  tailorVerification(): Promise<TailorVerificationState | null>
+  /** Uploads one document. ID and selfie need consent; the server refuses them without it. */
+  uploadTailorDocument(kind: TailorDocKind, file: File, consent: boolean): Promise<{ kind: string; status: string }>
+  submitTailorVerification(): Promise<{ status: string }>
+  adminTailorQueue(status: string): Promise<AdminTailorQueueRow[]>
+  adminReviewTailorDocument(id: number, decision: 'approved' | 'rejected', note?: string | null): Promise<{ id: number; status: string }>
+  adminReviewTailorProfile(id: number, to: 'verified' | 'rejected' | 'suspended', note?: string | null): Promise<{ id: number; status: string }>
 
   myRequests(): Promise<Paginated<JobRequest>>
   createRequest(input: NewJobRequest): Promise<JobRequest>
@@ -272,6 +283,18 @@ export const httpApi: Api = {
   tailors: (f) => http('GET', '/tailors' + qs(f)),
   tailor: (slug) => data(http('GET', `/tailors/${encodeURIComponent(slug)}`)),
   saveTailorProfile: (input) => data(http('PUT', '/me/tailor-profile', input)),
+  tailorVerification: () => data(http('GET', '/me/tailor-verification')),
+  uploadTailorDocument: (kind, file, consent) => {
+    const form = new FormData()
+    form.append('kind', kind)
+    form.append('file', file)
+    form.append('consent', consent ? '1' : '0')
+    return data(http('POST', '/me/tailor-verification/documents', form))
+  },
+  submitTailorVerification: () => data(http('POST', '/me/tailor-verification/submit')),
+  adminTailorQueue: (status) => data(http('GET', `/admin/tailor-verifications${qs({ status })}`)),
+  adminReviewTailorDocument: (id, decision, note) => data(http('POST', `/admin/tailor-documents/${id}/review`, { decision, note: note ?? null })),
+  adminReviewTailorProfile: (id, to, note) => data(http('POST', `/admin/tailor-profiles/${id}/review`, { to, note: note ?? null })),
 
   myRequests: () => http('GET', '/job-requests'),
   createRequest: (input) => data(http('POST', '/job-requests', input)),

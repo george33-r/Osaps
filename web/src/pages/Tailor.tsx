@@ -43,7 +43,12 @@ export function TailorInbox() {
       <PageHeader
         title="Job inbox"
         intro="Open requests, best fit first. Fit is worked out from what you make and where you work."
-        aside={<ButtonLink to="/tailor/profile" variant="secondary">Edit profile</ButtonLink>}
+        aside={
+          <>
+            <ButtonLink to="/tailor/verify" variant="secondary">Verification</ButtonLink>
+            <ButtonLink to="/tailor/profile" variant="secondary">Edit profile</ButtonLink>
+          </>
+        }
       />
       {res.status === 'error' && !res.data ? (
         <ErrorState error={res.error} onRetry={res.reload} />

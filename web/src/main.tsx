@@ -27,6 +27,7 @@ const RequestDetail = lazy(() => import('./pages/Requests').then((m) => ({ defau
 const TailorInbox = lazy(() => import('./pages/Tailor').then((m) => ({ default: m.TailorInbox })))
 const TailorJob = lazy(() => import('./pages/Tailor').then((m) => ({ default: m.TailorJob })))
 const TailorProfileEdit = lazy(() => import('./pages/Tailor').then((m) => ({ default: m.TailorProfileEdit })))
+const TailorVerify = lazy(() => import('./pages/TailorVerify').then((m) => ({ default: m.TailorVerify })))
 const OrderList = lazy(() => import('./pages/Orders').then((m) => ({ default: m.OrderList })))
 const OrderDetail = lazy(() => import('./pages/Orders').then((m) => ({ default: m.OrderDetail })))
 const CartPage = lazy(() => import('./pages/Shop').then((m) => ({ default: m.CartPage })))
@@ -99,6 +100,7 @@ const router = createBrowserRouter(
             { path: 'tailor/inbox', element: tailor(<TailorInbox />) },
             { path: 'tailor/requests/:id', element: tailor(<TailorJob />) },
             { path: 'tailor/profile', element: tailor(<TailorProfileEdit />) },
+            { path: 'tailor/verify', element: tailor(<TailorVerify />) },
             { path: 'orders', element: signedIn(<OrderList />) },
             { path: 'orders/:reference', element: signedIn(<OrderDetail />) },
             { path: 'cart', element: page(<CartPage />) },

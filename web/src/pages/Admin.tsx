@@ -1,13 +1,13 @@
 import { useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { api, type AdminOrderRow, type AdminVendor, type VendorVerificationStatus } from '../api'
+import { api, type AdminOrderRow, type AdminTailorQueueRow, type AdminVendor, type VendorVerificationStatus } from '../api'
 import { Badge, Button, EmptyState, ErrorState, PageHeader, Skeleton, errorMessage } from '../components/ui'
 import { formatDate } from '../lib/format'
 import { useSession } from '../lib/session'
 import { useToast } from '../lib/toast'
 import { useAsync } from '../lib/useAsync'
 
-type Tab = 'overview' | 'vendors' | 'disputes' | 'refunds' | 'payouts' | 'stuck' | 'log'
+type Tab = 'overview' | 'vendors' | 'tailors' | 'disputes' | 'refunds' | 'payouts' | 'stuck' | 'log'
 
 const when = (iso: string | null | undefined) => (iso ? formatDate(iso, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—')
 
@@ -28,6 +28,7 @@ export function AdminPage() {
   const tabs: { key: Tab; label: string; n?: number }[] = [
     { key: 'overview', label: 'Overview' },
     { key: 'vendors', label: 'Shops to verify', n: o?.vendors_pending },
+    { key: 'tailors', label: 'Tailors to verify' },
     { key: 'disputes', label: 'Problems', n: o?.disputes_open },
     { key: 'refunds', label: 'Refunds', n: (o?.refunds_owed ?? 0) + (o?.refunds_unconfirmed ?? 0) },
     { key: 'payouts', label: 'Payouts', n: (o?.payouts_releasable ?? 0) + (o?.payouts_approved ?? 0) },
@@ -46,6 +47,7 @@ export function AdminPage() {
       </div>
       {tab === 'overview' && <Overview state={overview} go={(t) => setParams({ tab: t }, { replace: true })} />}
       {tab === 'vendors' && <Vendors onChange={overview.reload} />}
+      {tab === 'tailors' && <TailorChecks />}
       {tab === 'disputes' && <Disputes onChange={overview.reload} />}
       {tab === 'refunds' && <Refunds onChange={overview.reload} />}
       {tab === 'payouts' && <Payouts onChange={overview.reload} />}
@@ -368,6 +370,143 @@ function Log() {
           {state.data.map((a) => <tr key={a.id}><td>{when(a.at)}</td><td>{a.admin}</td><td>{a.action.replace(/_/g, ' ')}</td><td>{a.subject}</td><td className="muted">{a.note}</td></tr>)}
         </tbody>
       </table>
+    </div>
+  )
+}
+
+/**
+ * Tailor identity checks. Each document is opened here and approved or rejected one at a time.
+ * A profile can be verified only once every required document is approved; the server checks again.
+ */
+function TailorChecks() {
+  const toast = useToast()
+  const [status, setStatus] = useState<'pending' | 'verified' | 'rejected' | 'suspended'>('pending')
+  const queue = useAsync(() => api.adminTailorQueue(status), [status])
+  const [busy, setBusy] = useState<string | null>(null)
+  const [noteFor, setNoteFor] = useState<string | null>(null)
+  const [note, setNote] = useState('')
+
+  async function act(key: string, fn: () => Promise<unknown>, done: string) {
+    setBusy(key)
+    try {
+      await fn()
+      toast(done, 'good')
+      setNoteFor(null)
+      setNote('')
+      queue.reload()
+    } catch (e) {
+      toast(errorMessage(e), 'alert')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const rows: AdminTailorQueueRow[] = queue.data ?? []
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        {(['pending', 'verified', 'rejected', 'suspended'] as const).map((s) => (
+          <Button key={s} variant={status === s ? 'primary' : 'secondary'} onClick={() => setStatus(s)}>
+            {s}
+          </Button>
+        ))}
+      </div>
+      {queue.status === 'error' && !queue.data ? (
+        <ErrorState error={queue.error} onRetry={queue.reload} />
+      ) : !queue.data ? (
+        <Skeleton lines={5} />
+      ) : rows.length === 0 ? (
+        <EmptyState title="Nothing here">No tailor profiles are in this state.</EmptyState>
+      ) : (
+        <ul className="rows">
+          {rows.map((p) => {
+            const requiredApproved = ['id_document', 'selfie', 'workshop_photo'].every((k) =>
+              p.documents.some((d) => d.kind === k && d.status === 'approved'),
+            )
+            return (
+              <li key={p.id} className="rows__item" style={{ display: 'block' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                  <div>
+                    <strong>{p.business_name}</strong>
+                    <p className="field__hint">
+                      {p.city} · {p.owner.name ?? 'No name'} · {p.owner.phone ?? 'no phone'} · {p.owner.email ?? 'no email'}
+                    </p>
+                  </div>
+                  <Badge tone={p.status === 'verified' ? 'good' : p.status === 'pending' ? 'waiting' : 'alert'}>{p.status}</Badge>
+                </div>
+
+                <ul style={{ marginTop: 10, display: 'grid', gap: 8 }}>
+                  {p.documents.map((d) => (
+                    <li key={d.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                      <span>
+                        {d.label} <Badge tone={d.status === 'approved' ? 'good' : d.status === 'rejected' ? 'alert' : 'waiting'}>{d.status}</Badge>
+                      </span>
+                      <span style={{ display: 'flex', gap: 8 }}>
+                        <a href={d.file_url} target="_blank" rel="noopener noreferrer">Open file</a>
+                        {d.status !== 'approved' && (
+                          <Button
+                            variant="secondary"
+                            busy={busy === `doc-${d.id}`}
+                            onClick={() => act(`doc-${d.id}`, () => api.adminReviewTailorDocument(d.id, 'approved'), 'Document approved.')}
+                          >
+                            Approve
+                          </Button>
+                        )}
+                        <Button variant="secondary" onClick={() => setNoteFor(`doc-${d.id}`)}>Reject</Button>
+                      </span>
+                      {noteFor === `doc-${d.id}` && (
+                        <div style={{ width: '100%', display: 'flex', gap: 8 }}>
+                          <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="What is wrong with this document?" aria-label="Reason" />
+                          <Button
+                            busy={busy === `doc-${d.id}`}
+                            disabled={note.trim().length < 5}
+                            onClick={() => act(`doc-${d.id}`, () => api.adminReviewTailorDocument(d.id, 'rejected', note), 'Document rejected.')}
+                          >
+                            Send
+                          </Button>
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+
+                <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                  <Button
+                    busy={busy === `p-${p.id}`}
+                    disabled={!requiredApproved || p.status === 'verified'}
+                    onClick={() => act(`p-${p.id}`, () => api.adminReviewTailorProfile(p.id, 'verified'), 'Profile verified. Badges are live.')}
+                  >
+                    Verify profile
+                  </Button>
+                  <Button variant="secondary" onClick={() => setNoteFor(`p-${p.id}`)}>Ask for changes</Button>
+                  {p.status === 'verified' && (
+                    <Button variant="secondary" onClick={() => setNoteFor(`s-${p.id}`)}>Suspend</Button>
+                  )}
+                </div>
+                {(noteFor === `p-${p.id}` || noteFor === `s-${p.id}`) && (
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                    <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Say what the tailor needs to fix" aria-label="Reason" />
+                    <Button
+                      busy={busy === `p-${p.id}`}
+                      disabled={note.trim().length < 5}
+                      onClick={() =>
+                        act(
+                          `p-${p.id}`,
+                          () => api.adminReviewTailorProfile(p.id, noteFor?.startsWith('s-') ? 'suspended' : 'rejected', note),
+                          'Saved.',
+                        )
+                      }
+                    >
+                      Send
+                    </Button>
+                  </div>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      )}
     </div>
   )
 }

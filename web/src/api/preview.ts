@@ -364,6 +364,21 @@ export const previewApi: Api = {
     return delay(t!)
   },
 
+  tailorVerification: async () => ({
+    status: 'unverified', label: 'Not submitted', note: null, consent_given: false,
+    documents: [
+      { kind: 'id_document', label: 'Government ID (NIN, passport or driver\'s licence)', required: true, status: null },
+      { kind: 'selfie', label: 'Live selfie (head turn and blink)', required: true, status: null },
+      { kind: 'workshop_photo', label: 'Workshop photo or short video', required: true, status: null },
+      { kind: 'cac_certificate', label: 'CAC business registration', required: false, status: null },
+    ],
+    missing: ['id_document', 'selfie', 'workshop_photo'],
+  }),
+  uploadTailorDocument: async (kind) => ({ kind, status: 'submitted' }),
+  submitTailorVerification: async () => ({ status: 'pending' }),
+  adminTailorQueue: async () => [],
+  adminReviewTailorDocument: async (id, decision) => ({ id, status: decision }),
+  adminReviewTailorProfile: async (id, to) => ({ id, status: to }),
   saveTailorProfile: async (input) => {
     requireUser('tailor')
     const t = tailors[0]!

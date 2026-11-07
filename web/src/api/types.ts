@@ -845,3 +845,40 @@ export interface AdminActionRow {
   note: string | null
   at: string | null
 }
+
+export type TailorDocKind = 'id_document' | 'selfie' | 'workshop_photo' | 'cac_certificate'
+
+export interface TailorVerificationDoc {
+  kind: TailorDocKind
+  label: string
+  required: boolean
+  status: 'submitted' | 'approved' | 'rejected' | null
+}
+
+export interface TailorVerificationState {
+  status: string
+  label: string
+  note: string | null
+  consent_given: boolean
+  documents: TailorVerificationDoc[]
+  missing: TailorDocKind[]
+}
+
+export interface AdminTailorDoc {
+  id: number
+  kind: TailorDocKind
+  label: string
+  status: string
+  review_note: string | null
+  file_url: string
+}
+
+export interface AdminTailorQueueRow {
+  id: number
+  business_name: string
+  city: string
+  owner: { name: string | null; email: string | null; phone: string | null }
+  status: string
+  requested_at: string | null
+  documents: AdminTailorDoc[]
+}
