@@ -44,6 +44,9 @@ class TailorResource extends ApiResource
     /** Badges show only when an admin has approved the matching document. */
     private function verificationBadges(): array
     {
+        if (! $this->isVerified()) {
+            return ['status' => $this->verification_status, 'id_checked' => false, 'face_matched' => false, 'workshop_visited' => false, 'cac_registered' => false];
+        }
         $approved = $this->documents()->where('status', 'approved')->pluck('kind')->all();
 
         return [
