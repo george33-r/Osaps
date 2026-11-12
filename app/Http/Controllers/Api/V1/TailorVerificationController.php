@@ -40,6 +40,7 @@ class TailorVerificationController extends Controller
                 'status' => $docs->firstWhere('kind', $kind)?->status,
             ])->values(),
             'missing' => TailorVerification::missing($this->service->statusByKind($profile), needApproved: false),
+            'recheck' => ['due_at' => $profile->recheck_due_at?->toIso8601String(), 'state' => $profile->verification_status === TailorVerification::VERIFIED ? \App\Domain\Verification\Recheck::state($profile->recheck_due_at, now()) : null],
         ]]);
     }
 
@@ -49,8 +50,9 @@ class TailorVerificationController extends Controller
             'kind' => ['required', Rule::in(array_merge(TailorVerification::REQUIRED, TailorVerification::OPTIONAL))],
             'file' => ['required', 'file', 'max:8192'],
             'consent' => ['nullable', 'boolean'],
+            'expires_on' => ['nullable', 'date', 'after:today'],
         ]);
-        $doc = $this->service->upload($request->user(), $data['kind'], $request->file('file'), (bool) ($data['consent'] ?? false));
+        $doc = $this->service->upload($request->user(), $data['kind'], $request->file('file'), (bool) ($data['consent'] ?? false), $data['expires_on'] ?? null);
 
         return response()->json(['data' => ['kind' => $doc->kind, 'status' => $doc->status]], 201);
     }
@@ -114,6 +116,7 @@ class TailorVerificationController extends Controller
     public function face(string $slug): Response
     {
         $profile = TailorProfile::query()->where('slug', $slug)->where('verification_status', TailorVerification::VERIFIED)->firstOrFail();
+        abort_unless($profile->badgeActive(), 404);
         $selfie = $profile->approvedSelfie() ?? abort(404);
 
         return $this->photos->response($selfie->path, $selfie->mime);

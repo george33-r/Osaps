@@ -87,14 +87,14 @@ export interface Api {
   /** The signed-in tailor's identity checks: documents, what is missing, and the status. */
   tailorVerification(): Promise<TailorVerificationState | null>
   /** Uploads one document. ID and selfie need consent; the server refuses them without it. */
-  uploadTailorDocument(kind: TailorDocKind, file: File, consent: boolean): Promise<{ kind: string; status: string }>
+  uploadTailorDocument(kind: TailorDocKind, file: File, consent: boolean, expiresOn?: string | null): Promise<{ kind: string; status: string }>
   submitTailorVerification(): Promise<{ status: string }>
   adminTailorQueue(status: string): Promise<AdminTailorQueueRow[]>
   adminReviewTailorDocument(id: number, decision: 'approved' | 'rejected', note?: string | null): Promise<{ id: number; status: string }>
   adminReviewTailorProfile(id: number, to: 'verified' | 'rejected' | 'suspended', note?: string | null): Promise<{ id: number; status: string }>
   vendorDocuments(): Promise<VendorDocumentState | null>
   /** Uploads one shop document. The owner's ID needs consent; the server refuses it without. */
-  uploadVendorDocument(kind: VendorDocKind, file: File, consent: boolean): Promise<{ kind: string; status: string }>
+  uploadVendorDocument(kind: VendorDocKind, file: File, consent: boolean, expiresOn?: string | null): Promise<{ kind: string; status: string }>
   adminReviewVendorDocument(id: number, decision: 'approved' | 'rejected', note?: string | null): Promise<{ id: number; status: string }>
 
   myRequests(): Promise<Paginated<JobRequest>>
@@ -290,11 +290,12 @@ export const httpApi: Api = {
   tailor: (slug) => data(http('GET', `/tailors/${encodeURIComponent(slug)}`)),
   saveTailorProfile: (input) => data(http('PUT', '/me/tailor-profile', input)),
   tailorVerification: () => data(http('GET', '/me/tailor-verification')),
-  uploadTailorDocument: (kind, file, consent) => {
+  uploadTailorDocument: (kind, file, consent, expiresOn) => {
     const form = new FormData()
     form.append('kind', kind)
     form.append('file', file)
     form.append('consent', consent ? '1' : '0')
+    if (expiresOn) form.append('expires_on', expiresOn)
     return data(http('POST', '/me/tailor-verification/documents', form))
   },
   submitTailorVerification: () => data(http('POST', '/me/tailor-verification/submit')),
@@ -302,11 +303,12 @@ export const httpApi: Api = {
   adminReviewTailorDocument: (id, decision, note) => data(http('POST', `/admin/tailor-documents/${id}/review`, { decision, note: note ?? null })),
   adminReviewTailorProfile: (id, to, note) => data(http('POST', `/admin/tailor-profiles/${id}/review`, { to, note: note ?? null })),
   vendorDocuments: () => data(http('GET', '/me/vendor-documents')),
-  uploadVendorDocument: (kind, file, consent) => {
+  uploadVendorDocument: (kind, file, consent, expiresOn) => {
     const form = new FormData()
     form.append('kind', kind)
     form.append('file', file)
     form.append('consent', consent ? '1' : '0')
+    if (expiresOn) form.append('expires_on', expiresOn)
     return data(http('POST', '/me/vendor-documents', form))
   },
   adminReviewVendorDocument: (id, decision, note) => data(http('POST', `/admin/vendor-documents/${id}/review`, { decision, note: note ?? null })),

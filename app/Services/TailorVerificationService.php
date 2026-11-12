@@ -19,11 +19,13 @@ class TailorVerificationService
         private readonly Notifier $notifier,
     ) {}
 
-    public function upload(User $user, string $kind, UploadedFile $file, bool $consent): TailorVerificationDocument
+    public function upload(User $user, string $kind, UploadedFile $file, bool $consent, ?string $expiresOn = null): TailorVerificationDocument
     {
         $profile = $user->tailorProfile ?? throw new DomainRuleViolation('Save your tailor profile before uploading documents.', 'profile_missing');
-        if ($profile->verification_status === TailorVerification::VERIFIED) {
-            throw new DomainRuleViolation('Your profile is already verified. Contact OSAPS support to change a document.', 'already_verified');
+        // A verified profile accepts new documents only when its six-week check is due.
+        if ($profile->verification_status === TailorVerification::VERIFIED
+            && \App\Domain\Verification\Recheck::state($profile->recheck_due_at, now()) === \App\Domain\Verification\Recheck::OK) {
+            throw new DomainRuleViolation('Your profile is verified and its six-week check is not due yet. You can upload a new document when it is due.', 'already_verified');
         }
         if ($profile->verification_status === TailorVerification::PENDING) {
             throw new DomainRuleViolation('Your documents are with the OSAPS team. You can upload again after they decide.', 'review_in_progress');
@@ -34,7 +36,7 @@ class TailorVerificationService
 
         $stored = $this->photos->store($file, 'tailor-verification/'.$profile->id);
 
-        return DB::transaction(function () use ($profile, $kind, $stored, $consent) {
+        return DB::transaction(function () use ($profile, $kind, $stored, $consent, $expiresOn) {
             // Replace an earlier upload of this kind, unless an admin has already approved it.
             TailorVerificationDocument::query()->where('tailor_profile_id', $profile->id)->where('kind', $kind)
                 ->where('status', '!=', 'approved')->get()
@@ -49,7 +51,7 @@ class TailorVerificationService
 
             return TailorVerificationDocument::query()->create([
                 'tailor_profile_id' => $profile->id, 'kind' => $kind, 'path' => $stored['path'],
-                'mime' => $stored['mime'], 'size_bytes' => $stored['size_bytes'], 'status' => 'submitted',
+                'mime' => $stored['mime'], 'size_bytes' => $stored['size_bytes'], 'status' => 'submitted', 'expires_on' => $expiresOn,
             ]);
         });
     }
@@ -88,6 +90,9 @@ class TailorVerificationService
                 'review_note' => $note !== null ? mb_substr(trim($note), 0, 300) : null,
             ])->save();
             AdminAction::record($admin, 'tailor_document_'.$decision, $doc, $note, ['kind' => $doc->kind]);
+            if ($decision === 'approved') {
+                $this->completeRecheckIfDone((int) $doc->tailor_profile_id);
+            }
 
             return $doc;
         });
@@ -112,6 +117,7 @@ class TailorVerificationService
                 'verification_status' => $to,
                 'verification_note' => $note !== null ? mb_substr(trim($note), 0, 300) : null,
                 'verified_at' => $to === TailorVerification::VERIFIED ? now() : $profile->verified_at,
+                'recheck_due_at' => $to === TailorVerification::VERIFIED ? \App\Domain\Verification\Recheck::dueAfterCheck(now()) : $profile->recheck_due_at,
             ])->save();
             AdminAction::record($admin, 'tailor_'.$to, $profile, $note);
 
@@ -127,6 +133,24 @@ class TailorVerificationService
 
             return $profile;
         });
+    }
+
+    /** A verified tailor's six-week check is complete once the ID (and CAC, if they have one) is approved in this cycle. */
+    private function completeRecheckIfDone(int $profileId): void
+    {
+        $profile = TailorProfile::query()->lockForUpdate()->find($profileId);
+        if ($profile === null || $profile->verification_status !== TailorVerification::VERIFIED || $profile->recheck_due_at === null) {
+            return;
+        }
+        $required = ['id_document'];
+        if ($profile->documents()->where('kind', 'cac_certificate')->exists()) {
+            $required[] = 'cac_certificate';
+        }
+        $approvedAt = $profile->documents()->where('status', 'approved')->get()->groupBy('kind')
+            ->map(fn ($docs) => $docs->pluck('reviewed_at')->filter()->sort()->last())->all();
+        if (\App\Domain\Verification\Recheck::cycleComplete($approvedAt, $required, $profile->recheck_due_at)) {
+            $profile->forceFill(['recheck_due_at' => \App\Domain\Verification\Recheck::dueAfterCheck(now())])->save();
+        }
     }
 
     /** @return array<string, string> latest status per kind */

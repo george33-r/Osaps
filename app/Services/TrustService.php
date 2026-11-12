@@ -252,6 +252,7 @@ class TrustService
             $vendor->verification_status = $to;
             $vendor->verification_note = $note !== null ? mb_substr(trim($note), 0, 300) : null;
             $vendor->verified_at = $to === VendorVerification::VERIFIED ? now() : $vendor->verified_at;
+            $vendor->recheck_due_at = $to === VendorVerification::VERIFIED ? \App\Domain\Verification\Recheck::dueAfterCheck(now()) : $vendor->recheck_due_at;
             $vendor->save();
             AdminAction::record($admin, 'vendor_'.$to, $vendor, $note);
 

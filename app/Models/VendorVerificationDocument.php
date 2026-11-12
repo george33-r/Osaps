@@ -7,14 +7,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class VendorVerificationDocument extends Model
 {
-    protected $fillable = ['fabric_vendor_id', 'kind', 'path', 'mime', 'size_bytes', 'status'];
+    protected $fillable = ['fabric_vendor_id', 'kind', 'path', 'mime', 'size_bytes', 'status', 'expires_on', 'reviewed_at'];
 
     /** The stored file name stays private; the API gives a file URL only to admins. */
     protected $hidden = ['path'];
 
     protected function casts(): array
     {
-        return ['reviewed_at' => 'datetime'];
+        return ['reviewed_at' => 'datetime', 'expires_on' => 'date'];
     }
 
     public function vendor(): BelongsTo

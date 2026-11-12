@@ -22,12 +22,14 @@ class VendorVerificationDocumentService
         private readonly Notifier $notifier,
     ) {}
 
-    public function upload(User $user, string $kind, UploadedFile $file, bool $consent): VendorVerificationDocument
+    public function upload(User $user, string $kind, UploadedFile $file, bool $consent, ?string $expiresOn = null): VendorVerificationDocument
     {
         $vendor = $user->fabricVendor ?? throw new DomainRuleViolation('Save your shop details before uploading documents.', 'shop_missing');
         $status = $vendor->verification_status ?: VendorVerification::UNVERIFIED;
-        if ($status === VendorVerification::VERIFIED) {
-            throw new DomainRuleViolation('Your shop is already verified. Contact OSAPS support to change a document.', 'already_verified');
+        // A verified shop accepts new documents only when its six-week check is due.
+        if ($status === VendorVerification::VERIFIED
+            && \App\Domain\Verification\Recheck::state($vendor->recheck_due_at, now()) === \App\Domain\Verification\Recheck::OK) {
+            throw new DomainRuleViolation('Your shop is verified and its six-week check is not due yet. You can upload a new document when it is due.', 'already_verified');
         }
         if ($status === VendorVerification::PENDING) {
             throw new DomainRuleViolation('Your documents are with the OSAPS team. You can upload again after they decide.', 'review_in_progress');
@@ -38,7 +40,7 @@ class VendorVerificationDocumentService
 
         $stored = $this->photos->store($file, 'vendor-verification/'.$vendor->id, allowPdf: true);
 
-        return DB::transaction(function () use ($vendor, $kind, $stored, $consent) {
+        return DB::transaction(function () use ($vendor, $kind, $stored, $consent, $expiresOn) {
             // Replace an earlier upload of this kind, unless an admin has already approved it.
             VendorVerificationDocument::query()->where('fabric_vendor_id', $vendor->id)->where('kind', $kind)
                 ->where('status', '!=', 'approved')->get()
@@ -53,7 +55,7 @@ class VendorVerificationDocumentService
 
             return VendorVerificationDocument::query()->create([
                 'fabric_vendor_id' => $vendor->id, 'kind' => $kind, 'path' => $stored['path'],
-                'mime' => $stored['mime'], 'size_bytes' => $stored['size_bytes'], 'status' => 'submitted',
+                'mime' => $stored['mime'], 'size_bytes' => $stored['size_bytes'], 'status' => 'submitted', 'expires_on' => $expiresOn,
             ]);
         });
     }
@@ -74,6 +76,9 @@ class VendorVerificationDocumentService
                 'review_note' => $note !== null ? mb_substr(trim($note), 0, 300) : null,
             ])->save();
             AdminAction::record($admin, 'vendor_document_'.$decision, $doc, $note, ['kind' => $doc->kind]);
+            if ($decision === 'approved') {
+                $this->completeRecheckIfDone((int) $doc->fabric_vendor_id);
+            }
 
             if ($decision === 'rejected') {
                 $vendor = FabricVendor::query()->find($doc->fabric_vendor_id);
@@ -88,6 +93,20 @@ class VendorVerificationDocumentService
 
             return $doc;
         });
+    }
+
+    /** A verified shop's six-week check is complete once both documents are approved in this cycle. */
+    private function completeRecheckIfDone(int $vendorId): void
+    {
+        $vendor = FabricVendor::query()->lockForUpdate()->find($vendorId);
+        if ($vendor === null || $vendor->verification_status !== VendorVerification::VERIFIED || $vendor->recheck_due_at === null) {
+            return;
+        }
+        $approvedAt = $vendor->documents()->where('status', 'approved')->get()->groupBy('kind')
+            ->map(fn ($docs) => $docs->pluck('reviewed_at')->filter()->sort()->last())->all();
+        if (\App\Domain\Verification\Recheck::cycleComplete($approvedAt, VendorVerification::DOCUMENT_REQUIRED, $vendor->recheck_due_at)) {
+            $vendor->forceFill(['recheck_due_at' => \App\Domain\Verification\Recheck::dueAfterCheck(now())])->save();
+        }
     }
 
     /** @return array<string, string> latest status per kind */

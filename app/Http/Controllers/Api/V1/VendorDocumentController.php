@@ -39,6 +39,7 @@ class VendorDocumentController extends Controller
                 'review_note' => $docs->firstWhere('kind', $kind)?->review_note,
             ])->values(),
             'missing' => VendorVerification::missingDocuments($this->service->statusByKind($vendor), needApproved: false),
+            'recheck' => ['due_at' => $vendor->recheck_due_at?->toIso8601String(), 'state' => $vendor->verification_status === VendorVerification::VERIFIED ? \App\Domain\Verification\Recheck::state($vendor->recheck_due_at, now()) : null],
         ]]);
     }
 
@@ -48,8 +49,9 @@ class VendorDocumentController extends Controller
             'kind' => ['required', Rule::in(VendorVerification::DOCUMENT_REQUIRED)],
             'file' => ['required', 'file', 'max:8192'],
             'consent' => ['nullable', 'boolean'],
+            'expires_on' => ['nullable', 'date', 'after:today'],
         ]);
-        $doc = $this->service->upload($request->user(), $data['kind'], $request->file('file'), (bool) ($data['consent'] ?? false));
+        $doc = $this->service->upload($request->user(), $data['kind'], $request->file('file'), (bool) ($data['consent'] ?? false), $data['expires_on'] ?? null);
 
         return response()->json(['data' => ['kind' => $doc->kind, 'status' => $doc->status]], 201);
     }

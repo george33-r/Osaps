@@ -29,6 +29,7 @@ class TailorProfile extends Model
             'verified_at' => 'datetime',
             'verification_requested_at' => 'datetime',
             'verification_consent_at' => 'datetime',
+            'recheck_due_at' => 'datetime',
         ];
     }
 
@@ -50,6 +51,12 @@ class TailorProfile extends Model
     public function isVerified(): bool
     {
         return $this->verification_status === 'verified';
+    }
+
+    /** Verified, and the six-week check is not overdue. Public badges and the public selfie follow this. */
+    public function badgeActive(): bool
+    {
+        return $this->isVerified() && \App\Domain\Verification\Recheck::state($this->recheck_due_at, now()) !== \App\Domain\Verification\Recheck::OVERDUE;
     }
 
     public function scopeAcceptingWork(Builder $q): Builder
