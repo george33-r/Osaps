@@ -7,6 +7,7 @@ use App\Domain\Shop\DisputeRules;
 use App\Domain\Shop\FabricOrderStatus;
 use App\Domain\Shop\PayoutRules;
 use App\Domain\Shop\VendorVerification;
+use App\Domain\Tailors\TailorVerification;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Concerns\FormatsMoney;
 use App\Models\AdminAction;
@@ -14,6 +15,8 @@ use App\Models\Checkout;
 use App\Models\FabricOrder;
 use App\Models\FabricVendor;
 use App\Models\Refund;
+use App\Models\JobRequest;
+use App\Models\TailorProfile;
 use App\Services\TrustService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -40,6 +43,19 @@ class AdminController extends Controller
             'payouts_releasable' => FabricOrder::query()->where('payout_status', PayoutRules::RELEASABLE)->count(),
             'payouts_approved' => FabricOrder::query()->where('payout_status', PayoutRules::APPROVED)->count(),
             'stuck' => $this->stuckQuery()->count(),
+            // Who is on the platform, and what is waiting for a check.
+            'tailors_total' => TailorProfile::query()->count(),
+            'tailors_verified' => TailorProfile::query()->where('verification_status', TailorVerification::VERIFIED)->count(),
+            'tailors_kyc_waiting' => TailorProfile::query()->where('verification_status', TailorVerification::PENDING)->count(),
+            'shops_total' => FabricVendor::query()->count(),
+            'shops_verified' => FabricVendor::query()->where('verification_status', VendorVerification::VERIFIED)->count(),
+            'documents_waiting' => \App\Models\VendorVerificationDocument::query()->where('status', 'submitted')->count()
+                + \App\Models\TailorVerificationDocument::query()->where('status', 'submitted')->count(),
+            // Bookings: fabric orders, and tailor requests (job requests) from customers.
+            'orders_total' => FabricOrder::query()->count(),
+            'orders_last_7_days' => FabricOrder::query()->where('created_at', '>=', now()->subDays(7))->count(),
+            'requests_total' => JobRequest::query()->count(),
+            'requests_last_7_days' => JobRequest::query()->where('created_at', '>=', now()->subDays(7))->count(),
             'two_person_payouts' => $this->payouts->twoPersonPayouts,
             // Set every minute by the scheduler. Empty or old means the hPanel cron job is missing.
             'cron_last_run' => \Illuminate\Support\Facades\Cache::get('scheduler:last_run'),

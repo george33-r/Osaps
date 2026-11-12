@@ -1,9 +1,23 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
+import type React from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { api, ApiError } from '../api'
 import { DrapedCloth } from '../components/Swatch'
 import { Button, Field, Label } from '../components/ui'
 import { useSession } from '../lib/session'
+
+/** A password box with a Show/Hide button, so people can check what they typed. */
+function PasswordInput({ className, ...rest }: React.InputHTMLAttributes<HTMLInputElement>) {
+  const [shown, setShown] = useState(false)
+  return (
+    <div className="pw">
+      <input {...rest} className={className ?? 'input pw__input'} type={shown ? 'text' : 'password'} />
+      <button type="button" className="pw__toggle" aria-pressed={shown} onClick={() => setShown((v) => !v)}>
+        {shown ? 'Hide' : 'Show'}
+      </button>
+    </div>
+  )
+}
 
 function AuthFrame({ title, intro, children }: { title: string; intro: string; children: ReactNode }) {
   return (
@@ -59,7 +73,7 @@ export function SignIn() {
           {(p) => <input {...p} name="email" type="email" autoComplete="email" required className="input" />}
         </Field>
         <Field label="Password">
-          {(p) => <input {...p} name="password" type="password" autoComplete="current-password" required className="input" />}
+          {(p) => <PasswordInput {...p} name="password" autoComplete="current-password" required className="input" />}
         </Field>
         <p className="form__aside"><Link to="/forgot-password">Forgot your password?</Link></p>
         <Button type="submit" busy={busy}>
@@ -140,10 +154,10 @@ export function Register() {
           {(p) => <input {...p} name="city" autoComplete="address-level2" className="input" placeholder="e.g. Abuja" />}
         </Field>
         <Field label="Password" hint="At least 8 characters, with letters and numbers." error={error?.field('password')}>
-          {(p) => <input {...p} name="password" type="password" autoComplete="new-password" required className="input" />}
+          {(p) => <PasswordInput {...p} name="password" autoComplete="new-password" required className="input" />}
         </Field>
         <Field label="Confirm password">
-          {(p) => <input {...p} name="password_confirmation" type="password" autoComplete="new-password" required className="input" />}
+          {(p) => <PasswordInput {...p} name="password_confirmation" autoComplete="new-password" required className="input" />}
         </Field>
         <Button type="submit" busy={busy}>
           Create account
@@ -216,10 +230,10 @@ export function ResetPassword() {
       <form className="form" onSubmit={submit} noValidate>
         {error && !error.field('password') && <p className="form__error" role="alert">{error.field('email') ?? error.message}</p>}
         <Field label="New password" hint="At least 8 characters, with letters and numbers." error={error?.field('password')}>
-          {(p) => <input {...p} name="password" type="password" autoComplete="new-password" required className="input" />}
+          {(p) => <PasswordInput {...p} name="password" autoComplete="new-password" required className="input" />}
         </Field>
         <Field label="Confirm new password">
-          {(p) => <input {...p} name="password_confirmation" type="password" autoComplete="new-password" required className="input" />}
+          {(p) => <PasswordInput {...p} name="password_confirmation" autoComplete="new-password" required className="input" />}
         </Field>
         <Button type="submit" busy={busy}>Save new password</Button>
       </form>

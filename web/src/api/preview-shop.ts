@@ -715,6 +715,8 @@ export function makePreviewShop(ctx: Ctx) {
         payouts_releasable: orders.filter((o) => o.payout === 'releasable').length,
         payouts_approved: orders.filter((o) => o.payout === 'approved').length,
         stuck: 0, two_person_payouts: true, cron_last_run: new Date().toISOString(), queue: 'database', queued_jobs: 0, payments_enabled: true, mail: 'smtp',
+        tailors_total: 4, tailors_verified: 1, tailors_kyc_waiting: 2, shops_total: otherShops.length + 1, shops_verified: 1, documents_waiting: 2,
+        orders_total: orders.length, orders_last_7_days: orders.length, requests_total: 3, requests_last_7_days: 3,
       })
     },
     adminVendors: (status) => {

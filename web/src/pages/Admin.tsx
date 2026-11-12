@@ -70,6 +70,16 @@ function Overview({ state, go }: { state: ReturnType<typeof useAsync<Awaited<Ret
   )
   return (
     <>
+      <h2 className="section-title section-title--small">People and bookings</h2>
+      <div className="admin-cards">
+        {card('tailors', o.tailors_kyc_waiting, 'tailors waiting for ID and face checks')}
+        {card('tailors', o.tailors_verified, `tailors verified of ${o.tailors_total} signed up`)}
+        {card('vendors', o.shops_verified, `shops verified of ${o.shops_total} signed up`)}
+        {card('vendors', o.documents_waiting, 'identity documents waiting to be checked')}
+        {card('log', o.orders_last_7_days, `orders in the last 7 days (${o.orders_total} in total)`)}
+        {card('log', o.requests_last_7_days, `tailor requests in the last 7 days (${o.requests_total} in total)`)}
+      </div>
+      <h2 className="section-title section-title--small">To do today</h2>
       <div className="admin-cards">
         {card('vendors', o.vendors_pending, 'shops waiting for review')}
         {card('disputes', o.disputes_open, 'open problem reports')}

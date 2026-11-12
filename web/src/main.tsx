@@ -38,6 +38,7 @@ const MyOffers = lazy(() => import('./pages/Shop').then((m) => ({ default: m.MyO
 const FabricOrderList = lazy(() => import('./pages/Shop').then((m) => ({ default: m.FabricOrderList })))
 const FabricOrderDetail = lazy(() => import('./pages/Shop').then((m) => ({ default: m.FabricOrderDetail })))
 const BuyerProtection = lazy(() => import('./pages/BuyerProtection'))
+const Faq = lazy(() => import('./pages/Faq'))
 const AsoEbiNew = lazy(() => import('./pages/AsoEbi').then((m) => ({ default: m.AsoEbiNew })))
 const AsoEbiPage = lazy(() => import('./pages/AsoEbi').then((m) => ({ default: m.AsoEbiPage })))
 const MyAsoEbi = lazy(() => import('./pages/AsoEbi').then((m) => ({ default: m.MyAsoEbi })))
@@ -119,6 +120,7 @@ const router = createBrowserRouter(
             { path: 'live', element: page(<LivePage />) },
             { path: 'inspiration', element: page(<Inspiration />) },
             { path: 'buyer-protection', element: page(<BuyerProtection />) },
+            { path: 'faq', element: page(<Faq />) },
             { path: '*', element: <NotFound /> },
           ],
         },

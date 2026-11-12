@@ -1992,3 +1992,23 @@ body:has(.preview-banner) .wa-float { bottom: 4.6rem; }
 .buybox__express { margin: var(--s-2) 0 0; font-size: var(--t-sm); color: #6b4300; }
 .buybox__cta--wa { background: #128c4a; border-color: #128c4a; }
 .buybox__cta--wa:hover { background: #0e7a40; }
+
+/* Password box with a Show/Hide button */
+.pw { position: relative; }
+.pw__input { padding-right: 4.5rem; }
+.pw__toggle {
+  position: absolute; right: 0.5rem; top: 50%; transform: translateY(-50%);
+  background: none; border: 0; cursor: pointer; font: inherit; font-size: 0.875rem;
+  color: var(--burgundy, #7a1b24); padding: 0.25rem 0.5rem; min-height: 2.25rem;
+}
+.pw__toggle:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+
+/* FAQ page */
+.faq-group { margin-top: 2rem; }
+.faq-item { border-bottom: 1px solid rgba(0,0,0,0.12); padding: 0.9rem 0; }
+.faq-item summary { cursor: pointer; font-weight: 600; list-style: none; min-height: 2.5rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.faq-item summary::-webkit-details-marker { display: none; }
+.faq-item summary::after { content: '+'; font-size: 1.25rem; line-height: 1; }
+.faq-item[open] summary::after { content: '–'; }
+.faq-item p { margin: 0.6rem 0 0; line-height: 1.6; }
+.faq-more { margin-top: 2.5rem; }

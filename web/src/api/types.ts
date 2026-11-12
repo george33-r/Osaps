@@ -768,6 +768,16 @@ export type VendorVerificationStatus = 'unverified' | 'pending' | 'verified' | '
 // ---- Back office -------------------------------------------------------------------------
 
 export interface AdminOverview {
+  tailors_total: number
+  tailors_verified: number
+  tailors_kyc_waiting: number
+  shops_total: number
+  shops_verified: number
+  documents_waiting: number
+  orders_total: number
+  orders_last_7_days: number
+  requests_total: number
+  requests_last_7_days: number
   vendors_pending: number
   disputes_open: number
   refunds_owed: number

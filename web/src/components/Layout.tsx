@@ -256,6 +256,7 @@ function Footer() {
             <Link to="/requests/new">Post a tailoring request</Link>
             <Link to="/buyer-protection">Buyer protection</Link>
             <Link to="/buyer-protection#delivery">Delivery prices</Link>
+            <Link to="/faq">Questions people ask</Link>
           </div>
           <div>
             <p className="label">For makers</p>
