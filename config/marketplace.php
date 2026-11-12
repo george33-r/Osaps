@@ -60,7 +60,9 @@ return [
     'offers' => [
         'expiry_hours' => (int) env('OFFER_EXPIRY_HOURS', 48),
         'max_counter_rounds_per_side' => (int) env('OFFER_MAX_COUNTER_ROUNDS', 3),
-        'max_live_offers_per_tailor' => (int) env('OFFER_MAX_LIVE_PER_TAILOR', 15),
+        // Minimum live offers for any tailor. Above it, the cap is live_offers_per_capacity_unit × weekly capacity.
+        'max_live_offers_per_tailor' => (int) env('OFFER_MAX_LIVE_PER_TAILOR', 5),
+        'live_offers_per_capacity_unit' => (int) env('OFFER_LIVE_PER_CAPACITY', 2),
         'max_offers_per_request' => (int) env('OFFER_MAX_PER_REQUEST', 20),
         'min_explanation_length' => 15,
     ],
