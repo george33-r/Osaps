@@ -1,6 +1,7 @@
 import { useState, type ChangeEvent } from 'react'
 import { api, type TailorDocKind, type TailorVerificationDoc, type TailorVerificationState } from '../api'
 import { Badge, Button, ButtonLink, EmptyState, ErrorState, PageHeader, Skeleton, errorMessage, type Tone } from '../components/ui'
+import { SelfieCapture } from '../components/SelfieCapture'
 import { useToast } from '../lib/toast'
 import { useAsync } from '../lib/useAsync'
 
@@ -27,8 +28,11 @@ function DocRow({ doc, consentGiven, disabled, onUploaded }: { doc: TailorVerifi
   const [consent, setConsent] = useState(consentGiven)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [camera, setCamera] = useState(doc.kind === 'selfie')
   const needsConsent = BIOMETRIC.includes(doc.kind)
   const state = doc.status ? DOC_TONE[doc.status] : null
+  // The camera opens only after consent is ticked: a selfie is biometric data.
+  const cameraReady = doc.kind === 'selfie' && consent
 
   async function upload() {
     if (!file) return
@@ -53,13 +57,7 @@ function DocRow({ doc, consentGiven, disabled, onUploaded }: { doc: TailorVerifi
         {state ? <Badge tone={state.tone}>{state.text}</Badge> : <Badge tone="muted">{doc.required ? 'Required' : 'Optional'}</Badge>}
       </div>
       {doc.status !== 'approved' && !disabled && (
-        <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            aria-label={`Choose a photo for ${doc.label}`}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setFile(e.target.files?.[0] ?? null)}
-          />
+        <div style={{ marginTop: 10, display: 'grid', gap: 10 }}>
           {needsConsent && (
             <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 14 }}>
               <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
@@ -69,6 +67,32 @@ function DocRow({ doc, consentGiven, disabled, onUploaded }: { doc: TailorVerifi
               </span>
             </label>
           )}
+          {doc.kind === 'selfie' && camera && cameraReady && (
+            <SelfieCapture
+              onCapture={(captured) => {
+                setFile(captured)
+                setCamera(false)
+              }}
+            />
+          )}
+          {doc.kind === 'selfie' && camera && !cameraReady && (
+            <p className="field__hint">Tick the consent box above to open the camera, or choose a photo below.</p>
+          )}
+          {doc.kind === 'selfie' && !camera && file && (
+            <p className="field__hint">Photo ready: {file.name}. Upload it, or retake it with the camera.</p>
+          )}
+          {doc.kind === 'selfie' && !camera && (
+            <div>
+              <Button variant="secondary" onClick={() => { setFile(null); setCamera(true) }}>Retake with camera</Button>
+            </div>
+          )}
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            aria-label={`Choose a photo for ${doc.label}`}
+            disabled={needsConsent && !consent}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setFile(e.target.files?.[0] ?? null)}
+          />
           {error && <p role="alert" className="field__error">{error}</p>}
           <div>
             <Button onClick={upload} busy={busy} disabled={!file || (needsConsent && !consent)} variant="secondary">

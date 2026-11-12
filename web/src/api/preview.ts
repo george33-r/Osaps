@@ -368,7 +368,7 @@ export const previewApi: Api = {
     status: 'unverified', label: 'Not submitted', note: null, consent_given: false,
     documents: [
       { kind: 'id_document', label: 'Government ID (NIN, passport or driver\'s licence)', required: true, status: null },
-      { kind: 'selfie', label: 'Live selfie (head turn and blink)', required: true, status: null },
+      { kind: 'selfie', label: 'Selfie (face clearly visible, taken with the camera)', required: true, status: null },
       { kind: 'workshop_photo', label: 'Workshop photo or short video', required: true, status: null },
       { kind: 'cac_certificate', label: 'CAC business registration', required: false, status: null },
     ],

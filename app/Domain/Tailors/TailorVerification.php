@@ -35,7 +35,7 @@ final class TailorVerification extends StateMachine
 
     public const KIND_LABELS = [
         self::ID_DOCUMENT => 'Government ID (NIN, passport or driver\'s licence)',
-        self::SELFIE => 'Live selfie (head turn and blink)',
+        self::SELFIE => 'Selfie (face clearly visible, taken with the camera)',
         self::WORKSHOP_PHOTO => 'Workshop photo or short video',
         self::CAC_CERTIFICATE => 'CAC business registration',
     ];
