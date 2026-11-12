@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import type React from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { api, ApiError } from '../api'
@@ -171,22 +171,48 @@ export function Register() {
 }
 
 export function ForgotPassword() {
+  const RESEND_WAIT = 60
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState<string | null>(null)
+  const [email, setEmail] = useState('')
+  const [wait, setWait] = useState(0)
   const [error, setError] = useState<ApiError | null>(null)
-  const submit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    const email = String(new FormData(e.currentTarget).get('email') ?? '').trim()
+
+  // Counts down the wait before a second link can be requested.
+  useEffect(() => {
+    if (wait <= 0) return
+    const t = window.setTimeout(() => setWait((w) => w - 1), 1000)
+    return () => window.clearTimeout(t)
+  }, [wait])
+
+  const send = async (address: string) => {
     setBusy(true); setError(null)
-    try { setDone(await api.forgotPassword(email)) } catch (err) { setError(err instanceof ApiError ? err : new ApiError('Could not send the link.', 0, 'unknown')) } finally { setBusy(false) }
+    try {
+      setDone(await api.forgotPassword(address))
+      setWait(RESEND_WAIT)
+    } catch (err) {
+      setError(err instanceof ApiError ? err : new ApiError('Could not send the link.', 0, 'unknown'))
+    } finally { setBusy(false) }
   }
+
+  const submit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const address = String(new FormData(e.currentTarget).get('email') ?? '').trim()
+    setEmail(address)
+    void send(address)
+  }
+
   return (
     <AuthFrame title="Reset your password" intro="Enter the email you signed up with. We will send a link to choose a new password.">
       {done ? (
         <div className="form">
           <p className="form__ok" role="status">{done}</p>
-          <p className="muted">No email? Check your spam folder, or wait a minute and try again.</p>
-          <Link to="/signin">Back to sign in</Link>
+          <p className="muted">No email? Check your spam or promotions folder first. The newest link is the only one that works.</p>
+          {error && <p className="form__error" role="alert">{error.message}</p>}
+          <Button type="button" variant="secondary" busy={busy} disabled={wait > 0 || busy} onClick={() => void send(email)}>
+            {wait > 0 ? `Resend link in ${wait}s` : 'Resend link'}
+          </Button>
+          <p className="muted"><Link to="/signin">Back to sign in</Link></p>
         </div>
       ) : (
         <form className="form" onSubmit={submit} noValidate>
