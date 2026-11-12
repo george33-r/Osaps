@@ -16,6 +16,7 @@ function DocRow({ doc, consentGiven, locked, onUploaded }: { doc: Doc; consentGi
   const toast = useToast()
   const [file, setFile] = useState<File | null>(null)
   const [consent, setConsent] = useState(consentGiven)
+  const [expiresOn, setExpiresOn] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const state = doc.status ? DOC_TONE[doc.status] : null
@@ -26,7 +27,7 @@ function DocRow({ doc, consentGiven, locked, onUploaded }: { doc: Doc; consentGi
     setBusy(true)
     setError(null)
     try {
-      await api.uploadVendorDocument(doc.kind, file, needsConsent ? consent : false)
+      await api.uploadVendorDocument(doc.kind, file, needsConsent ? consent : false, doc.kind === 'id_document' && expiresOn ? expiresOn : null)
       toast('Uploaded. Ask for review when every document is in.', 'good')
       setFile(null)
       onUploaded()
@@ -53,6 +54,12 @@ function DocRow({ doc, consentGiven, locked, onUploaded }: { doc: Doc; consentGi
                 I agree that OSAPS takes a copy of my ID to check who owns this shop. It is stored encrypted, kept apart from public
                 pages, and deleted if I ask.
               </span>
+            </label>
+          )}
+          {doc.kind === 'id_document' && (
+            <label style={{ display: 'grid', gap: 4, fontSize: 14 }}>
+              Expiry date, if the ID has one (passports and driver's licences do)
+              <input type="date" className="input" value={expiresOn} onChange={(e) => setExpiresOn(e.target.value)} />
             </label>
           )}
           <input
@@ -88,6 +95,12 @@ export function VendorDocuments({ locked, onChange }: { locked: boolean; onChang
         OSAPS checks your CAC registration certificate and the owner's ID before your shop goes live. Send a PDF, JPG, PNG or WebP
         file, up to 8 MB.
       </p>
+      {v.recheck?.state === 'overdue' && (
+        <div className="match-note" role="status"><span>Your six-week check is overdue, so your shop's badges are hidden. Upload a current ID and CAC certificate to restart it. Your listings stay live.</span></div>
+      )}
+      {v.recheck?.state === 'warning' && v.recheck.due_at && (
+        <div className="match-note" role="status"><span>Your six-week check is due on {new Date(v.recheck.due_at).toLocaleDateString()}. Upload a current ID and CAC certificate before then.</span></div>
+      )}
       {locked && <p className="field__hint">Your documents are with OSAPS or already approved, so you can't change them here.</p>}
       <ul className="rows" aria-label="Shop documents list">
         {v.documents.map((doc) => (

@@ -795,6 +795,7 @@ export interface VendorDocumentState {
     review_note: string | null
   }>
   missing: VendorDocKind[]
+  recheck?: RecheckState
 }
 
 export interface AdminVendorDoc {
@@ -871,6 +872,11 @@ export interface AdminActionRow {
   at: string | null
 }
 
+export interface RecheckState {
+  due_at: string | null
+  state: 'ok' | 'warning' | 'overdue' | null
+}
+
 export type TailorDocKind = 'id_document' | 'selfie' | 'workshop_photo' | 'cac_certificate'
 
 export interface TailorVerificationDoc {
@@ -887,6 +893,7 @@ export interface TailorVerificationState {
   consent_given: boolean
   documents: TailorVerificationDoc[]
   missing: TailorDocKind[]
+  recheck?: RecheckState
 }
 
 export interface AdminTailorDoc {

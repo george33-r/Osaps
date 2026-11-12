@@ -29,6 +29,7 @@ function DocRow({ doc, consentGiven, disabled, onUploaded }: { doc: TailorVerifi
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [camera, setCamera] = useState(doc.kind === 'selfie')
+  const [expiresOn, setExpiresOn] = useState('')
   const needsConsent = BIOMETRIC.includes(doc.kind)
   const state = doc.status ? DOC_TONE[doc.status] : null
   // The camera opens only after consent is ticked: a selfie is biometric data.
@@ -39,7 +40,7 @@ function DocRow({ doc, consentGiven, disabled, onUploaded }: { doc: TailorVerifi
     setBusy(true)
     setError(null)
     try {
-      await api.uploadTailorDocument(doc.kind, file, needsConsent ? consent : false)
+      await api.uploadTailorDocument(doc.kind, file, needsConsent ? consent : false, doc.kind === 'id_document' && expiresOn ? expiresOn : null)
       toast('Uploaded. Send for review when every document is in.', 'good')
       setFile(null)
       onUploaded()
@@ -65,6 +66,12 @@ function DocRow({ doc, consentGiven, disabled, onUploaded }: { doc: TailorVerifi
                 I agree that OSAPS takes this photo to check my identity. It is stored encrypted, kept apart from my public profile,
                 and deleted if I ask.
               </span>
+            </label>
+          )}
+          {doc.kind === 'id_document' && (
+            <label style={{ display: 'grid', gap: 4, fontSize: 14 }}>
+              Expiry date, if your ID has one (passports and driver's licences do)
+              <input type="date" className="input" value={expiresOn} onChange={(e) => setExpiresOn(e.target.value)} />
             </label>
           )}
           {doc.kind === 'selfie' && camera && cameraReady && (
@@ -158,6 +165,12 @@ export function TailorVerify() {
         <div className="match-note" role="status">
           <span>OSAPS asked for changes: {v.note}</span>
         </div>
+      )}
+      {v.recheck?.state === 'overdue' && (
+        <div className="match-note" role="status"><span>Your six-week check is overdue, so your badges are hidden. Upload a current ID and CAC certificate to restart it.</span></div>
+      )}
+      {v.recheck?.state === 'warning' && v.recheck.due_at && (
+        <div className="match-note" role="status"><span>Your six-week check is due on {new Date(v.recheck.due_at).toLocaleDateString()}. Upload a current ID and CAC certificate before then.</span></div>
       )}
       {verified && <p>Your identity and workshop checks are approved. Your badges are on your public profile.</p>}
       {pending && <p>Your documents are with the OSAPS team. You will get a notification when it is decided.</p>}

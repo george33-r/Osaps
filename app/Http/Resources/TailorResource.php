@@ -25,10 +25,10 @@ class TailorResource extends ApiResource
             'portfolio_tags' => $this->portfolio_tags ?? [],
             'starting_price' => self::money($this->starting_price_minor),
             'accepting_work' => $this->accepting_work,
-            'verified' => $this->isVerified(),
+            'verified' => $this->badgeActive(),
             'verification' => $this->verificationBadges(),
-            // The live selfie that matched the tailor's ID. Shown only while the profile is verified.
-            'face_url' => $this->isVerified() && $this->approvedSelfie() ? url('/api/v1/tailors/'.$this->slug.'/face') : null,
+            // The selfie an OSAPS admin has checked. Shown only while the badges are active.
+            'face_url' => $this->badgeActive() && $this->approvedSelfie() ? url('/api/v1/tailors/'.$this->slug.'/face') : null,
             'track_record' => [
                 'completed_orders' => $record['completed_orders'],
                 'on_time_rate' => $record['completed_orders'] > 0
@@ -44,7 +44,7 @@ class TailorResource extends ApiResource
     /** Badges show only when an admin has approved the matching document. */
     private function verificationBadges(): array
     {
-        if (! $this->isVerified()) {
+        if (! $this->badgeActive()) {
             return ['status' => $this->verification_status, 'id_checked' => false, 'selfie_checked' => false, 'workshop_photo_checked' => false, 'cac_certificate_checked' => false];
         }
         $approved = $this->documents()->where('status', 'approved')->pluck('kind')->all();
@@ -52,7 +52,8 @@ class TailorResource extends ApiResource
         // Each badge says only what an OSAPS admin has looked at. None of them is an automated match.
         return [
             'status' => $this->verification_status,
-            'id_checked' => in_array('id_document', $approved, true),
+            'id_checked' => $this->documents()->where('status', 'approved')->where('kind', 'id_document')
+                ->where(fn ($q) => $q->whereNull('expires_on')->orWhereDate('expires_on', '>=', now()->toDateString()))->exists(),
             'selfie_checked' => in_array('selfie', $approved, true),
             'workshop_photo_checked' => in_array('workshop_photo', $approved, true),
             'cac_certificate_checked' => in_array('cac_certificate', $approved, true),
