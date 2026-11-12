@@ -71,6 +71,7 @@ class StoreCatalogueSeeder extends Seeder
         if ($user === null) {
             $password = Str::password(16, symbols: false);
             $user = new User(['name' => $name, 'email' => $email, 'password' => $password, 'city' => null]);
+            $user->email_verified_at = now();
             $user->role = User::ROLE_FABRIC_VENDOR;
             $user->save();
             $this->report[] = "Store account created. Sign in as {$email} with password {$password} — it is shown only now. Change it after signing in (Forgot password works too once email is set up).";

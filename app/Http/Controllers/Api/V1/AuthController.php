@@ -27,6 +27,8 @@ class AuthController extends Controller
     {
         $data = $request->validated();
         $user = new User(Arr::only($data, ['name', 'email', 'phone', 'password', 'city']));
+        // Signing up with a chosen password is treated as confirmed, as before. Only quick checkout leaves it unconfirmed.
+        $user->email_verified_at = now();
         $user->role = $data['role']; // validated against SELF_SERVICE_ROLES; never mass-assigned
         $user->save();
 
@@ -98,6 +100,8 @@ class AuthController extends Controller
             function (User $user, string $password) {
                 $user->password = $password; // hashed by the model cast
                 $user->setRememberToken(\Illuminate\Support\Str::random(60));
+                // Only someone who can read this inbox gets the link, so the email is now confirmed.
+                $user->email_verified_at ??= now();
                 $user->save();
                 $user->tokens()->delete();
             },

@@ -40,6 +40,10 @@ class ShopController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        // Accounts made at quick checkout are confirmed when the buyer sets their own password from the emailed link.
+        if ($request->user()->email_verified_at === null) {
+            return response()->json(['message' => 'Check your email for the link to set your password. Open it, then come back and pay. Your cart is saved.', 'code' => 'email_not_confirmed'], 403);
+        }
         $data = $request->validate($this->cartRules() + [
             'expected_total_minor' => ['required', 'integer', 'min:0'],
             'contact.name' => ['required', 'string', 'min:2', 'max:80'],
