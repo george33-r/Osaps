@@ -48,7 +48,8 @@ class RecheckRemindersTest extends TestCase
         $this->assertSame(1, UserNotification::query()->where('user_id', $profile->user_id)->count());
 
         // A completed check restarts the clock; the next warning window gets its own reminder.
-        $profile->forceFill(['recheck_due_at' => now()->addDays(10)])->save();
+        // The previous reminder belongs to the old cycle; the new cycle's window needs its own.
+        $profile->forceFill(['recheck_due_at' => now()->addDays(10), 'recheck_reminded_at' => now()->subWeeks(7)])->save();
         $this->artisan('verification:recheck-reminders')->assertSuccessful();
         $this->assertSame(2, UserNotification::query()->where('user_id', $profile->user_id)->count());
     }
