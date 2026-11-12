@@ -97,4 +97,17 @@ final class OfferRulesTest extends TestCase
         }
         $this->assertTrue(false, "Expected rule violation '{$rule}'");
     }
+
+    public function test_live_offer_cap_grows_with_weekly_capacity_and_keeps_a_floor(): void
+    {
+        $rules = new OfferRules(offerExpiryHours: 48, maxCounterRoundsPerSide: 3, maxLiveOffersPerTailor: 5, maxOffersPerRequest: 20, liveOffersPerCapacityUnit: 2);
+
+        // The floor: a tailor with capacity 1 still gets 5 live offers.
+        $rules->assertCanOpenOffer('open', false, 0, 4, false, 1);
+        $this->assertRule('tailor_live_offer_limit', fn () => $rules->assertCanOpenOffer('open', false, 0, 5, false, 1));
+
+        // Capacity 6 gets 12 live offers.
+        $rules->assertCanOpenOffer('open', false, 0, 11, false, 6);
+        $this->assertRule('tailor_live_offer_limit', fn () => $rules->assertCanOpenOffer('open', false, 0, 12, false, 6));
+    }
 }

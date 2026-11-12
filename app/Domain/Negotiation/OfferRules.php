@@ -27,6 +27,7 @@ final class OfferRules
         public readonly int $maxLiveOffersPerTailor = 15,
         public readonly int $maxOffersPerRequest = 20,
         public readonly int $minExplanationLength = 15,
+        public readonly int $liveOffersPerCapacityUnit = 2,
     ) {}
 
     public function expiresAt(DateTimeImmutable $now): DateTimeImmutable
@@ -62,6 +63,7 @@ final class OfferRules
         int $offersOnRequest,
         int $tailorLiveOffers,
         bool $isOwnRequest,
+        int $tailorWeeklyCapacity = 0,
     ): void {
         if ($isOwnRequest) {
             throw new DomainRuleViolation('You cannot make an offer on your own request.', 'own_request');
@@ -75,9 +77,11 @@ final class OfferRules
         if ($offersOnRequest >= $this->maxOffersPerRequest) {
             throw new DomainRuleViolation('This request has reached its offer limit.', 'request_offer_limit');
         }
-        if ($tailorLiveOffers >= $this->maxLiveOffersPerTailor) {
+        // The cap grows with the tailor's weekly capacity, and never falls below the configured minimum.
+        $cap = max($this->maxLiveOffersPerTailor, $tailorWeeklyCapacity * $this->liveOffersPerCapacityUnit);
+        if ($tailorLiveOffers >= $cap) {
             throw new DomainRuleViolation(
-                "You have {$this->maxLiveOffersPerTailor} live offers. Wait for responses or withdraw some first.",
+                "You have {$cap} live offers. Wait for responses or withdraw some first.",
                 'tailor_live_offer_limit',
             );
         }

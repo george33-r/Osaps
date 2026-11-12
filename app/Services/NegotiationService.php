@@ -94,6 +94,7 @@ class NegotiationService
                 tailorLiveOffers: Offer::query()->where('tailor_id', $tailor->id)
                     ->whereIn('status', OfferStatus::LIVE)->where('expires_at', '>', now())->count(),
                 isOwnRequest: $request->customer_id === $tailor->id,
+                tailorWeeklyCapacity: (int) ($tailor->tailorProfile?->weekly_capacity ?? 0),
             );
 
             $amount = Money::minor((int) $data['amount_minor']);

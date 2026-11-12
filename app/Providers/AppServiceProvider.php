@@ -21,6 +21,7 @@ class AppServiceProvider extends ServiceProvider
             maxLiveOffersPerTailor: (int) config('marketplace.offers.max_live_offers_per_tailor'),
             maxOffersPerRequest: (int) config('marketplace.offers.max_offers_per_request'),
             minExplanationLength: (int) config('marketplace.offers.min_explanation_length'),
+            liveOffersPerCapacityUnit: (int) config('marketplace.offers.live_offers_per_capacity_unit'),
         ));
 
         $this->app->singleton(FeeSchedule::class, fn () => new FeeSchedule(
