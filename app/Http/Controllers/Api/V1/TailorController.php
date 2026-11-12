@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Domain\Tailors\TailorVerification;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\UpsertTailorProfileRequest;
 use App\Http\Resources\TailorResource;
@@ -48,6 +49,15 @@ class TailorController extends Controller
         $profile->user_id = $user->id;
         if (! $profile->exists) {
             $profile->slug = $this->uniqueSlug($profile->business_name);
+        }
+        // A verified tailor who changes who they are (name or city) goes back to review before the badges show again.
+        $identityChanged = $profile->exists && $profile->isDirty(['business_name', 'city']);
+        if ($identityChanged && $profile->verification_status === TailorVerification::VERIFIED) {
+            $profile->forceFill([
+                'verification_status' => TailorVerification::PENDING,
+                'verification_requested_at' => now(),
+                'verification_note' => 'Your business name or city changed. OSAPS checks it again before your badges show.',
+            ]);
         }
         $profile->save();
 

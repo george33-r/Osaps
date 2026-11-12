@@ -45,16 +45,17 @@ class TailorResource extends ApiResource
     private function verificationBadges(): array
     {
         if (! $this->isVerified()) {
-            return ['status' => $this->verification_status, 'id_checked' => false, 'face_matched' => false, 'workshop_visited' => false, 'cac_registered' => false];
+            return ['status' => $this->verification_status, 'id_checked' => false, 'selfie_checked' => false, 'workshop_photo_checked' => false, 'cac_certificate_checked' => false];
         }
         $approved = $this->documents()->where('status', 'approved')->pluck('kind')->all();
 
+        // Each badge says only what an OSAPS admin has looked at. None of them is an automated match.
         return [
             'status' => $this->verification_status,
             'id_checked' => in_array('id_document', $approved, true),
-            'face_matched' => in_array('selfie', $approved, true),
-            'workshop_visited' => in_array('workshop_photo', $approved, true),
-            'cac_registered' => in_array('cac_certificate', $approved, true),
+            'selfie_checked' => in_array('selfie', $approved, true),
+            'workshop_photo_checked' => in_array('workshop_photo', $approved, true),
+            'cac_certificate_checked' => in_array('cac_certificate', $approved, true),
         ];
     }
 }

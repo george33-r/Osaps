@@ -25,6 +25,9 @@ class TailorVerificationService
         if ($profile->verification_status === TailorVerification::VERIFIED) {
             throw new DomainRuleViolation('Your profile is already verified. Contact OSAPS support to change a document.', 'already_verified');
         }
+        if ($profile->verification_status === TailorVerification::PENDING) {
+            throw new DomainRuleViolation('Your documents are with the OSAPS team. You can upload again after they decide.', 'review_in_progress');
+        }
         if (in_array($kind, TailorVerification::BIOMETRIC, true) && ! $consent) {
             throw new DomainRuleViolation('We need your consent before we take your ID or selfie.', 'consent_required');
         }

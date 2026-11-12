@@ -81,12 +81,12 @@ class TailorVerificationTest extends TestCase
         ]);
 
         $this->getJson("/api/v1/tailors/{$this->profile->slug}")
-            ->assertOk()->assertJsonPath('data.verification.face_matched', false)->assertJsonPath('data.face_url', null);
+            ->assertOk()->assertJsonPath('data.verification.selfie_checked', false)->assertJsonPath('data.face_url', null);
 
         $this->profile->forceFill(['verification_status' => 'verified'])->save();
 
         $this->getJson("/api/v1/tailors/{$this->profile->slug}")
-            ->assertOk()->assertJsonPath('data.verification.face_matched', true)->assertJsonPath('data.verification.id_checked', false);
+            ->assertOk()->assertJsonPath('data.verification.selfie_checked', true)->assertJsonPath('data.verification.id_checked', false);
         $this->assertNotNull($selfie->id);
     }
 
