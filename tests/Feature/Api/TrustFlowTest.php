@@ -102,16 +102,33 @@ class TrustFlowTest extends TestCase
             ->assertOk()->assertJsonPath('data.blocking.0.code', 'fabric_unavailable');
         $this->actingAs($this->buyer)->postJson("/api/v1/fabrics/{$hidden->slug}/price-offers", ['quantity' => 1, 'unit_price_minor' => 1])->assertStatus(422);
 
-        // Saving a complete profile sends it for review.
-        $this->actingAs($vendorUser)->putJson('/api/v1/me/vendor-profile', [
+        // A complete profile is saved, but it is not sent for review until its documents are in.
+        $profile = [
             'business_name' => $shop->business_name, 'city' => 'Lagos', 'market' => 'Balogun', 'phone' => '08030000001',
             'bank_name' => 'GTBank', 'bank_account_name' => $shop->business_name, 'bank_account_number' => '0123456780',
-        ])->assertOk()->assertJsonPath('data.verification.status', 'pending');
+        ];
+        $this->actingAs($vendorUser)->putJson('/api/v1/me/vendor-profile', $profile)
+            ->assertOk()->assertJsonPath('data.verification.status', 'unverified');
+
+        $this->actingAs($vendorUser)->postJson('/api/v1/me/vendor-documents', [
+            'kind' => 'cac_certificate', 'file' => \Illuminate\Http\UploadedFile::fake()->createWithContent('cac.pdf', "%PDF-1.4\n%%EOF\n"),
+        ])->assertCreated();
+        $this->actingAs($vendorUser)->postJson('/api/v1/me/vendor-documents', [
+            'kind' => 'id_document', 'file' => \Illuminate\Http\UploadedFile::fake()->image('id.jpg', 400, 400), 'consent' => true,
+        ])->assertCreated();
+
+        // Saving again now sends it for review.
+        $this->actingAs($vendorUser)->putJson('/api/v1/me/vendor-profile', $profile)->assertOk()->assertJsonPath('data.verification.status', 'pending');
 
         $admin = $this->admin();
         $this->actingAs($this->buyer)->getJson('/api/v1/admin/vendors')->assertForbidden();
         $this->actingAs($admin)->getJson('/api/v1/admin/vendors')->assertOk()->assertJsonPath('data.0.id', $shop->id);
         $this->actingAs($admin)->postJson("/api/v1/admin/vendors/{$shop->id}/review", ['to' => 'rejected'])->assertStatus(422)->assertJsonPath('code', 'verification_note_required');
+        $this->actingAs($admin)->postJson("/api/v1/admin/vendors/{$shop->id}/review", ['to' => 'verified'])
+            ->assertStatus(422)->assertJsonPath('code', 'documents_not_approved');
+        foreach (\App\Models\VendorVerificationDocument::query()->where('fabric_vendor_id', $shop->id)->pluck('id') as $docId) {
+            $this->actingAs($admin)->postJson("/api/v1/admin/vendor-documents/{$docId}/review", ['decision' => 'approved'])->assertOk();
+        }
         $this->actingAs($admin)->postJson("/api/v1/admin/vendors/{$shop->id}/review", ['to' => 'verified'])->assertOk();
         $this->getJson("/api/v1/fabrics/{$hidden->slug}")->assertOk();
 

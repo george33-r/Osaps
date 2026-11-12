@@ -67,7 +67,8 @@ class VendorFabricController extends Controller
         }
         $vendor->save();
         if (in_array($vendor->verification_status, [VendorVerification::UNVERIFIED, VendorVerification::REJECTED], true)
-            && VendorVerification::missingForReview($this->reviewFields($vendor)) === []) {
+            && VendorVerification::missingForReview($this->reviewFields($vendor)) === []
+            && $trust->missingDocuments($vendor) === []) {
             $vendor = $trust->requestReview($vendor);
         }
 

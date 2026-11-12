@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\OfferMessageController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\TailorController;
 use App\Http\Controllers\Api\V1\TailorVerificationController;
+use App\Http\Controllers\Api\V1\VendorDocumentController;
 use App\Http\Controllers\Api\V1\AccountController;
 use App\Http\Controllers\Api\V1\AdminController;
 use App\Http\Controllers\Api\V1\CartController;
@@ -164,6 +165,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('vendors/{fabricVendor}/review', [AdminController::class, 'reviewVendor'])->whereNumber('fabricVendor')->name('vendors.review');
             Route::get('tailor-verifications', [TailorVerificationController::class, 'queue'])->withoutMiddleware('throttle:marketplace-writes')->name('tailor-verifications');
             Route::get('tailor-documents/{document}/file', [TailorVerificationController::class, 'documentFile'])->whereNumber('document')->withoutMiddleware('throttle:marketplace-writes')->name('tailor-documents.file');
+            Route::get('vendor-documents/{document}/file', [VendorDocumentController::class, 'documentFile'])->whereNumber('document')->withoutMiddleware('throttle:marketplace-writes')->name('vendor-documents.file');
+            Route::post('vendor-documents/{document}/review', [VendorDocumentController::class, 'reviewDocument'])->whereNumber('document')->name('vendor-documents.review');
             Route::post('tailor-documents/{document}/review', [TailorVerificationController::class, 'reviewDocument'])->whereNumber('document')->name('tailor-documents.review');
             Route::post('tailor-profiles/{tailorProfile}/review', [TailorVerificationController::class, 'reviewProfile'])->whereNumber('tailorProfile')->name('tailor-profiles.review');
             Route::get('disputes', [AdminController::class, 'disputes'])->withoutMiddleware('throttle:marketplace-writes')->name('disputes');
@@ -188,6 +191,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::post('vendor/live', [LiveController::class, 'store'])->middleware('throttle:marketplace-writes')->name('vendor.live.store');
         Route::delete('vendor/live/{liveSession}', [LiveController::class, 'destroy'])->name('vendor.live.destroy');
         Route::put('me/vendor-profile', [VendorFabricController::class, 'upsertProfile'])->middleware('throttle:marketplace-writes')->name('me.vendor-profile');
+        Route::get('me/vendor-documents', [VendorDocumentController::class, 'mine'])->name('me.vendor-documents');
+        Route::post('me/vendor-documents', [VendorDocumentController::class, 'upload'])->middleware('throttle:marketplace-writes')->name('me.vendor-documents.store');
         Route::post('vendor/fabrics', [VendorFabricController::class, 'store'])->middleware('throttle:marketplace-writes')->name('vendor.fabrics.store');
         Route::patch('vendor/fabrics/{fabric}', [VendorFabricController::class, 'update'])->middleware('throttle:marketplace-writes')->name('vendor.fabrics.update');
 

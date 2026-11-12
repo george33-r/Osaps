@@ -50,6 +50,8 @@ import type {
   VendorProfile,
   TailorDocKind,
   TailorVerificationState,
+  VendorDocKind,
+  VendorDocumentState,
   AdminTailorQueueRow,
 } from './types'
 
@@ -90,6 +92,10 @@ export interface Api {
   adminTailorQueue(status: string): Promise<AdminTailorQueueRow[]>
   adminReviewTailorDocument(id: number, decision: 'approved' | 'rejected', note?: string | null): Promise<{ id: number; status: string }>
   adminReviewTailorProfile(id: number, to: 'verified' | 'rejected' | 'suspended', note?: string | null): Promise<{ id: number; status: string }>
+  vendorDocuments(): Promise<VendorDocumentState | null>
+  /** Uploads one shop document. The owner's ID needs consent; the server refuses it without. */
+  uploadVendorDocument(kind: VendorDocKind, file: File, consent: boolean): Promise<{ kind: string; status: string }>
+  adminReviewVendorDocument(id: number, decision: 'approved' | 'rejected', note?: string | null): Promise<{ id: number; status: string }>
 
   myRequests(): Promise<Paginated<JobRequest>>
   createRequest(input: NewJobRequest): Promise<JobRequest>
@@ -295,6 +301,15 @@ export const httpApi: Api = {
   adminTailorQueue: (status) => data(http('GET', `/admin/tailor-verifications${qs({ status })}`)),
   adminReviewTailorDocument: (id, decision, note) => data(http('POST', `/admin/tailor-documents/${id}/review`, { decision, note: note ?? null })),
   adminReviewTailorProfile: (id, to, note) => data(http('POST', `/admin/tailor-profiles/${id}/review`, { to, note: note ?? null })),
+  vendorDocuments: () => data(http('GET', '/me/vendor-documents')),
+  uploadVendorDocument: (kind, file, consent) => {
+    const form = new FormData()
+    form.append('kind', kind)
+    form.append('file', file)
+    form.append('consent', consent ? '1' : '0')
+    return data(http('POST', '/me/vendor-documents', form))
+  },
+  adminReviewVendorDocument: (id, decision, note) => data(http('POST', `/admin/vendor-documents/${id}/review`, { decision, note: note ?? null })),
 
   myRequests: () => http('GET', '/job-requests'),
   createRequest: (input) => data(http('POST', '/job-requests', input)),

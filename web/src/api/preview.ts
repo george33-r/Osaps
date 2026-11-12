@@ -379,6 +379,16 @@ export const previewApi: Api = {
   adminTailorQueue: async () => [],
   adminReviewTailorDocument: async (id, decision) => ({ id, status: decision }),
   adminReviewTailorProfile: async (id, to) => ({ id, status: to }),
+  vendorDocuments: async () => ({
+    consent_given: false,
+    documents: [
+      { kind: 'cac_certificate', label: 'CAC business registration certificate', biometric: false, status: null, review_note: null },
+      { kind: 'id_document', label: 'Owner\'s government ID (NIN, passport or driver\'s licence)', biometric: true, status: null, review_note: null },
+    ],
+    missing: ['cac_certificate', 'id_document'],
+  }),
+  uploadVendorDocument: async (kind) => ({ kind, status: 'submitted' }),
+  adminReviewVendorDocument: async (id, decision) => ({ id, status: decision }),
   saveTailorProfile: async (input) => {
     requireUser('tailor')
     const t = tailors[0]!

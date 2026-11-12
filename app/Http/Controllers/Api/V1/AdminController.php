@@ -56,7 +56,7 @@ class AdminController extends Controller
     {
         $status = $request->query('status', VendorVerification::PENDING);
         abort_unless(in_array($status, array_keys(VendorVerification::LABELS), true), 422);
-        $vendors = FabricVendor::query()->with('user:id,name,email,phone,created_at')->withCount('fabrics')
+        $vendors = FabricVendor::query()->with(['user:id,name,email,phone,created_at', 'documents'])->withCount('fabrics')
             ->where('verification_status', $status)->orderBy('verification_requested_at')->limit(200)->get();
 
         return response()->json(['data' => $vendors->map(fn (FabricVendor $v) => [
@@ -71,6 +71,15 @@ class AdminController extends Controller
             'note' => $v->verification_note,
             'requested_at' => $v->verification_requested_at?->toIso8601String(),
             'is_demo' => (bool) $v->is_demo,
+            'documents' => $v->documents->sortByDesc('id')->unique('kind')->values()->map(fn ($d) => [
+                'id' => $d->id, 'kind' => $d->kind, 'label' => VendorVerification::DOCUMENT_LABELS[$d->kind] ?? $d->kind,
+                'status' => $d->status, 'review_note' => $d->review_note,
+                'file_url' => url('/api/v1/admin/vendor-documents/'.$d->id.'/file'),
+            ])->values(),
+            'documents_missing' => VendorVerification::missingDocuments(
+                $v->documents->sortByDesc('id')->unique('kind')->mapWithKeys(fn ($d) => [$d->kind => $d->status])->all(),
+                needApproved: false,
+            ),
         ])->values()]);
     }
 

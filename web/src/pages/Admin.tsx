@@ -179,6 +179,31 @@ function Vendors({ onChange }: { onChange: () => void }) {
               <div><dt>Listings</dt><dd>{v.fabrics}</dd></div>
               {v.note && <div><dt>Last note</dt><dd>{v.note}</dd></div>}
             </dl>
+            <ul className="rows" aria-label="Shop documents">
+              {v.documents.map((d) => (
+                <li key={d.id} className="rows__item" style={{ display: 'block' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'baseline' }}>
+                    <span><strong>{d.label}</strong> · {d.status === 'approved' ? 'Approved' : d.status === 'rejected' ? 'Needs a new upload' : 'Waiting for your check'}</span>
+                    <a href={d.file_url} target="_blank" rel="noopener noreferrer">Open file</a>
+                  </div>
+                  {d.review_note && <p className="muted">Your note: {d.review_note}</p>}
+                  {d.status === 'submitted' && (
+                    <Decide
+                      noteLabel="Note to the shop (needed to ask for a new upload)"
+                      actions={[
+                        { key: 'approved', label: 'Approve document', variant: 'primary' },
+                        { key: 'rejected', label: 'Needs a new upload', needsNote: true },
+                      ]}
+                      onDone={async (to, note) => {
+                        await api.adminReviewVendorDocument(d.id, to as 'approved' | 'rejected', note || null)
+                        toast(`${d.label}: ${to === 'approved' ? 'approved' : 'sent back'}.`, 'good'); state.reload(); onChange()
+                      }}
+                    />
+                  )}
+                </li>
+              ))}
+            </ul>
+            {v.documents_missing.length > 0 && <p className="muted">Not uploaded yet: {v.documents_missing.map((k) => (k === 'cac_certificate' ? 'CAC certificate' : 'owner ID')).join(', ')}.</p>}
             <p className="muted">Before verifying: call the phone number, and check the account name matches the shop or owner (most banking apps show the name when you start a transfer).</p>
             <Decide
               noteLabel="Note to the vendor (needed to reject or suspend)"

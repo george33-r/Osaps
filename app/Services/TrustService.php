@@ -204,6 +204,19 @@ class TrustService
 
     // ---- Vendor checks ---------------------------------------------------------------------
 
+    /** Documents a shop still has to upload before it can ask for review. */
+    public function missingDocuments(FabricVendor $vendor): array
+    {
+        return VendorVerification::missingDocuments($this->documentStatuses($vendor), needApproved: false);
+    }
+
+    /** @return array<string, string> latest status per document kind */
+    private function documentStatuses(FabricVendor $vendor): array
+    {
+        return $vendor->documents()->orderByDesc('id')->get()
+            ->unique('kind')->mapWithKeys(fn ($d) => [$d->kind => $d->status])->all();
+    }
+
     public function requestReview(FabricVendor $vendor): FabricVendor
     {
         $status = $vendor->verification_status ?: VendorVerification::UNVERIFIED;
@@ -211,6 +224,10 @@ class TrustService
             return $vendor;
         }
         VendorVerification::assertReadyForReview($vendor->only(['business_name', 'city', 'market', 'phone', 'bank_name', 'bank_account_name']) + ['bank_account_number' => $vendor->bank_account_number]);
+        $missingDocs = VendorVerification::missingDocuments($this->documentStatuses($vendor), needApproved: false);
+        if ($missingDocs !== []) {
+            throw new DomainRuleViolation('Upload: '.implode(', ', array_map(fn (string $k) => VendorVerification::DOCUMENT_LABELS[$k], $missingDocs)).'.', 'documents_missing');
+        }
         VendorVerification::assert($status, VendorVerification::PENDING, 'vendor');
         $vendor->verification_status = VendorVerification::PENDING;
         $vendor->verification_requested_at = now();
@@ -226,6 +243,12 @@ class TrustService
             $vendor = FabricVendor::query()->lockForUpdate()->findOrFail($vendor->id);
             VendorVerification::assertNoteGiven($to, $note);
             VendorVerification::assert($vendor->verification_status ?: VendorVerification::UNVERIFIED, $to, 'admin');
+            if ($to === VendorVerification::VERIFIED) {
+                $missingDocs = VendorVerification::missingDocuments($this->documentStatuses($vendor), needApproved: true);
+                if ($missingDocs !== []) {
+                    throw new DomainRuleViolation('Approve every required document first: '.implode(', ', $missingDocs).'.', 'documents_not_approved');
+                }
+            }
             $vendor->verification_status = $to;
             $vendor->verification_note = $note !== null ? mb_substr(trim($note), 0, 300) : null;
             $vendor->verified_at = $to === VendorVerification::VERIFIED ? now() : $vendor->verified_at;

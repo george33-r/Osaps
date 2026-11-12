@@ -43,6 +43,37 @@ final class VendorVerification extends StateMachine
         return $status === self::VERIFIED;
     }
 
+    public const CAC_CERTIFICATE = 'cac_certificate';
+    public const ID_DOCUMENT = 'id_document';
+
+    /** Uploaded before a shop can ask for review. */
+    public const DOCUMENT_REQUIRED = [self::CAC_CERTIFICATE, self::ID_DOCUMENT];
+
+    /** Identity data: needs explicit consent before the owner's ID is taken. */
+    public const DOCUMENT_BIOMETRIC = [self::ID_DOCUMENT];
+
+    public const DOCUMENT_LABELS = [
+        self::CAC_CERTIFICATE => 'CAC business registration certificate',
+        self::ID_DOCUMENT => 'Owner\'s government ID (NIN, passport or driver\'s licence)',
+    ];
+
+    /**
+     * Required documents still missing. Before review a document counts once it is submitted;
+     * before verifying, every required document must be approved.
+     *
+     * @param  array<string, string>  $statusByKind  latest status per kind
+     * @return list<string>
+     */
+    public static function missingDocuments(array $statusByKind, bool $needApproved): array
+    {
+        $ok = $needApproved ? ['approved'] : ['submitted', 'approved'];
+
+        return array_values(array_filter(
+            self::DOCUMENT_REQUIRED,
+            fn (string $kind) => ! in_array($statusByKind[$kind] ?? null, $ok, true),
+        ));
+    }
+
     /**
      * What a shop must fill in before asking for review.
      *

@@ -783,8 +783,33 @@ export interface AdminOverview {
   mail: string
 }
 
+export type VendorDocKind = 'cac_certificate' | 'id_document'
+
+export interface VendorDocumentState {
+  consent_given: boolean
+  documents: Array<{
+    kind: VendorDocKind
+    label: string
+    biometric: boolean
+    status: 'submitted' | 'approved' | 'rejected' | null
+    review_note: string | null
+  }>
+  missing: VendorDocKind[]
+}
+
+export interface AdminVendorDoc {
+  id: number
+  kind: VendorDocKind
+  label: string
+  status: 'submitted' | 'approved' | 'rejected'
+  review_note: string | null
+  file_url: string
+}
+
 export interface AdminVendor {
   id: number
+  documents: AdminVendorDoc[]
+  documents_missing: VendorDocKind[]
   business_name: string
   city: string | null
   market: string | null

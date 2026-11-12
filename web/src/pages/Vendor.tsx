@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { VendorDocuments } from '../components/VendorDocuments'
 import { api, ApiError, type FabricOrder, type LiveSession, type PriceOffer, type VendorListing, type VendorProfile } from '../api'
 import { OfferCard } from '../components/ShopKit'
 import { DeliveredWithCode } from '../components/Protection'
@@ -310,6 +311,7 @@ function ShopForm({ onSaved }: { onSaved: () => void | Promise<void> }) {
   return (
     <form className="new-listing" onSubmit={submit} key={v?.slug ?? 'new'}>
       {v?.verification && <VerificationBanner v={v.verification} />}
+      {v && <VendorDocuments locked={v.verification?.status === 'pending' || v.verification?.status === 'verified'} />}
       <Field label="Shop name" error={error?.field('business_name')}>{(p) => <input {...p} name="business_name" className="input" required minLength={2} defaultValue={v?.business_name ?? user?.name ?? ''} />}</Field>
       <div className="checkout__pair">
         <Field label="City" error={error?.field('city')}>{(p) => <input {...p} name="city" className="input" required defaultValue={v?.city ?? user?.city ?? ''} />}</Field>

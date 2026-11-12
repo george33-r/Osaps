@@ -20,11 +20,14 @@ class PrivatePhotoService
     private const OK = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
 
     /** @return array{path:string, mime:string, size_bytes:int} */
-    public function store(UploadedFile $file, string $folder): array
+    public function store(UploadedFile $file, string $folder, bool $allowPdf = false): array
     {
         $mime = (string) $file->getMimeType(); // from the contents, not the browser's claim
+        if ($allowPdf && $mime === 'application/pdf') {
+            return $this->storePdf($file, $folder);
+        }
         if (! isset(self::OK[$mime])) {
-            throw new DomainRuleViolation('Send a JPG, PNG or WebP photo.', 'photo_type');
+            throw new DomainRuleViolation($allowPdf ? 'Send a PDF, JPG, PNG or WebP file.' : 'Send a JPG, PNG or WebP photo.', 'photo_type');
         }
         if ((int) $file->getSize() > self::MAX_BYTES) {
             throw new DomainRuleViolation('Photos can be up to 8 MB.', 'photo_too_big');
@@ -46,6 +49,28 @@ class PrivatePhotoService
         $file->move($dir, "{$name}.{$ext}");
 
         return ['path' => "{$folder}/{$name}.{$ext}", 'mime' => $mime, 'size_bytes' => (int) filesize("{$dir}/{$name}.{$ext}")];
+    }
+
+    /**
+     * Documents such as a CAC certificate arrive as PDFs. A PDF cannot be redrawn like a photo,
+     * so it is kept as sent, under a random name, in the same private folder.
+     *
+     * @return array{path:string, mime:string, size_bytes:int}
+     */
+    private function storePdf(UploadedFile $file, string $folder): array
+    {
+        if ((int) $file->getSize() > self::MAX_BYTES) {
+            throw new DomainRuleViolation('Documents can be up to 8 MB.', 'photo_too_big');
+        }
+        $folder = trim(preg_replace('/[^a-z0-9\/_-]/i', '', $folder) ?? 'misc', '/');
+        $dir = storage_path("app/private/{$folder}");
+        if (! is_dir($dir) && ! @mkdir($dir, 0750, true) && ! is_dir($dir)) {
+            throw new DomainRuleViolation('Documents cannot be saved right now. Please try again later.', 'photo_storage');
+        }
+        $name = Str::lower(Str::random(28));
+        $file->move($dir, "{$name}.pdf");
+
+        return ['path' => "{$folder}/{$name}.pdf", 'mime' => 'application/pdf', 'size_bytes' => (int) filesize("{$dir}/{$name}.pdf")];
     }
 
     public function response(string $path, string $mime): BinaryFileResponse

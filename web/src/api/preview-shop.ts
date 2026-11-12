@@ -665,6 +665,7 @@ export function makePreviewShop(ctx: Ctx) {
     owner: { name: 'Demo Owner', email: 'vendor-new@demo.osaps.test', joined: new Date().toISOString().slice(0, 10) },
     bank: { name: 'Demo Bank', account_name: 'Onitsha Lace House', account_number: '0987654321' }, fabrics: 4,
     status: 'pending', label: 'Waiting for review', note: null, requested_at: hours(-20), is_demo: true,
+    documents: [], documents_missing: ['cac_certificate', 'id_document'],
   }]
 
   // ---- Back office (mirrors AdminController + TrustService) ----
@@ -721,7 +722,8 @@ export function makePreviewShop(ctx: Ctx) {
       const mine: AdminVendor = { id: 901, business_name: profile.business_name, city: profile.city, market: profile.market, phone: profile.phone, whatsapp: profile.whatsapp,
         owner: { name: 'Bola Balogun', email: 'vendor1@demo.osaps.test', joined: '2026-10-01' },
         bank: { name: profile.bank_name, account_name: profile.bank_account_name, account_number: bankNumber }, fabrics: fabrics.filter((f) => f.vendor?.slug === 'osaps-store').length,
-        status: vStatus, label: V_LABELS[vStatus], note: vNote, requested_at: vRequested, is_demo: true }
+        status: vStatus, label: V_LABELS[vStatus], note: vNote, requested_at: vRequested, is_demo: true,
+          documents: [], documents_missing: ['cac_certificate', 'id_document'] }
       return delay([mine, ...otherShops].filter((v) => v.status === status))
     },
     adminReviewVendor: async (id, to, note) => {
