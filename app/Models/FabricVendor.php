@@ -18,7 +18,7 @@ class FabricVendor extends Model
 
     protected function casts(): array
     {
-        return ['is_demo' => 'boolean', 'verified_at' => 'datetime', 'verification_requested_at' => 'datetime', 'verification_consent_at' => 'datetime', 'recheck_due_at' => 'datetime', 'bank_account_number' => 'encrypted'];
+        return ['is_demo' => 'boolean', 'verified_at' => 'datetime', 'verification_requested_at' => 'datetime', 'verification_consent_at' => 'datetime', 'recheck_due_at' => 'datetime', 'recheck_reminded_at' => 'datetime', 'bank_account_number' => 'encrypted'];
     }
 
     public function documents(): \Illuminate\Database\Eloquent\Relations\HasMany

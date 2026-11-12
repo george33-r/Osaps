@@ -30,6 +30,7 @@ class TailorProfile extends Model
             'verification_requested_at' => 'datetime',
             'verification_consent_at' => 'datetime',
             'recheck_due_at' => 'datetime',
+            'recheck_reminded_at' => 'datetime',
         ];
     }
 
