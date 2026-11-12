@@ -23,6 +23,7 @@ Artisan::command('shop:sweep', function (\App\Services\CheckoutService $checkout
 // The shop also sweeps lazily on every cart and offer request, so it works without cron too.
 Schedule::command('shop:sweep')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('verification:recheck-reminders')->dailyAt('08:00')->withoutOverlapping();
+Schedule::command('verification:purge-documents')->dailyAt('03:00')->withoutOverlapping();
 
 // Sends queued WhatsApp updates. Shared hosting has no long-running worker, so cron starts a short
 // one each minute that stops when the queue is empty (or after 50 seconds).
