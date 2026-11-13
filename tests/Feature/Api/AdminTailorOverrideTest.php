@@ -79,6 +79,7 @@ class AdminTailorOverrideTest extends TestCase
     public function test_directory_lists_tailors_without_a_profile_and_their_photo_state(): void
     {
         $noProfile = User::factory()->tailor()->create();
+        $this->profile->forceFill(['profile_photo_path' => null])->save();
 
         $rows = collect($this->actingAs($this->admin)->getJson('/api/v1/admin/tailors')->assertOk()->json('data'));
 
