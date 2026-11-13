@@ -23,15 +23,22 @@ class FabricController extends Controller
             'max_price' => ['nullable', 'integer', 'min:0'],
             'in_stock' => ['nullable', 'boolean'],
             'city' => ['nullable', 'string', 'max:80'],
-            'sort' => ['nullable', Rule::in(['newest', 'price_asc', 'price_desc'])],
+            'sort' => ['nullable', Rule::in(['newest', 'price_asc', 'price_desc', 'most_bought', 'trending'])],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:48'],
         ]);
 
         $query = Fabric::query()->listed()->with('vendor', 'media')->filter($f);
 
+        // Units sold, counted on orders that were paid for and not cancelled.
+        $live = "'".implode("','", [\App\Domain\Shop\FabricOrderStatus::PENDING_PAYMENT, \App\Domain\Shop\FabricOrderStatus::CANCELLED])."'";
+        $sold = fn (?int $days) => "(select coalesce(sum(i.quantity), 0) from fabric_order_items i join fabric_orders o on o.id = i.fabric_order_id where i.fabric_id = fabrics.id and o.status not in ({$live})"
+            .($days ? " and o.created_at >= '".now()->subDays($days)->toDateTimeString()."'" : '').")";
+
         match ($f['sort'] ?? 'newest') {
             'price_asc' => $query->orderBy('price_minor')->orderBy('id'),
             'price_desc' => $query->orderByDesc('price_minor')->orderBy('id'),
+            'most_bought' => $query->orderByDesc(\Illuminate\Support\Facades\DB::raw($sold(null)))->latest('id'),
+            'trending' => $query->orderByDesc(\Illuminate\Support\Facades\DB::raw($sold(30)))->latest('id'),
             default => $query->latest('id'),
         };
 

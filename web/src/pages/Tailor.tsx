@@ -327,6 +327,35 @@ export function TailorJob() {
   )
 }
 
+/** The public photo on a tailor's card. Any clear photo of the maker or the workshop works. */
+function ProfilePhoto() {
+  const toast = useToast()
+  const [busy, setBusy] = useState(false)
+  const [url, setUrl] = useState<string | null>(null)
+  const pick = async (file: File) => {
+    setBusy(true)
+    try {
+      const r = await api.uploadTailorPhoto(file)
+      setUrl(r.photo_url)
+      toast('Photo saved')
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : 'Could not upload the photo.')
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <div className="photo-field">
+      {url ? <img src={url} alt="Your profile photo" className="photo-field__img" /> : <p className="muted">No photo yet. A clear photo of you or your workshop helps customers choose you.</p>}
+      <label className={`btn btn--secondary ${busy ? 'is-busy' : ''}`}>
+        {busy ? 'Uploading…' : 'Choose a photo'}
+        <input type="file" accept="image/jpeg,image/png,image/webp" hidden disabled={busy} onChange={(e) => { const f = e.currentTarget.files?.[0]; if (f) void pick(f) }} />
+      </label>
+      <p className="muted">JPG, PNG or WebP, up to 5 MB.</p>
+    </div>
+  )
+}
+
 export function TailorProfileEdit() {
   const { meta, user, refresh } = useSession()
   const navigate = useNavigate()
@@ -366,6 +395,7 @@ export function TailorProfileEdit() {
   return (
     <div className="page page--form">
       <PageHeader title="Your tailor profile" intro="Customers see this when you send an offer. Verification by the OSAPS team comes after you sign up." />
+      <ProfilePhoto />
       <form className="form form--wide" onSubmit={submit} noValidate>
         {error && <p className="form__error" role="alert">{Object.keys(error.fieldErrors).length ? 'Please fix the highlighted fields.' : error.message}</p>}
         <Field label="Business name" error={error?.field('business_name')}>

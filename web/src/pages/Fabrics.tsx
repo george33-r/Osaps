@@ -16,6 +16,8 @@ const SORTS: { key: NonNullable<FabricFilters['sort']>; label: string }[] = [
   { key: 'newest', label: 'Newest' },
   { key: 'price_asc', label: 'Price, low to high' },
   { key: 'price_desc', label: 'Price, high to low' },
+  { key: 'trending', label: 'Trending now' },
+  { key: 'most_bought', label: 'Most bought' },
 ]
 
 const ASK_EXAMPLES = ['A wine-coloured Ankara for a wedding guest', 'Lace for owambe', 'Material for senator', 'Aṣọ-ẹbí for a family wedding', 'Ankara under ₦5,000']

@@ -88,6 +88,7 @@ export interface Api {
   tailorVerification(): Promise<TailorVerificationState | null>
   /** Uploads one document. ID and selfie need consent; the server refuses them without it. */
   uploadTailorDocument(kind: TailorDocKind, file: File, consent: boolean, expiresOn?: string | null): Promise<{ kind: string; status: string }>
+  uploadTailorPhoto(file: File): Promise<{ photo_url: string }>
   submitTailorVerification(): Promise<{ status: string }>
   adminTailorQueue(status: string): Promise<AdminTailorQueueRow[]>
   adminReviewTailorDocument(id: number, decision: 'approved' | 'rejected', note?: string | null): Promise<{ id: number; status: string }>
@@ -297,6 +298,11 @@ export const httpApi: Api = {
     form.append('consent', consent ? '1' : '0')
     if (expiresOn) form.append('expires_on', expiresOn)
     return data(http('POST', '/me/tailor-verification/documents', form))
+  },
+  uploadTailorPhoto: (file) => {
+    const form = new FormData()
+    form.append('photo', file)
+    return data(http('POST', '/me/tailor-profile/photo', form))
   },
   submitTailorVerification: () => data(http('POST', '/me/tailor-verification/submit')),
   adminTailorQueue: (status) => data(http('GET', `/admin/tailor-verifications${qs({ status })}`)),

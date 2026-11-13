@@ -72,6 +72,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::post('auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
         Route::get('me', [AuthController::class, 'me'])->name('me');
         Route::put('me/tailor-profile', [TailorController::class, 'upsertMine'])->name('me.tailor-profile');
+        Route::post('me/tailor-profile/photo', [TailorController::class, 'uploadPhoto'])->middleware('throttle:marketplace-writes')->name('me.tailor-profile.photo');
         Route::get('me/tailor-verification', [TailorVerificationController::class, 'mine'])->name('me.tailor-verification');
         Route::post('me/tailor-verification/documents', [TailorVerificationController::class, 'upload'])->middleware('throttle:marketplace-writes')->name('me.tailor-verification.upload');
         Route::post('me/tailor-verification/submit', [TailorVerificationController::class, 'submit'])->middleware('throttle:marketplace-writes')->name('me.tailor-verification.submit');

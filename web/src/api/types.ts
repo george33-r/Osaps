@@ -120,6 +120,8 @@ export interface Tailor {
   starting_price: MoneyValue | null
   accepting_work: boolean
   verified: boolean
+  photo_url: string | null
+  face_url: string | null
   track_record: { completed_orders: number; on_time_rate: number | null; is_new: boolean }
   is_demo: boolean
   match?: MatchResult
@@ -299,7 +301,7 @@ export interface FabricFilters {
   color?: string[]
   max_price?: number
   in_stock?: boolean
-  sort?: 'newest' | 'price_asc' | 'price_desc'
+  sort?: 'newest' | 'price_asc' | 'price_desc' | 'most_bought' | 'trending'
 }
 
 export interface TailorProfileInput {

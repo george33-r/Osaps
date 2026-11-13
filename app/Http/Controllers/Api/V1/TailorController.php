@@ -41,6 +41,33 @@ class TailorController extends Controller
     }
 
     /** Tailor onboarding: create or update the signed-in tailor's own profile. */
+    /** A public profile photo for the tailor's card. Stored as an image; the file type is checked from its bytes. */
+    public function uploadPhoto(Request $request): JsonResponse
+    {
+        $request->validate(['photo' => ['required', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120']]);
+        $profile = $request->user()->tailorProfile;
+        if (! $profile) {
+            return response()->json(['message' => 'Set up your tailor profile first.', 'code' => 'no_profile'], 422);
+        }
+
+        $file = $request->file('photo');
+        $ext = match ($file->guessExtension()) { 'jpeg' => 'jpg', 'jpg', 'png', 'webp' => $file->guessExtension(), default => null };
+        if ($ext === null) {
+            return response()->json(['message' => 'Upload a JPG, PNG or WebP photo.', 'code' => 'photo_type'], 422);
+        }
+
+        $dir = 'uploads/tailors/'.$profile->id;
+        $name = Str::lower(Str::random(24)).'.'.$ext;
+        $old = $profile->profile_photo_path;
+        $file->move(public_path($dir), $name);
+        $profile->forceFill(['profile_photo_path' => $dir.'/'.$name])->save();
+        if ($old && is_file(public_path($old))) {
+            @unlink(public_path($old));
+        }
+
+        return response()->json(['photo_url' => url('/'.$dir.'/'.$name)]);
+    }
+
     public function upsertMine(UpsertTailorProfileRequest $request): JsonResponse
     {
         $user = $request->user();

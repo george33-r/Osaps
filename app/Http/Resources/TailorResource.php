@@ -28,6 +28,7 @@ class TailorResource extends ApiResource
             'verified' => $this->badgeActive(),
             'verification' => $this->verificationBadges(),
             // The selfie an OSAPS admin has checked. Shown only while the badges are active.
+            'photo_url' => $this->profile_photo_path ? url('/'.$this->profile_photo_path) : null,
             'face_url' => $this->badgeActive() && $this->approvedSelfie() ? url('/api/v1/tailors/'.$this->slug.'/face') : null,
             'track_record' => [
                 'completed_orders' => $record['completed_orders'],

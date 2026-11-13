@@ -67,7 +67,11 @@ export function Monogram({ name, large = false }: { name: string; large?: boolea
 export function TailorCard({ tailor }: { tailor: Tailor }) {
   return (
     <Link to={`/tailors/${tailor.slug}`} data-tilt className="maker-card">
-      <Monogram name={tailor.business_name} />
+      {tailor.photo_url || tailor.face_url ? (
+        <img src={(tailor.photo_url || tailor.face_url) as string} alt="" className="maker-card__photo" loading="lazy" />
+      ) : (
+        <Monogram name={tailor.business_name} />
+      )}
       <div className="maker-card__text">
         <span className="label">{tailor.specialties.slice(0, 3).map((s) => s.label).join(', ')}</span>
         <h3 className="maker-card__name">{tailor.business_name}</h3>

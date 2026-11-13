@@ -180,6 +180,8 @@ return [
         'adire' => 'Adire',
         'aso_oke' => 'Aṣọ-òkè',
         'lace' => 'Lace',
+        'aso_ebi' => 'Aso ebi materials',
+        'wrapper' => 'Wrappers',
         'senator' => 'Senator fabric',
         'suiting' => 'Suiting',
         'george' => 'George',
