@@ -24,6 +24,7 @@ class TailorController extends Controller
         ]);
 
         $tailors = TailorProfile::query()->acceptingWork()
+            ->where(fn ($q) => $q->whereNotNull('profile_photo_path')->orWhere('is_demo', true))
             ->when($f['city'] ?? null, fn ($q, $c) => $q->where('city', $c))
             ->when($f['specialty'] ?? null, fn ($q, $s) => $q->whereJsonContains('specialties', $s))
             ->when($f['q'] ?? null, fn ($q, $t) => $q->where('business_name', 'like', '%'.$t.'%'))

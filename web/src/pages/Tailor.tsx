@@ -346,7 +346,7 @@ function ProfilePhoto() {
   }
   return (
     <div className="photo-field">
-      {url ? <img src={url} alt="Your profile photo" className="photo-field__img" /> : <p className="muted">No photo yet. A clear photo of you or your workshop helps customers choose you.</p>}
+      {url ? <img src={url} alt="Your profile photo" className="photo-field__img" /> : <p className="form__error">Required. Add a clear photo of you or your workshop. You cannot make offers or appear in the directory until it is added.</p>}
       <label className={`btn btn--secondary ${busy ? 'is-busy' : ''}`}>
         {busy ? 'Uploading…' : 'Choose a photo'}
         <input type="file" accept="image/jpeg,image/png,image/webp" hidden disabled={busy} onChange={(e) => { const f = e.currentTarget.files?.[0]; if (f) void pick(f) }} />

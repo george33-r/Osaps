@@ -83,6 +83,9 @@ class NegotiationService
         if (! $profile->accepting_work) {
             throw new DomainRuleViolation('Turn on "accepting work" in your profile to make offers.', 'not_accepting_work');
         }
+        if (! $profile->is_demo && $profile->profile_photo_path === null) {
+            throw new DomainRuleViolation('Add a profile photo before you make offers. Customers choose makers they can see.', 'photo_required');
+        }
 
         return DB::transaction(function () use ($tailor, $request, $data) {
             $request = JobRequest::query()->lockForUpdate()->findOrFail($request->id);

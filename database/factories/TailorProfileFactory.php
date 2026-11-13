@@ -28,4 +28,14 @@ class TailorProfileFactory extends Factory
             'accepting_work' => true,
         ];
     }
+
+    /** Profiles get a photo unless a test clears it, because a photo is required to make offers. */
+    public function configure(): static
+    {
+        return $this->afterCreating(function (\App\Models\TailorProfile $profile) {
+            if ($profile->profile_photo_path === null && ! $profile->is_demo) {
+                $profile->forceFill(['profile_photo_path' => 'uploads/tailors/test.jpg'])->save();
+            }
+        });
+    }
 }
