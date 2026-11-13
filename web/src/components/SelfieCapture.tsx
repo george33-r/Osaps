@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Button } from './ui'
+import { BLINK_CHECK_ON, BlinkWatcher, eyeAspectRatio, loadFaceMesh, type Landmarks, type FaceMeshLike } from '../lib/blink'
 
 type Box = { x: number; y: number; width: number; height: number }
 type FaceDetectorLike = { detect(source: CanvasImageSource): Promise<Array<{ boundingBox: Box }>> }
@@ -37,6 +38,9 @@ export function SelfieCapture({ onCapture }: Props) {
   const [blob, setBlob] = useState<Blob | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
   const detectorAvailable = faceDetectorCtor() !== null
+  const [blinked, setBlinked] = useState(false)
+  const [meshError, setMeshError] = useState<string | null>(null)
+  const [noBlinkYet, setNoBlinkYet] = useState(false)
 
   // Open the camera once, and release it when the component leaves the page.
   useEffect(() => {
@@ -97,10 +101,77 @@ export function SelfieCapture({ onCapture }: Props) {
     )
   }
 
+  // Blink check: the face must be in the guide and the tailor must blink before a photo is taken.
+  useEffect(() => {
+    if (!BLINK_CHECK_ON || status !== 'ready' || blob) return
+    let alive = true
+    let steady = 0
+    let timer = 0
+    const watcher = new BlinkWatcher()
+    let mesh: FaceMeshLike | null = null
+    let latest: Landmarks | null = null
+    const startedAt = Date.now()
+    const frame = (lm: Landmarks | null) => {
+      const video = videoRef.current
+      if (!lm || !video || video.videoWidth === 0) return false
+      const xs = lm.map((p) => p.x), ys = lm.map((p) => p.y)
+      const box = {
+        x: Math.min(...xs) * video.videoWidth,
+        y: Math.min(...ys) * video.videoHeight,
+        width: (Math.max(...xs) - Math.min(...xs)) * video.videoWidth,
+        height: (Math.max(...ys) - Math.min(...ys)) * video.videoHeight,
+      }
+      return inGuide(box, video)
+    }
+    const run = async () => {
+      try {
+        mesh = await loadFaceMesh()
+      } catch {
+        if (alive) setMeshError('The face check could not load. Check your connection and reload this page.')
+        return
+      }
+      if (!alive || !mesh) return
+      mesh.onResults((r) => {
+        latest = r.multiFaceLandmarks?.[0] ?? null
+        if (latest) {
+          watcher.push(eyeAspectRatio(latest))
+          if (watcher.blinks > 0 && alive) setBlinked(true)
+        }
+      })
+      const tick = async () => {
+        if (!alive || !mesh) return
+        const video = videoRef.current
+        if (video && video.readyState >= 2 && video.videoWidth > 0) {
+          try {
+            await mesh.send({ image: video })
+          } catch {
+            // A dropped frame is not an error: try again.
+          }
+          const ok = frame(latest)
+          setFaceFound(ok)
+          steady = ok ? steady + 1 : 0
+          if (steady >= 5 && watcher.blinks > 0) {
+            snap()
+            return
+          }
+          if (watcher.blinks === 0 && Date.now() - startedAt > 15000) setNoBlinkYet(true)
+        }
+        timer = window.setTimeout(tick, 200)
+      }
+      tick()
+    }
+    run()
+    return () => {
+      alive = false
+      window.clearTimeout(timer)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, blob])
+
   // Auto-capture: when the face has been in the guide for about 1.25 seconds.
   useEffect(() => {
     const Ctor = faceDetectorCtor()
-    if (!Ctor || status !== 'ready' || blob) return
+    if (BLINK_CHECK_ON || !Ctor || status !== 'ready' || blob) return
     const detector = new Ctor({ fastMode: true, maxDetectedFaces: 1 })
     let alive = true
     let steady = 0
@@ -138,6 +209,8 @@ export function SelfieCapture({ onCapture }: Props) {
     setBlob(null)
     setPreview(null)
     setFaceFound(false)
+    setBlinked(false)
+    setNoBlinkYet(false)
   }
 
   function keep() {
@@ -148,7 +221,12 @@ export function SelfieCapture({ onCapture }: Props) {
   const hint =
     status === 'starting' ? 'Opening your camera…'
     : status === 'error' ? error
+    : meshError ? meshError
     : blob ? 'Check the photo: your face should be clear and fully visible. Send it, or retake.'
+    : BLINK_CHECK_ON
+      ? !blinked
+        ? noBlinkYet ? 'No blink yet. Blink once, slowly, while looking at the camera.' : 'Look at the camera, then blink once, slowly.'
+        : faceFound ? 'Blink seen. Hold still.' : 'Move your face into the circle.'
     : detectorAvailable
       ? faceFound ? 'Face found. Hold still.' : 'Move your face into the circle. Good light on your face. Take off caps and dark glasses.'
       : 'Look straight at the camera in good light. Take off caps and dark glasses, then tap Take photo.'
@@ -184,7 +262,9 @@ export function SelfieCapture({ onCapture }: Props) {
       )}
       <p className="field__hint" role="status" style={{ textAlign: 'center' }}>{hint}</p>
       {status === 'ready' && !preview && (
-        <Button onClick={snap} variant="secondary">Take photo</Button>
+        <Button onClick={snap} variant="secondary" disabled={BLINK_CHECK_ON && !blinked}>
+          {BLINK_CHECK_ON && !blinked ? 'Blink first to take the photo' : 'Take photo'}
+        </Button>
       )}
       {preview && (
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>

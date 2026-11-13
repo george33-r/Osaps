@@ -2,6 +2,7 @@ import { useState, type ChangeEvent } from 'react'
 import { api, type TailorDocKind, type TailorVerificationDoc, type TailorVerificationState } from '../api'
 import { Badge, Button, ButtonLink, EmptyState, ErrorState, PageHeader, Skeleton, errorMessage, type Tone } from '../components/ui'
 import { SelfieCapture } from '../components/SelfieCapture'
+import { BLINK_CHECK_ON } from '../lib/blink'
 import { useToast } from '../lib/toast'
 import { useAsync } from '../lib/useAsync'
 
@@ -93,19 +94,24 @@ function DocRow({ doc, consentGiven, disabled, onUploaded }: { doc: TailorVerifi
               <Button variant="secondary" onClick={() => { setFile(null); setCamera(true) }}>Retake with camera</Button>
             </div>
           )}
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            aria-label={`Choose a photo for ${doc.label}`}
-            disabled={needsConsent && !consent}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setFile(e.target.files?.[0] ?? null)}
-          />
+          {/* With the blink check on, a selfie must come from the camera: a file upload would skip the check. */}
+          {!(doc.kind === 'selfie' && BLINK_CHECK_ON) && (
+            <>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                aria-label={`Choose a photo for ${doc.label}`}
+                disabled={needsConsent && !consent}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setFile(e.target.files?.[0] ?? null)}
+              />
+              <div>
+                <Button onClick={upload} busy={busy} disabled={!file || (needsConsent && !consent)} variant="secondary">
+                  Upload
+                </Button>
+              </div>
+            </>
+          )}
           {error && <p role="alert" className="field__error">{error}</p>}
-          <div>
-            <Button onClick={upload} busy={busy} disabled={!file || (needsConsent && !consent)} variant="secondary">
-              Upload
-            </Button>
-          </div>
         </div>
       )}
     </li>
