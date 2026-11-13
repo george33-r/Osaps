@@ -112,6 +112,61 @@ class TailorVerificationController extends Controller
         return response()->json(['data' => ['id' => $profile->id, 'status' => $profile->verification_status]]);
     }
 
+    /** Every tailor account, including those that have not set up a profile yet. */
+    public function directory(Request $request): JsonResponse
+    {
+        $status = $request->query('status');
+        abort_unless($status === null || $status === '' || in_array($status, array_keys(TailorVerification::LABELS), true) || $status === 'no_profile', 422);
+
+        $users = \App\Models\User::query()->where('role', 'tailor')->with(['tailorProfile.documents'])
+            ->orderBy('name')->limit(500)->get()
+            ->map(function (\App\Models\User $u) {
+                $p = $u->tailorProfile;
+                $docs = $p ? $p->documents->unique('kind') : collect();
+                $missing = $p ? TailorVerification::missing($this->service->statusByKind($p), needApproved: false) : TailorVerification::REQUIRED;
+
+                return [
+                    'user_id' => $u->id, 'name' => $u->name, 'email' => $u->email, 'phone' => $u->phone,
+                    'profile_id' => $p?->id, 'business_name' => $p?->business_name, 'city' => $p?->city,
+                    'status' => $p ? $p->verification_status : 'no_profile',
+                    'has_photo' => (bool) ($p?->profile_photo_path),
+                    'documents_uploaded' => $docs->count(),
+                    'missing' => $missing,
+                    'can_override' => $p !== null && $p->verification_status === TailorVerification::PENDING && $missing === [],
+                ];
+            })
+            ->when($status, fn ($c) => $c->where('status', $status))->values();
+
+        return response()->json(['data' => $users]);
+    }
+
+    /** Approve a tailor whose documents are all uploaded but whose review was missed. The reason is required and logged. */
+    public function override(Request $request, TailorProfile $tailorProfile): JsonResponse
+    {
+        $data = $request->validate(['note' => ['required', 'string', 'min:10', 'max:300']]);
+        $profile = $this->service->overrideVerify($request->user(), $tailorProfile, $data['note']);
+
+        return response()->json(['data' => ['id' => $profile->id, 'status' => $profile->verification_status]]);
+    }
+
+    /** Send one message to selected tailors. Queued; the reason and recipient count go in the log. */
+    public function bulkMail(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'user_ids' => ['required', 'array', 'min:1', 'max:200'],
+            'user_ids.*' => ['integer', 'distinct', Rule::exists('users', 'id')->where('role', 'tailor')],
+            'subject' => ['required', 'string', 'min:3', 'max:150'],
+            'body' => ['required', 'string', 'min:10', 'max:3000'],
+        ]);
+        $emails = \App\Models\User::query()->whereIn('id', $data['user_ids'])->pluck('email');
+        foreach ($emails as $email) {
+            \Illuminate\Support\Facades\Mail::to($email)->queue(new \App\Mail\AdminBroadcast($data['subject'], $data['body']));
+        }
+        \App\Models\AdminAction::record($request->user(), 'tailor_bulk_mail', $request->user(), mb_substr($data['subject'], 0, 150), ['recipients' => $emails->count()]);
+
+        return response()->json(['data' => ['queued' => $emails->count()]], 202);
+    }
+
     /** Public: the approved selfie, only while the profile is verified. */
     public function face(string $slug): Response
     {

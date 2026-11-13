@@ -170,6 +170,9 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('vendor-documents/{document}/review', [VendorDocumentController::class, 'reviewDocument'])->whereNumber('document')->name('vendor-documents.review');
             Route::post('tailor-documents/{document}/review', [TailorVerificationController::class, 'reviewDocument'])->whereNumber('document')->name('tailor-documents.review');
             Route::post('tailor-profiles/{tailorProfile}/review', [TailorVerificationController::class, 'reviewProfile'])->whereNumber('tailorProfile')->name('tailor-profiles.review');
+            Route::get('tailors', [TailorVerificationController::class, 'directory'])->withoutMiddleware('throttle:marketplace-writes')->name('tailors');
+            Route::post('tailor-profiles/{tailorProfile}/override-verify', [TailorVerificationController::class, 'override'])->whereNumber('tailorProfile')->name('tailor-profiles.override');
+            Route::post('tailors/bulk-mail', [TailorVerificationController::class, 'bulkMail'])->name('tailors.bulk-mail');
             Route::get('disputes', [AdminController::class, 'disputes'])->withoutMiddleware('throttle:marketplace-writes')->name('disputes');
             Route::post('fabric-orders/{fabricOrder}/resolve', [AdminController::class, 'resolveDispute'])->name('disputes.resolve');
             Route::get('refunds', [AdminController::class, 'refunds'])->withoutMiddleware('throttle:marketplace-writes')->name('refunds');

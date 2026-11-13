@@ -917,6 +917,21 @@ export interface AdminTailorDoc {
   file_url: string
 }
 
+export interface AdminTailorDirectoryRow {
+  user_id: number
+  name: string | null
+  email: string | null
+  phone: string | null
+  profile_id: number | null
+  business_name: string | null
+  city: string | null
+  status: string
+  has_photo: boolean
+  documents_uploaded: number
+  missing: string[]
+  can_override: boolean
+}
+
 export interface AdminTailorQueueRow {
   id: number
   business_name: string

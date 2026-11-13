@@ -154,6 +154,39 @@ class TailorVerificationService
     }
 
     /** @return array<string, string> latest status per kind */
+    /**
+     * Approve a tailor whose required documents were uploaded but whose review was missed.
+     * Not allowed without the documents: a badge must mean that OSAPS saw them. Always needs a reason, kept in the log.
+     */
+    public function overrideVerify(User $admin, TailorProfile $profile, string $note): TailorProfile
+    {
+        return DB::transaction(function () use ($admin, $profile, $note) {
+            $profile = TailorProfile::query()->lockForUpdate()->findOrFail($profile->id);
+            $reason = trim($note);
+            if (mb_strlen($reason) < 10) {
+                throw new DomainRuleViolation('Give the reason for approving without a full document review (at least 10 characters).', 'verification_note_required');
+            }
+            TailorVerification::assert($profile->verification_status ?: TailorVerification::UNVERIFIED, TailorVerification::VERIFIED, 'admin');
+
+            $missing = TailorVerification::missing($this->statusByKind($profile), needApproved: false);
+            if ($missing !== []) {
+                throw new DomainRuleViolation('Upload is still missing: '.implode(', ', $missing).'. A tailor without documents cannot be approved.', 'verification_incomplete');
+            }
+
+            $profile->forceFill([
+                'verification_status' => TailorVerification::VERIFIED,
+                'verification_note' => mb_substr('Approved by override: '.$reason, 0, 300),
+                'verified_at' => now(),
+                'recheck_due_at' => \App\Domain\Verification\Recheck::dueAfterCheck(now()),
+            ])->save();
+            AdminAction::record($admin, 'tailor_verified_override', $profile, $reason);
+
+            $this->notifier->notify($profile->user_id, 'tailor_verification', 'Verification update', 'Your identity and workshop checks are approved. Your verified badge is now on your profile.', '/tailor');
+
+            return $profile;
+        });
+    }
+
     public function statusByKind(TailorProfile $profile): array
     {
         return $profile->documents()->orderByDesc('id')->get()

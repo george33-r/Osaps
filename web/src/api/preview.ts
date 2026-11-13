@@ -382,6 +382,9 @@ export const previewApi: Api = {
   adminTailorQueue: async () => [],
   adminReviewTailorDocument: async (id, decision) => ({ id, status: decision }),
   adminReviewTailorProfile: async (id, to) => ({ id, status: to }),
+  adminTailorDirectory: async () => [],
+  adminOverrideTailor: async (id) => ({ id, status: 'verified' }),
+  adminBulkMailTailors: async (ids) => ({ queued: ids.length }),
   vendorDocuments: async () => ({
     consent_given: false,
     documents: [

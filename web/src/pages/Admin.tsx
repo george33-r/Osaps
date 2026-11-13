@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { api, type AdminOrderRow, type AdminTailorQueueRow, type AdminVendor, type VendorVerificationStatus } from '../api'
+import { api, type AdminOrderRow, type AdminTailorDirectoryRow, type AdminTailorQueueRow, type AdminVendor, type VendorVerificationStatus } from '../api'
 import { Badge, Button, EmptyState, ErrorState, PageHeader, Skeleton, errorMessage } from '../components/ui'
 import { formatDate } from '../lib/format'
 import { useSession } from '../lib/session'
@@ -413,6 +413,144 @@ function Log() {
  * Tailor identity checks. Each document is opened here and approved or rejected one at a time.
  * A profile can be verified only once every required document is approved; the server checks again.
  */
+/** Every tailor account: status, photo, documents. Approve after documents are uploaded (with a reason), or message selected tailors. */
+function TailorDirectory({ onChange }: { onChange: () => void }) {
+  const toast = useToast()
+  const [filter, setFilter] = useState<string>('')
+  const dir = useAsync(() => api.adminTailorDirectory(filter || undefined), [filter])
+  const [picked, setPicked] = useState<number[]>([])
+  const [overrideFor, setOverrideFor] = useState<number | null>(null)
+  const [reason, setReason] = useState('')
+  const [subject, setSubject] = useState('')
+  const [body, setBody] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const rows: AdminTailorDirectoryRow[] = dir.data ?? []
+
+  function toggle(id: number) {
+    setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]))
+  }
+
+  async function approve(profileId: number) {
+    setBusy(true)
+    try {
+      await api.adminOverrideTailor(profileId, reason)
+      toast('Approved. The reason is in the admin log.', 'good')
+      setOverrideFor(null)
+      setReason('')
+      dir.reload()
+      onChange()
+    } catch (e) {
+      toast(errorMessage(e), 'alert')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function send() {
+    setBusy(true)
+    try {
+      const res = await api.adminBulkMailTailors(picked, subject, body)
+      toast(`Queued ${res.queued} message(s).`, 'good')
+      setSubject('')
+      setBody('')
+      setPicked([])
+    } catch (e) {
+      toast(errorMessage(e), 'alert')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const filters: { key: string; label: string }[] = [
+    { key: '', label: 'all' },
+    { key: 'no_profile', label: 'no profile' },
+    { key: 'unverified', label: 'profile saved' },
+    { key: 'pending', label: 'waiting' },
+    { key: 'verified', label: 'verified' },
+  ]
+
+  return (
+    <section style={{ marginBottom: 28 }}>
+      <h2 style={{ fontSize: 18, marginBottom: 10 }}>All tailors</h2>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+        {filters.map((f) => (
+          <Button key={f.key || 'all'} variant={filter === f.key ? 'primary' : 'secondary'} onClick={() => setFilter(f.key)}>
+            {f.label}
+          </Button>
+        ))}
+      </div>
+      {dir.status === 'error' && !dir.data ? (
+        <ErrorState error={dir.error} onRetry={dir.reload} />
+      ) : !dir.data ? (
+        <Skeleton lines={4} />
+      ) : rows.length === 0 ? (
+        <EmptyState title="No tailors here">Nobody is in this group yet.</EmptyState>
+      ) : (
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th />
+                <th>Name</th>
+                <th>Business</th>
+                <th>Status</th>
+                <th>Photo</th>
+                <th>Documents</th>
+                <th>Email</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.user_id}>
+                  <td>
+                    <input type="checkbox" aria-label={`Select ${r.name ?? r.email}`} checked={picked.includes(r.user_id)} onChange={() => toggle(r.user_id)} />
+                  </td>
+                  <td>{r.name ?? '—'}</td>
+                  <td>{r.business_name ?? '—'}</td>
+                  <td><Badge tone={r.status === 'verified' ? 'good' : r.status === 'pending' ? 'waiting' : 'muted'}>{r.status.replace('_', ' ')}</Badge></td>
+                  <td>{r.has_photo ? 'Yes' : 'No'}</td>
+                  <td>
+                    {r.documents_uploaded} of 3 required
+                    {r.missing.length > 0 && <span className="field__hint"> · missing {r.missing.map((m) => m.replace(/_/g, ' ')).join(', ')}</span>}
+                  </td>
+                  <td>{r.email ?? '—'}</td>
+                  <td>
+                    {r.can_override && overrideFor !== r.profile_id && (
+                      <Button variant="secondary" onClick={() => setOverrideFor(r.profile_id)}>Approve</Button>
+                    )}
+                    {overrideFor === r.profile_id && (
+                      <div style={{ display: 'grid', gap: 6, minWidth: 220 }}>
+                        <textarea className="input" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why are you approving without a full review? (at least 10 characters)" />
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <Button busy={busy} disabled={reason.trim().length < 10 || r.profile_id === null} onClick={() => r.profile_id && approve(r.profile_id)}>Confirm</Button>
+                          <Button variant="secondary" onClick={() => { setOverrideFor(null); setReason('') }}>Cancel</Button>
+                        </div>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div style={{ marginTop: 16, display: 'grid', gap: 8, maxWidth: 560 }}>
+        <strong>Message {picked.length} selected tailor(s)</strong>
+        <input className="input" placeholder="Subject" value={subject} onChange={(e) => setSubject(e.target.value)} />
+        <textarea className="input" rows={4} placeholder="Message" value={body} onChange={(e) => setBody(e.target.value)} />
+        <div>
+          <Button busy={busy} disabled={picked.length === 0 || subject.trim().length < 3 || body.trim().length < 10} onClick={send}>
+            Send email
+          </Button>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 function TailorChecks() {
   const toast = useToast()
   const [status, setStatus] = useState<'pending' | 'verified' | 'rejected' | 'suspended'>('pending')
@@ -440,6 +578,8 @@ function TailorChecks() {
 
   return (
     <div>
+      <TailorDirectory onChange={queue.reload} />
+      <h2 style={{ fontSize: 18, marginBottom: 10 }}>Documents to review</h2>
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         {(['pending', 'verified', 'rejected', 'suspended'] as const).map((s) => (
           <Button key={s} variant={status === s ? 'primary' : 'secondary'} onClick={() => setStatus(s)}>

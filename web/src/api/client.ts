@@ -53,6 +53,7 @@ import type {
   VendorDocKind,
   VendorDocumentState,
   AdminTailorQueueRow,
+  AdminTailorDirectoryRow,
 } from './types'
 
 /** One error shape for every failure: what the server said, or what the network did. */
@@ -93,6 +94,9 @@ export interface Api {
   adminTailorQueue(status: string): Promise<AdminTailorQueueRow[]>
   adminReviewTailorDocument(id: number, decision: 'approved' | 'rejected', note?: string | null): Promise<{ id: number; status: string }>
   adminReviewTailorProfile(id: number, to: 'verified' | 'rejected' | 'suspended', note?: string | null): Promise<{ id: number; status: string }>
+  adminTailorDirectory(status?: string): Promise<AdminTailorDirectoryRow[]>
+  adminOverrideTailor(profileId: number, note: string): Promise<{ id: number; status: string }>
+  adminBulkMailTailors(userIds: number[], subject: string, body: string): Promise<{ queued: number }>
   vendorDocuments(): Promise<VendorDocumentState | null>
   /** Uploads one shop document. The owner's ID needs consent; the server refuses it without. */
   uploadVendorDocument(kind: VendorDocKind, file: File, consent: boolean, expiresOn?: string | null): Promise<{ kind: string; status: string }>
@@ -308,6 +312,9 @@ export const httpApi: Api = {
   adminTailorQueue: (status) => data(http('GET', `/admin/tailor-verifications${qs({ status })}`)),
   adminReviewTailorDocument: (id, decision, note) => data(http('POST', `/admin/tailor-documents/${id}/review`, { decision, note: note ?? null })),
   adminReviewTailorProfile: (id, to, note) => data(http('POST', `/admin/tailor-profiles/${id}/review`, { to, note: note ?? null })),
+  adminTailorDirectory: (status) => data(http('GET', `/admin/tailors${status ? qs({ status }) : ''}`)),
+  adminOverrideTailor: (profileId, note) => data(http('POST', `/admin/tailor-profiles/${profileId}/override-verify`, { note })),
+  adminBulkMailTailors: (userIds, subject, body) => data(http('POST', '/admin/tailors/bulk-mail', { user_ids: userIds, subject, body })),
   vendorDocuments: () => data(http('GET', '/me/vendor-documents')),
   uploadVendorDocument: (kind, file, consent, expiresOn) => {
     const form = new FormData()
