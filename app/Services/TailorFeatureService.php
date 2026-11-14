@@ -30,7 +30,7 @@ class TailorFeatureService
     public function current(): ?TailorFeature
     {
         $week = $this->weekStart();
-        $row = TailorFeature::query()->where('week_start', $week)->first();
+        $row = TailorFeature::query()->whereDate('week_start', $week)->first();
         if ($row === null) {
             $pick = $this->autoPick();
             if ($pick === null) {
