@@ -166,7 +166,7 @@ export interface Api {
 
   // Back office (admins only)
   adminOverview(): Promise<AdminOverview>
-  adminVendors(status: VendorVerificationStatus): Promise<AdminVendor[]>
+  adminVendors(status: VendorVerificationStatus | 'all'): Promise<AdminVendor[]>
   adminReviewVendor(id: number, to: 'verified' | 'rejected' | 'suspended', note: string | null): Promise<void>
   adminDisputes(): Promise<AdminOrderRow[]>
   adminResolveDispute(reference: string, resolution: 'refund' | 'release', note: string): Promise<void>

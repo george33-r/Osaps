@@ -71,9 +71,10 @@ class AdminController extends Controller
     public function vendors(Request $request): JsonResponse
     {
         $status = $request->query('status', VendorVerification::PENDING);
-        abort_unless(in_array($status, array_keys(VendorVerification::LABELS), true), 422);
+        abort_unless($status === 'all' || in_array($status, array_keys(VendorVerification::LABELS), true), 422);
         $vendors = FabricVendor::query()->with(['user:id,name,email,phone,created_at', 'documents'])->withCount('fabrics')
-            ->where('verification_status', $status)->orderBy('verification_requested_at')->limit(200)->get();
+            ->when($status !== 'all', fn ($q) => $q->where('verification_status', $status))
+            ->orderBy('verification_requested_at')->limit(200)->get();
 
         return response()->json(['data' => $vendors->map(fn (FabricVendor $v) => [
             'id' => $v->id, 'business_name' => $v->business_name, 'city' => $v->city, 'market' => $v->market,

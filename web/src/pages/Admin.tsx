@@ -159,14 +159,14 @@ function People({ o }: { o: AdminOrderRow }) {
 }
 
 function Vendors({ onChange }: { onChange: () => void }) {
-  const [status, setStatus] = useState<VendorVerificationStatus>('pending')
+  const [status, setStatus] = useState<VendorVerificationStatus | 'all'>('pending')
   const state = useAsync(() => api.adminVendors(status), [status])
   const toast = useToast()
   return (
     <>
       <div className="chips" role="group" aria-label="Show shops">
-        {(['pending', 'verified', 'rejected', 'suspended', 'unverified'] as const).map((s) => (
-          <button key={s} className="chip" aria-pressed={status === s} onClick={() => setStatus(s)}>{{ pending: 'Waiting', verified: 'Verified', rejected: 'Changes needed', suspended: 'Suspended', unverified: 'Not submitted' }[s]}</button>
+        {(['all', 'pending', 'verified', 'rejected', 'suspended', 'unverified'] as const).map((s) => (
+          <button key={s} className="chip" aria-pressed={status === s} onClick={() => setStatus(s)}>{{ all: 'All shops', pending: 'Waiting', verified: 'Verified', rejected: 'Changes needed', suspended: 'Suspended', unverified: 'Not submitted' }[s]}</button>
         ))}
       </div>
       {state.status === 'error' && <ErrorState error={state.error} onRetry={state.reload} />}
@@ -520,7 +520,7 @@ function TailorDirectory({ onChange }: { onChange: () => void }) {
                     {r.can_override && overrideFor !== r.profile_id && (
                       <Button variant="secondary" onClick={() => setOverrideFor(r.profile_id)}>Approve</Button>
                     )}
-                    {overrideFor === r.profile_id && (
+                    {r.profile_id !== null && overrideFor === r.profile_id && (
                       <div style={{ display: 'grid', gap: 6, minWidth: 220 }}>
                         <textarea className="input" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why are you approving without a full review? (at least 10 characters)" />
                         <div style={{ display: 'flex', gap: 6 }}>
