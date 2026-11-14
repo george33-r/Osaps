@@ -4,6 +4,7 @@ import { api, type Fabric } from '../api'
 import { FabricCard } from '../components/cards'
 import { HomeStories } from '../components/Stories'
 import { MomentsRail, TailorOfWeekCard } from '../components/Community'
+import { TrendingFabrics } from '../components/Trending'
 import { RecentlyViewed } from '../components/ProductKit'
 import { ButtonLink, Skeleton } from '../components/ui'
 import { HERO_VIDEO, LOOKBOOK } from '../data/photos'
@@ -160,6 +161,7 @@ export default function Home() {
       <HomeStories />
       <TailorOfWeekCard />
       <Categories fabrics={fabrics} />
+      <TrendingFabrics />
       <section className="sh-section" aria-labelledby="new-title">
         <header className="sh-section__head">
           <h2 id="new-title" className="sh-section__title">New in the store</h2>

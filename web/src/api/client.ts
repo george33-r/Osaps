@@ -1,4 +1,4 @@
-import type { AdminQuestion, AdminReviewQueue, Moment, MomentRing, MyQuestion, OrderReviewState, PublishedQuestion, ReviewInput, Story, TailorOfWeek, TailorReview, TailorReviewsState } from './types'
+import type { Announcement, AnnouncementAudience, TrendingFabric, AdminQuestion, AdminReviewQueue, Moment, MomentRing, MyQuestion, OrderReviewState, PublishedQuestion, ReviewInput, Story, TailorOfWeek, TailorReview, TailorReviewsState } from './types'
 import type {
   FabricFilters,
   Fabric,
@@ -245,11 +245,16 @@ export interface Api {
   quoteAsoEbi(code: string, yards: number, state?: string | null): Promise<ShopQuote>
   joinAsoEbi(code: string, input: JoinAsoEbi): Promise<Checkout>
   closeAsoEbi(code: string): Promise<AsoEbiGroup>
+  /** Email announcements (opted-in people only) and trending fabrics (real sales only). */
+  announcementAudience(audience: AnnouncementAudience): Promise<{ audience: string; recipients: number }>
+  adminAnnouncements(): Promise<Announcement[]>
+  sendAnnouncement(input: { audience: AnnouncementAudience; subject: string; body: string; story_id?: number | null }): Promise<{ id: number; recipients: number }>
+  trendingFabrics(): Promise<TrendingFabric[]>
   reopenAsoEbi(code: string): Promise<AsoEbiGroup>
   cancelAsoEbi(code: string): Promise<AsoEbiGroup>
 
   // Account
-  updateMe(input: { name?: string; phone?: string | null; city?: string | null; whatsapp_opt_in?: boolean; currency?: string | null }): Promise<User>
+  updateMe(input: { name?: string; phone?: string | null; city?: string | null; whatsapp_opt_in?: boolean; email_updates_opt_in?: boolean; currency?: string | null }): Promise<User>
   notifications(): Promise<{ data: AppNotification[]; unread: number }>
   markNotificationsRead(ids?: number[]): Promise<void>
   measurements(): Promise<Measurements>
@@ -410,6 +415,10 @@ export const httpApi: Api = {
   adminPublishQuestion: (id) => data(http('POST', `/admin/questions/${id}/publish`)),
   adminMoments: (status) => data(http('GET', `/admin/moments${qs({ status })}`)),
   adminMomentStatus: (id, status, note) => data(http('POST', `/admin/moments/${id}/status`, { status, note })),
+  announcementAudience: (audience) => data(http('GET', `/admin/announcements/audience${qs({ audience })}`)),
+  adminAnnouncements: () => data(http('GET', '/admin/announcements')),
+  sendAnnouncement: (input) => data(http('POST', '/admin/announcements', input)),
+  trendingFabrics: () => data(http('GET', '/fabrics/trending')),
   adminTailorDirectory: (status) => data(http('GET', `/admin/tailors${status ? qs({ status }) : ''}`)),
   adminOverrideTailor: (profileId, note) => data(http('POST', `/admin/tailor-profiles/${profileId}/override-verify`, { note })),
   adminBulkMailTailors: (userIds, subject, body) => data(http('POST', '/admin/tailors/bulk-mail', { user_ids: userIds, subject, body })),

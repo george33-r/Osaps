@@ -22,6 +22,7 @@ export function AccountPage() {
       const u = await api.updateMe({
         name: String(d.get('name') ?? '').trim(), phone: String(d.get('phone') ?? '').trim() || null,
         city: String(d.get('city') ?? '').trim() || null, whatsapp_opt_in: d.get('wa') === 'on',
+        email_updates_opt_in: d.get('email') === 'on',
       })
       setUser(u)
       toast('Saved.', 'good')
@@ -39,6 +40,10 @@ export function AccountPage() {
         <label className="check wa-opt">
           <input type="checkbox" name="wa" defaultChecked={!!user.whatsapp_opt_in} />
           <span><strong>Send me updates on WhatsApp</strong><small>New offers, counteroffers, payments and deliveries. Turn off any time.{meta && !meta.features.whatsapp ? ' (Coming soon: we will start sending once WhatsApp is switched on.)' : ''}</small></span>
+        </label>
+        <label className="check wa-opt">
+          <input type="checkbox" name="email" defaultChecked={!!user.email_updates_opt_in} />
+          <span><strong>Email me OSAPS news</strong><small>New stories, trending fabrics and announcements. Every email has a one-click unsubscribe link.</small></span>
         </label>
         {error && error.code !== 'validation_failed' && <p className="field__error">{error.message}</p>}
         <Button type="submit" busy={busy}>Save</Button>

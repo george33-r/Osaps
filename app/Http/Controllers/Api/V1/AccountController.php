@@ -19,6 +19,7 @@ class AccountController extends Controller
             'phone' => ['nullable', 'string', 'regex:/^\+?[0-9 ]{7,20}$/'],
             'city' => ['nullable', 'string', 'max:80'],
             'whatsapp_opt_in' => ['sometimes', 'boolean'],
+            'email_updates_opt_in' => ['sometimes', 'boolean'],
             'currency' => ['nullable', 'in:NGN,GBP,USD,EUR,CAD'],
         ]);
         $user = $request->user();

@@ -10,13 +10,18 @@ use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
 /**
- * A message an admin sends to selected tailors. Queued, so the request returns at once and cron sends it.
+ * A message an admin sends to selected people. Queued, so the request returns at once and cron sends it.
+ * Announcements carry a one-click unsubscribe link; other messages keep the reply-to-opt-out line.
  */
 class AdminBroadcast extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public readonly string $subjectLine, public readonly string $messageBody) {}
+    public function __construct(
+        public readonly string $subjectLine,
+        public readonly string $messageBody,
+        public readonly ?string $unsubscribeUrl = null,
+    ) {}
 
     public function envelope(): Envelope
     {

@@ -17,6 +17,8 @@ use App\Http\Controllers\Api\V1\TailorVerificationController;
 use App\Http\Controllers\Api\V1\VendorDocumentController;
 use App\Http\Controllers\Api\V1\AccountController;
 use App\Http\Controllers\Api\V1\AdminController;
+use App\Http\Controllers\Api\V1\AnnouncementController;
+use App\Http\Controllers\Api\V1\TrendingFabricController;
 use App\Http\Controllers\Api\V1\CartController;
 use App\Http\Controllers\Api\V1\AsoEbiController;
 use App\Http\Controllers\Api\V1\FabricOrderController;
@@ -38,12 +40,15 @@ Route::prefix('v1')->name('v1.')->group(function () {
     // Public
     Route::get('meta', MetaController::class)->name('meta');
     Route::get('fabrics', [FabricController::class, 'index'])->name('fabrics.index');
+    Route::get('fabrics/trending', TrendingFabricController::class)->name('fabrics.trending');
     Route::get('fabrics/{slug}', [FabricController::class, 'show'])->name('fabrics.show');
     Route::get('tailors', [TailorController::class, 'index'])->name('tailors.index');
     Route::get('tailors/{slug}', [TailorController::class, 'show'])->name('tailors.show');
     Route::get('tailors/{slug}/face', [TailorVerificationController::class, 'face'])->name('tailors.face');
     Route::get('stories', [StoryController::class, 'index'])->name('stories.index');
     Route::get('tailor-of-week', [CommunityController::class, 'tailorOfWeek'])->name('tailor-of-week');
+    // One-click unsubscribe from announcement emails. Only reachable through the signed link in the email.
+    Route::get('email-updates/unsubscribe/{user}', [AnnouncementController::class, 'unsubscribe'])->middleware('signed')->whereNumber('user')->name('email-updates.unsubscribe');
     Route::get('moments', [CommunityController::class, 'rings'])->name('moments.index');
     Route::get('questions', [QuestionController::class, 'published'])->name('questions.index');
     Route::get('tailors/{slug}/reviews', [TailorReviewController::class, 'publicList'])->name('tailors.reviews');
@@ -230,6 +235,9 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('questions/{question}/publish', [QuestionController::class, 'publish'])->whereNumber('question')->name('questions.publish');
             Route::post('tailor-of-week', [CommunityController::class, 'setTailorOfWeek'])->name('tailor-of-week.set');
             Route::get('moments', [CommunityController::class, 'adminMoments'])->withoutMiddleware('throttle:marketplace-writes')->name('moments.index');
+            Route::get('announcements', [AnnouncementController::class, 'index'])->withoutMiddleware('throttle:marketplace-writes')->name('announcements.index');
+            Route::get('announcements/audience', [AnnouncementController::class, 'audience'])->withoutMiddleware('throttle:marketplace-writes')->name('announcements.audience');
+            Route::post('announcements', [AnnouncementController::class, 'send'])->name('announcements.send');
             Route::post('moments/{moment}/status', [CommunityController::class, 'decideMoment'])->whereNumber('moment')->name('moments.status');
             Route::post('stories', [StoryController::class, 'adminStore'])->name('stories.store');
             Route::post('stories/{story}', [StoryController::class, 'adminUpdate'])->whereNumber('story')->name('stories.update');

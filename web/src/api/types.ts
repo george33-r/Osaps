@@ -18,7 +18,25 @@ export interface User {
   has_tailor_profile?: boolean
   has_vendor_profile?: boolean
   whatsapp_opt_in?: boolean
+  email_updates_opt_in?: boolean
   currency?: string | null
+}
+
+export type AnnouncementAudience = 'tailors' | 'customers' | 'everyone'
+
+export interface Announcement {
+  id: number
+  audience: AnnouncementAudience
+  subject: string
+  recipients: number
+  sent_at: string | null
+  sent_by: string | null
+}
+
+/** A fabric that sold well in the last 30 days, from real paid orders only. */
+export interface TrendingFabric {
+  fabric: Fabric
+  trend: { orders: number; buyers: number; window_days: number }
 }
 
 export interface KeyLabel {
