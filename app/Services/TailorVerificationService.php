@@ -34,6 +34,32 @@ class TailorVerificationService
             throw new DomainRuleViolation('We need your consent before we take your ID or selfie.', 'consent_required');
         }
 
+        return $this->store($profile, $kind, $file, $consent, $expiresOn);
+    }
+
+    /**
+     * An admin uploads a document for a tailor who sent it to them (by WhatsApp, phone or in person).
+     * For ID and selfie the admin must say the tailor agreed; that agreement and the reason go in the log.
+     */
+    public function uploadForTailor(User $admin, TailorProfile $profile, string $kind, UploadedFile $file, bool $tailorAgreed, string $how, ?string $expiresOn = null): TailorVerificationDocument
+    {
+        return DB::transaction(function () use ($admin, $profile, $kind, $file, $tailorAgreed, $how, $expiresOn) {
+            $profile = TailorProfile::query()->lockForUpdate()->findOrFail($profile->id);
+            if ($profile->verification_status === TailorVerification::VERIFIED) {
+                throw new DomainRuleViolation('This tailor is already verified. Only a six-week re-check can add documents.', 'already_verified');
+            }
+            if (in_array($kind, TailorVerification::BIOMETRIC, true) && ! $tailorAgreed) {
+                throw new DomainRuleViolation('Confirm the tailor agreed before uploading their ID or selfie.', 'consent_required');
+            }
+            $doc = $this->store($profile, $kind, $file, $tailorAgreed, $expiresOn);
+            AdminAction::record($admin, 'tailor_document_uploaded', $profile, mb_substr(trim($how), 0, 300), ['kind' => $kind]);
+
+            return $doc;
+        });
+    }
+
+    private function store(TailorProfile $profile, string $kind, UploadedFile $file, bool $consent, ?string $expiresOn): TailorVerificationDocument
+    {
         $stored = $this->photos->store($file, 'tailor-verification/'.$profile->id);
 
         return DB::transaction(function () use ($profile, $kind, $stored, $consent, $expiresOn) {

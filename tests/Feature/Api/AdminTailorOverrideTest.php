@@ -9,6 +9,7 @@ use App\Models\TailorProfile;
 use App\Models\TailorVerificationDocument;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
@@ -110,5 +111,30 @@ class AdminTailorOverrideTest extends TestCase
             'subject' => 'Hello there',
             'body' => 'This should not be sent to a customer account.',
         ])->assertStatus(422);
+    }
+
+    public function test_admin_upload_for_an_id_needs_the_tailor_agreement(): void
+    {
+        $this->actingAs($this->admin)->post("/api/v1/admin/tailor-profiles/{$this->profile->id}/documents", [
+            'kind' => 'id_document',
+            'file' => UploadedFile::fake()->image('id.jpg', 400, 400)->size(200),
+            'tailor_agreed' => '0',
+            'how' => 'Sent on WhatsApp, not agreed yet.',
+        ])->assertStatus(422)->assertJsonPath('code', 'consent_required');
+
+        $this->assertDatabaseCount('tailor_verification_documents', 0);
+    }
+
+    public function test_admin_upload_is_stored_and_the_agreement_is_logged(): void
+    {
+        $this->actingAs($this->admin)->post("/api/v1/admin/tailor-profiles/{$this->profile->id}/documents", [
+            'kind' => 'workshop_photo',
+            'file' => UploadedFile::fake()->image('shop.jpg', 400, 400)->size(200),
+            'tailor_agreed' => '1',
+            'how' => 'Sent on WhatsApp on 14 Nov by the tailor.',
+        ])->assertCreated()->assertJsonPath('data.kind', 'workshop_photo');
+
+        $this->assertDatabaseHas('tailor_verification_documents', ['tailor_profile_id' => $this->profile->id, 'kind' => 'workshop_photo']);
+        $this->assertDatabaseHas('admin_actions', ['action' => 'tailor_document_uploaded', 'admin_id' => $this->admin->id]);
     }
 }

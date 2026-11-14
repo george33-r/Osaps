@@ -149,6 +149,21 @@ class TailorVerificationController extends Controller
         return response()->json(['data' => ['id' => $profile->id, 'status' => $profile->verification_status]]);
     }
 
+    /** Upload a document for a tailor on their behalf. The agreement and how it was given are logged. */
+    public function uploadForTailor(Request $request, TailorProfile $tailorProfile): JsonResponse
+    {
+        $data = $request->validate([
+            'kind' => ['required', Rule::in(array_merge(TailorVerification::REQUIRED, TailorVerification::OPTIONAL))],
+            'file' => ['required', 'file', 'max:8192'],
+            'tailor_agreed' => ['required', 'boolean'],
+            'how' => ['required', 'string', 'min:10', 'max:300'],
+            'expires_on' => ['nullable', 'date', 'after:today'],
+        ]);
+        $doc = $this->service->uploadForTailor($request->user(), $tailorProfile, $data['kind'], $request->file('file'), (bool) $data['tailor_agreed'], $data['how'], $data['expires_on'] ?? null);
+
+        return response()->json(['data' => ['id' => $doc->id, 'kind' => $doc->kind, 'status' => $doc->status]], 201);
+    }
+
     /** Send one message to selected tailors. Queued; the reason and recipient count go in the log. */
     public function bulkMail(Request $request): JsonResponse
     {

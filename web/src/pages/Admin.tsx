@@ -424,8 +424,31 @@ function TailorDirectory({ onChange }: { onChange: () => void }) {
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
   const [busy, setBusy] = useState(false)
+  const [uploadFor, setUploadFor] = useState<number | null>(null)
+  const [uKind, setUKind] = useState('id_document')
+  const [uFile, setUFile] = useState<File | null>(null)
+  const [uAgreed, setUAgreed] = useState(false)
+  const [uHow, setUHow] = useState('')
 
   const rows: AdminTailorDirectoryRow[] = dir.data ?? []
+
+  async function uploadDoc(profileId: number) {
+    if (!uFile) return
+    setBusy(true)
+    try {
+      await api.adminUploadTailorDocument(profileId, uKind, uFile, uAgreed, uHow)
+      toast('Document uploaded. It is now waiting for review.', 'good')
+      setUploadFor(null)
+      setUFile(null)
+      setUAgreed(false)
+      setUHow('')
+      dir.reload()
+    } catch (e) {
+      toast(errorMessage(e), 'alert')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   function toggle(id: number) {
     setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]))
@@ -517,6 +540,31 @@ function TailorDirectory({ onChange }: { onChange: () => void }) {
                   </td>
                   <td>{r.email ?? '—'}</td>
                   <td>
+                    {r.profile_id !== null && uploadFor !== r.profile_id && (
+                      <Button variant="secondary" onClick={() => { setUploadFor(r.profile_id); setUKind('id_document') }}>Upload document</Button>
+                    )}
+                    {r.profile_id !== null && uploadFor === r.profile_id && (
+                      <div style={{ display: 'grid', gap: 6, minWidth: 260 }}>
+                        <select className="input" value={uKind} onChange={(e) => setUKind(e.target.value)}>
+                          <option value="id_document">Government ID</option>
+                          <option value="selfie">Selfie</option>
+                          <option value="workshop_photo">Workshop photo or video</option>
+                          <option value="cac_certificate">CAC certificate (optional)</option>
+                        </select>
+                        <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(e) => setUFile(e.target.files?.[0] ?? null)} />
+                        {(uKind === 'id_document' || uKind === 'selfie') && (
+                          <label style={{ display: 'flex', gap: 6, fontSize: 13 }}>
+                            <input type="checkbox" checked={uAgreed} onChange={(e) => setUAgreed(e.target.checked)} />
+                            The tailor agreed to this ID or selfie being checked
+                          </label>
+                        )}
+                        <textarea className="input" rows={2} value={uHow} onChange={(e) => setUHow(e.target.value)} placeholder="How did you get it? e.g. sent on WhatsApp on 14 Nov, agreed by phone (at least 10 characters)" />
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <Button busy={busy} disabled={!uFile || uHow.trim().length < 10 || ((uKind === 'id_document' || uKind === 'selfie') && !uAgreed)} onClick={() => r.profile_id && uploadDoc(r.profile_id)}>Upload</Button>
+                          <Button variant="secondary" onClick={() => { setUploadFor(null); setUFile(null); setUAgreed(false); setUHow('') }}>Cancel</Button>
+                        </div>
+                      </div>
+                    )}
                     {r.can_override && overrideFor !== r.profile_id && (
                       <Button variant="secondary" onClick={() => setOverrideFor(r.profile_id)}>Approve</Button>
                     )}

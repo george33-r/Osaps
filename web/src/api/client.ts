@@ -97,6 +97,7 @@ export interface Api {
   adminTailorDirectory(status?: string): Promise<AdminTailorDirectoryRow[]>
   adminOverrideTailor(profileId: number, note: string): Promise<{ id: number; status: string }>
   adminBulkMailTailors(userIds: number[], subject: string, body: string): Promise<{ queued: number }>
+  adminUploadTailorDocument(profileId: number, kind: string, file: File, tailorAgreed: boolean, how: string, expiresOn?: string | null): Promise<{ id: number; kind: string; status: string }>
   vendorDocuments(): Promise<VendorDocumentState | null>
   /** Uploads one shop document. The owner's ID needs consent; the server refuses it without. */
   uploadVendorDocument(kind: VendorDocKind, file: File, consent: boolean, expiresOn?: string | null): Promise<{ kind: string; status: string }>
@@ -315,6 +316,15 @@ export const httpApi: Api = {
   adminTailorDirectory: (status) => data(http('GET', `/admin/tailors${status ? qs({ status }) : ''}`)),
   adminOverrideTailor: (profileId, note) => data(http('POST', `/admin/tailor-profiles/${profileId}/override-verify`, { note })),
   adminBulkMailTailors: (userIds, subject, body) => data(http('POST', '/admin/tailors/bulk-mail', { user_ids: userIds, subject, body })),
+  adminUploadTailorDocument: (profileId, kind, file, tailorAgreed, how, expiresOn) => {
+    const form = new FormData()
+    form.append('kind', kind)
+    form.append('file', file)
+    form.append('tailor_agreed', tailorAgreed ? '1' : '0')
+    form.append('how', how)
+    if (expiresOn) form.append('expires_on', expiresOn)
+    return data(http('POST', `/admin/tailor-profiles/${profileId}/documents`, form))
+  },
   vendorDocuments: () => data(http('GET', '/me/vendor-documents')),
   uploadVendorDocument: (kind, file, consent, expiresOn) => {
     const form = new FormData()
