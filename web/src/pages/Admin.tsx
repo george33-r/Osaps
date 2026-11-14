@@ -523,7 +523,7 @@ function TailorDirectory({ onChange }: { onChange: () => void }) {
         <EmptyState title="No tailors here">Nobody is in this group yet.</EmptyState>
       ) : (
         <div className="table-wrap">
-          <table className="table">
+          <table className="table table--actions-pinned">
             <thead>
               <tr>
                 <th />
@@ -533,7 +533,7 @@ function TailorDirectory({ onChange }: { onChange: () => void }) {
                 <th>Photo</th>
                 <th>Documents</th>
                 <th>Email</th>
-                <th />
+                <th>Action</th>
               </tr>
             </thead>
             <tbody>

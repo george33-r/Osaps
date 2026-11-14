@@ -2089,3 +2089,6 @@ body:has(.preview-banner) .wa-float { bottom: 4.6rem; }
 .tow-card__source { font-size: 0.8rem; font-weight: 700; color: #8a1c1c; text-transform: uppercase; letter-spacing: 0.05em; }
 .story-card__actions { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); flex-wrap: wrap; }
 .account__saved { margin: var(--s-5) 0; }
+
+/* Admin tailor directory: the action column stays on screen when the table scrolls sideways on a small window. */
+.table--actions-pinned th:last-child, .table--actions-pinned td:last-child { position: sticky; right: 0; background: var(--bg); box-shadow: -8px 0 8px -8px rgba(0, 0, 0, 0.25); min-width: 12rem; }
