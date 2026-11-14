@@ -10,7 +10,7 @@ use App\Services\PrivatePhotoService;
 use App\Services\TailorVerificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
+use Symfony\Component\HttpFoundation\Response;
 use Illuminate\Validation\Rule;
 
 class TailorVerificationController extends Controller
