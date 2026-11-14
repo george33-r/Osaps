@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\OfferController;
 use App\Http\Controllers\Api\V1\OfferMessageController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\TailorController;
+use App\Http\Controllers\Api\V1\StoryController;
 use App\Http\Controllers\Api\V1\TailorReviewController;
 use App\Http\Controllers\Api\V1\TailorVerificationController;
 use App\Http\Controllers\Api\V1\VendorDocumentController;
@@ -39,6 +40,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
     Route::get('tailors', [TailorController::class, 'index'])->name('tailors.index');
     Route::get('tailors/{slug}', [TailorController::class, 'show'])->name('tailors.show');
     Route::get('tailors/{slug}/face', [TailorVerificationController::class, 'face'])->name('tailors.face');
+    Route::get('stories', [StoryController::class, 'index'])->name('stories.index');
     Route::get('tailors/{slug}/reviews', [TailorReviewController::class, 'publicList'])->name('tailors.reviews');
     Route::get('tailor-review-photos/{photo}', [TailorReviewController::class, 'publicPhoto'])->whereNumber('photo')->name('tailor-review-photos.show');
 
@@ -88,6 +90,12 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::post('tailor-reviews/{review}/appeal', [TailorReviewController::class, 'appeal'])->whereNumber('review')->middleware('throttle:marketplace-writes')->name('tailor-reviews.appeal');
         Route::post('tailor-reviews/{review}/respond', [TailorReviewController::class, 'respond'])->whereNumber('review')->middleware('throttle:marketplace-writes')->name('tailor-reviews.respond');
         Route::get('me/tailor-reviews', [TailorReviewController::class, 'mine'])->name('me.tailor-reviews');
+
+        // Home page stories written by the tailor. Editing sends a story back to an OSAPS check.
+        Route::get('me/stories', [StoryController::class, 'mine'])->name('me.stories');
+        Route::post('me/stories', [StoryController::class, 'storeMine'])->middleware('throttle:marketplace-writes')->name('me.stories.store');
+        Route::post('me/stories/{story}', [StoryController::class, 'updateMine'])->whereNumber('story')->middleware('throttle:marketplace-writes')->name('me.stories.update');
+        Route::delete('me/stories/{story}', [StoryController::class, 'destroyMine'])->whereNumber('story')->middleware('throttle:marketplace-writes')->name('me.stories.destroy');
 
         // Customer: requests
         Route::get('job-requests', [JobRequestController::class, 'index'])->name('job-requests.index');
@@ -197,6 +205,11 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('stuck', [AdminController::class, 'stuck'])->withoutMiddleware('throttle:marketplace-writes')->name('stuck');
             Route::get('actions', [AdminController::class, 'actions'])->withoutMiddleware('throttle:marketplace-writes')->name('actions');
             Route::get('tailor-reviews', [TailorReviewController::class, 'adminQueue'])->withoutMiddleware('throttle:marketplace-writes')->name('tailor-reviews');
+            Route::get('stories', [StoryController::class, 'adminIndex'])->withoutMiddleware('throttle:marketplace-writes')->name('stories.index');
+            Route::post('stories', [StoryController::class, 'adminStore'])->name('stories.store');
+            Route::post('stories/{story}', [StoryController::class, 'adminUpdate'])->whereNumber('story')->name('stories.update');
+            Route::post('stories/{story}/status', [StoryController::class, 'adminStatus'])->whereNumber('story')->name('stories.status');
+            Route::delete('stories/{story}', [StoryController::class, 'adminDestroy'])->whereNumber('story')->name('stories.destroy');
             Route::post('tailor-reviews/{review}/moderate', [TailorReviewController::class, 'adminModerate'])->whereNumber('review')->name('tailor-reviews.moderate');
             Route::post('tailor-review-reports/{report}/decide', [TailorReviewController::class, 'adminDecideReport'])->whereNumber('report')->name('tailor-review-reports.decide');
             Route::post('tailor-review-appeals/{appeal}/decide', [TailorReviewController::class, 'adminDecideAppeal'])->whereNumber('appeal')->name('tailor-review-appeals.decide');
