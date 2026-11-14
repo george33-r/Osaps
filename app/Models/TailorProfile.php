@@ -66,6 +66,35 @@ class TailorProfile extends Model
     }
 
     /**
+     * Ratings from published customer reviews only. Null average means no reviews yet (unrated),
+     * which is not the same as a low rating.
+     *
+     * @return array{count:int, average:?float, breakdown:?array<string,?float>}
+     */
+    public function reviewSummary(): array
+    {
+        $published = TailorReview::query()->published()->where('tailor_id', $this->user_id);
+        $count = (clone $published)->count();
+        if ($count === 0) {
+            return ['count' => 0, 'average' => null, 'breakdown' => null];
+        }
+
+        $row = (clone $published)->selectRaw('AVG(stars) as stars, AVG(quality) as quality, AVG(communication) as communication, AVG(delivery_time) as delivery_time, AVG(value_for_money) as value_for_money')->first();
+        $one = fn ($v) => $v === null ? null : round((float) $v, 1);
+
+        return [
+            'count' => $count,
+            'average' => $one($row->stars),
+            'breakdown' => [
+                'quality' => $one($row->quality),
+                'communication' => $one($row->communication),
+                'delivery_time' => $one($row->delivery_time),
+                'value_for_money' => $one($row->value_for_money),
+            ],
+        ];
+    }
+
+    /**
      * Track record computed from real orders only — never self-reported or seeded.
      *
      * @return array{completed_orders:int,on_time_orders:int,upheld_complaints:int,open_orders:int}

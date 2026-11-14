@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\OfferController;
 use App\Http\Controllers\Api\V1\OfferMessageController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\TailorController;
+use App\Http\Controllers\Api\V1\TailorReviewController;
 use App\Http\Controllers\Api\V1\TailorVerificationController;
 use App\Http\Controllers\Api\V1\VendorDocumentController;
 use App\Http\Controllers\Api\V1\AccountController;
@@ -38,6 +39,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
     Route::get('tailors', [TailorController::class, 'index'])->name('tailors.index');
     Route::get('tailors/{slug}', [TailorController::class, 'show'])->name('tailors.show');
     Route::get('tailors/{slug}/face', [TailorVerificationController::class, 'face'])->name('tailors.face');
+    Route::get('tailors/{slug}/reviews', [TailorReviewController::class, 'publicList'])->name('tailors.reviews');
+    Route::get('tailor-review-photos/{photo}', [TailorReviewController::class, 'publicPhoto'])->whereNumber('photo')->name('tailor-review-photos.show');
 
     // AI-assisted features (guests allowed, rate limited; each response says whether AI or rules produced it)
     Route::middleware('throttle:ai')->prefix('ai')->name('ai.')->group(function () {
@@ -76,6 +79,15 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::get('me/tailor-verification', [TailorVerificationController::class, 'mine'])->name('me.tailor-verification');
         Route::post('me/tailor-verification/documents', [TailorVerificationController::class, 'upload'])->middleware('throttle:marketplace-writes')->name('me.tailor-verification.upload');
         Route::post('me/tailor-verification/submit', [TailorVerificationController::class, 'submit'])->middleware('throttle:marketplace-writes')->name('me.tailor-verification.submit');
+
+        // Tailor reviews: one per completed, paid order; corrections, replies, reports and appeals.
+        Route::get('orders/{order}/review', [TailorReviewController::class, 'forOrder'])->name('orders.review.show');
+        Route::post('orders/{order}/review', [TailorReviewController::class, 'store'])->middleware('throttle:marketplace-writes')->name('orders.review.store');
+        Route::post('tailor-reviews/{review}/correct', [TailorReviewController::class, 'correct'])->whereNumber('review')->middleware('throttle:marketplace-writes')->name('tailor-reviews.correct');
+        Route::post('tailor-reviews/{review}/report', [TailorReviewController::class, 'report'])->whereNumber('review')->middleware('throttle:marketplace-writes')->name('tailor-reviews.report');
+        Route::post('tailor-reviews/{review}/appeal', [TailorReviewController::class, 'appeal'])->whereNumber('review')->middleware('throttle:marketplace-writes')->name('tailor-reviews.appeal');
+        Route::post('tailor-reviews/{review}/respond', [TailorReviewController::class, 'respond'])->whereNumber('review')->middleware('throttle:marketplace-writes')->name('tailor-reviews.respond');
+        Route::get('me/tailor-reviews', [TailorReviewController::class, 'mine'])->name('me.tailor-reviews');
 
         // Customer: requests
         Route::get('job-requests', [JobRequestController::class, 'index'])->name('job-requests.index');
@@ -184,6 +196,12 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('fabric-orders/{fabricOrder}/paid-out', [AdminController::class, 'markPaid'])->name('payouts.paid');
             Route::get('stuck', [AdminController::class, 'stuck'])->withoutMiddleware('throttle:marketplace-writes')->name('stuck');
             Route::get('actions', [AdminController::class, 'actions'])->withoutMiddleware('throttle:marketplace-writes')->name('actions');
+            Route::get('tailor-reviews', [TailorReviewController::class, 'adminQueue'])->withoutMiddleware('throttle:marketplace-writes')->name('tailor-reviews');
+            Route::post('tailor-reviews/{review}/moderate', [TailorReviewController::class, 'adminModerate'])->whereNumber('review')->name('tailor-reviews.moderate');
+            Route::post('tailor-review-reports/{report}/decide', [TailorReviewController::class, 'adminDecideReport'])->whereNumber('report')->name('tailor-review-reports.decide');
+            Route::post('tailor-review-appeals/{appeal}/decide', [TailorReviewController::class, 'adminDecideAppeal'])->whereNumber('appeal')->name('tailor-review-appeals.decide');
+            Route::post('tailor-review-photos/{photo}/decide', [TailorReviewController::class, 'adminDecidePhoto'])->whereNumber('photo')->name('tailor-review-photos.decide');
+            Route::get('tailor-review-photos/{photo}/file', [TailorReviewController::class, 'adminPhotoFile'])->whereNumber('photo')->withoutMiddleware('throttle:marketplace-writes')->name('tailor-review-photos.file');
         });
 
         // Vendor workspace

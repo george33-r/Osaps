@@ -57,6 +57,14 @@ class MatchingService
             'portfolio_tags' => $p->portfolio_tags ?? [],
             'weekly_capacity' => $p->weekly_capacity,
             'median_response_minutes' => $p->median_response_minutes,
-        ] + $p->trackRecord();
+        ] + $p->trackRecord() + $this->ratingSignals($p);
+    }
+
+    /** @return array{review_count:int, average_stars:?float} */
+    private function ratingSignals(TailorProfile $p): array
+    {
+        $summary = $p->reviewSummary();
+
+        return ['review_count' => $summary['count'], 'average_stars' => $summary['average']];
     }
 }

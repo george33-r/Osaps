@@ -23,7 +23,17 @@ final class TailorScorer
         'capacity' => 10,
         'responsiveness' => 10,
         'portfolio' => 5,
+        // Applied only to tailors who have customer reviews. Unrated tailors are not penalised.
+        'rating' => 15,
     ];
+
+    /** Average stars are pulled toward this value until a tailor has enough reviews to stand on their own. */
+    private const NEUTRAL_STARS = 3.5;
+
+    private const RATING_CONFIDENCE_REVIEWS = 5;
+
+    /** Below this (after shrinking) a tailor is labelled as poorly rated, which is a different message from unrated. */
+    private const POOR_RATING_STARS = 3.0;
 
     /** Completed orders needed before history is treated as fully established. */
     private const HISTORY_CONFIDENCE_ORDERS = 10;
@@ -38,7 +48,8 @@ final class TailorScorer
      * @param  array{
      *   specialties: list<string>, service_cities: list<string>, portfolio_tags?: list<string>,
      *   completed_orders: int, on_time_orders: int, upheld_complaints: int,
-     *   open_orders: int, weekly_capacity: int, median_response_minutes: ?int
+     *   open_orders: int, weekly_capacity: int, median_response_minutes: ?int,
+     *   review_count?: int, average_stars?: ?float
      * }  $tailor
      * @return array{score:int, new_vendor:bool, reasons:list<string>, factors:array<string,float>}
      */
@@ -105,10 +116,29 @@ final class TailorScorer
             $reasons[] = 'Has portfolio work in a similar style.';
         }
 
+        // Rating: only when reviewed. Unrated tailors get no rating factor and no weight is taken away from them.
+        $reviewCount = max(0, (int) ($tailor['review_count'] ?? 0));
+        $average = $tailor['average_stars'] ?? null;
+        if ($reviewCount === 0 || $average === null) {
+            $reasons[] = 'Not yet rated by customers.';
+        } else {
+            // Shrink toward the neutral value so one or two reviews cannot dominate.
+            $shrunk = (($average * $reviewCount) + self::NEUTRAL_STARS * self::RATING_CONFIDENCE_REVIEWS) / ($reviewCount + self::RATING_CONFIDENCE_REVIEWS);
+            $factors['rating'] = max(0.0, min(1.0, ($shrunk - 1) / 4));
+            if ($shrunk < self::POOR_RATING_STARS) {
+                $reasons[] = 'Lower customer ratings so far — read the reviews before choosing.';
+            } elseif ($average >= 4.5 && $reviewCount >= 5) {
+                $reasons[] = "Highly rated by {$reviewCount} customers.";
+            }
+        }
+
         $total = 0.0;
         $weightSum = 0;
         foreach ($this->weights as $key => $weight) {
-            $total += ($factors[$key] ?? 0.0) * $weight;
+            if (! array_key_exists($key, $factors)) {
+                continue;
+            }
+            $total += $factors[$key] * $weight;
             $weightSum += $weight;
         }
 
