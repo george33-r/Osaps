@@ -8,6 +8,8 @@ use App\Models\Order;
 use App\Models\OrderPayment;
 use App\Models\TailorProfile;
 use App\Models\User;
+use App\Payments\FakeGateway;
+use App\Payments\PaymentGateway;
 use App\Services\OrderPaymentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -26,6 +28,7 @@ class OrderPaymentTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->app->instance(PaymentGateway::class, new FakeGateway('sk_test_fake'));
         $this->customer = User::factory()->create();
         $this->tailor = TailorProfile::factory()->create()->user;
 
