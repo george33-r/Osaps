@@ -152,6 +152,72 @@ export interface Story {
   tailor_profile_id?: number | null
 }
 
+// ---- Community ----
+
+export interface TailorOfWeek {
+  week_start: string
+  source_label: string
+  tailor: {
+    name: string
+    slug: string
+    city: string
+    photo_url: string | null
+    average: number | null
+    review_count: number
+    completed_orders: number
+    on_time_rate: number | null
+  }
+}
+
+export interface Moment {
+  id: number
+  type: 'photo' | 'video'
+  url: string
+  caption: string | null
+  posted_at: string | null
+  published_at: string | null
+  expires_at: string | null
+  status?: 'pending' | 'published' | 'hidden'
+  hidden_reason?: string | null
+  author_name?: string | null
+  author_id?: number
+}
+
+export interface MomentRing {
+  author_id: number
+  label: string
+  tailor: { name: string; slug: string } | null
+  avatar_url: string | null
+  latest_at: string | null
+  moments: Moment[]
+}
+
+export interface PublishedQuestion {
+  id: number
+  question: string
+  answer: string
+  answered_by: { name: string; slug: string } | null
+  answered_at: string | null
+}
+
+export interface MyQuestion {
+  id: number
+  question: string
+  status: 'pending' | 'open' | 'answered' | 'published' | 'hidden'
+  answer: string | null
+  hidden_reason: string | null
+}
+
+export interface AdminQuestion {
+  id: number
+  question: string
+  status: 'pending' | 'open' | 'answered' | 'published' | 'hidden'
+  asker_name: string | null
+  answer: string | null
+  answered_by: string | null
+  tailor_profile_id: number | null
+}
+
 // ---- Reviews ----
 
 export interface ReviewSummary {

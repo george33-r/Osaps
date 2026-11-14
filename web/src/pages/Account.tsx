@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { api, ApiError, type Measurements } from '../api'
+import { SavedStories } from '../components/Community'
 import { Button, ErrorState, Field, PageHeader, Skeleton, errorMessage } from '../components/ui'
 import { CurrencyPicker } from '../lib/fx'
 import { useSession } from '../lib/session'
@@ -42,6 +43,7 @@ export function AccountPage() {
         {error && error.code !== 'validation_failed' && <p className="field__error">{error.message}</p>}
         <Button type="submit" busy={busy}>Save</Button>
       </form>
+      <SavedStories />
       <section className="account__more">
         <CurrencyPicker />
         <p className="muted">Shopping from abroad? Foreign amounts are approximate; you always pay in naira and your bank converts.</p>

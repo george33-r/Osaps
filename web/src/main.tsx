@@ -22,6 +22,7 @@ const SignIn = lazy(() => import('./pages/Auth').then((m) => ({ default: m.SignI
 const Register = lazy(() => import('./pages/Auth').then((m) => ({ default: m.Register })))
 const PostRequest = lazy(() => import('./pages/PostRequest'))
 const Stylist = lazy(() => import('./pages/Stylist'))
+import { AskPage } from './pages/Ask'
 const MyRequests = lazy(() => import('./pages/Requests').then((m) => ({ default: m.MyRequests })))
 const RequestDetail = lazy(() => import('./pages/Requests').then((m) => ({ default: m.RequestDetail })))
 const TailorInbox = lazy(() => import('./pages/Tailor').then((m) => ({ default: m.TailorInbox })))
@@ -88,6 +89,7 @@ const router = createBrowserRouter(
             { path: 'fabrics', element: page(<FabricCatalogue />) },
             { path: 'fabrics/:slug', element: page(<FabricDetail />) },
             { path: 'tailors', element: page(<TailorDirectory />) },
+            { path: 'ask', element: page(<AskPage />) },
             { path: 'tailors/:slug', element: page(<TailorProfilePage />) },
             { path: 'stylist', element: page(<Stylist />) },
             { path: 'signin', element: page(<SignIn />) },

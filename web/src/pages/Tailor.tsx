@@ -5,6 +5,7 @@ import { MessageThread } from '../components/Messages'
 import { DesignPhotos } from '../components/DesignPhotos'
 import { TailorReviewsPanel } from '../components/Reviews'
 import { MyStoriesPanel } from '../components/Stories'
+import { OpenQuestions } from '../components/Community'
 import {
   Badge,
   Button,
@@ -52,6 +53,7 @@ export function TailorInbox() {
           </>
         }
       />
+      {res.data?.has_profile && <OpenQuestions />}
       {res.data?.has_profile && <MyStoriesPanel />}
       {res.data?.has_profile && <TailorReviewsPanel />}
       {res.status === 'error' && !res.data ? (

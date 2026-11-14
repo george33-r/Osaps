@@ -1,4 +1,4 @@
-import type { AdminReviewQueue, OrderReviewState, ReviewInput, Story, TailorReview, TailorReviewsState } from './types'
+import type { AdminQuestion, AdminReviewQueue, Moment, MomentRing, MyQuestion, OrderReviewState, PublishedQuestion, ReviewInput, Story, TailorOfWeek, TailorReview, TailorReviewsState } from './types'
 import type {
   FabricFilters,
   Fabric,
@@ -121,6 +121,28 @@ export interface Api {
   adminUpdateStory(id: number, form: FormData): Promise<Story>
   adminSetStoryStatus(id: number, status: 'published' | 'hidden', note: string | null): Promise<{ id: number; status: string }>
   adminDeleteStory(id: number): Promise<{ deleted: boolean }>
+  /** Community: tailor of the week, saved stories, questions for tailors, moments. */
+  tailorOfWeek(): Promise<TailorOfWeek | null>
+  adminSetTailorOfWeek(tailorProfileId: number, reason: string): Promise<{ tailor: string; source: string }>
+  savedStories(): Promise<Story[]>
+  savedStoryIds(): Promise<number[]>
+  saveStory(id: number): Promise<{ saved: boolean }>
+  unsaveStory(id: number): Promise<{ saved: boolean }>
+  moments(): Promise<MomentRing[]>
+  myMoments(): Promise<Moment[]>
+  postMoment(form: FormData): Promise<Moment>
+  deleteMoment(id: number): Promise<{ deleted: boolean }>
+  publicQuestions(): Promise<PublishedQuestion[]>
+  myQuestions(): Promise<MyQuestion[]>
+  askQuestion(question: string): Promise<{ id: number; status: string }>
+  openQuestions(): Promise<{ id: number; question: string }[]>
+  answerQuestion(id: number, answer: string): Promise<{ id: number; status: string }>
+  adminQuestions(status: string): Promise<AdminQuestion[]>
+  adminApproveQuestion(id: number): Promise<{ id: number; status: string }>
+  adminHideQuestion(id: number, note: string): Promise<{ id: number; status: string }>
+  adminPublishQuestion(id: number): Promise<{ id: number; status: string; story_id: number | null }>
+  adminMoments(status: string): Promise<Moment[]>
+  adminMomentStatus(id: number, status: 'published' | 'hidden', note: string | null): Promise<{ id: number; status: string }>
   adminOverrideTailor(profileId: number, note: string): Promise<{ id: number; status: string }>
   adminBulkMailTailors(userIds: number[], subject: string, body: string): Promise<{ queued: number }>
   adminUploadTailorDocument(profileId: number, kind: string, file: File, tailorAgreed: boolean, how: string, expiresOn?: string | null): Promise<{ id: number; kind: string; status: string }>
@@ -367,6 +389,27 @@ export const httpApi: Api = {
   adminUpdateStory: (id, form) => data(http('POST', `/admin/stories/${id}`, form)),
   adminSetStoryStatus: (id, status, note) => data(http('POST', `/admin/stories/${id}/status`, { status, note })),
   adminDeleteStory: (id) => data(http('DELETE', `/admin/stories/${id}`)),
+  tailorOfWeek: () => data(http('GET', '/tailor-of-week')),
+  adminSetTailorOfWeek: (tailorProfileId, reason) => data(http('POST', '/admin/tailor-of-week', { tailor_profile_id: tailorProfileId, reason })),
+  savedStories: () => data(http('GET', '/me/saved-stories')),
+  savedStoryIds: () => data(http('GET', '/me/saved-story-ids')),
+  saveStory: (id) => data(http('POST', `/stories/${id}/save`)),
+  unsaveStory: (id) => data(http('DELETE', `/stories/${id}/save`)),
+  moments: () => data(http('GET', '/moments')),
+  myMoments: () => data(http('GET', '/me/moments')),
+  postMoment: (form) => data(http('POST', '/moments', form)),
+  deleteMoment: (id) => data(http('DELETE', `/moments/${id}`)),
+  publicQuestions: () => data(http('GET', '/questions')),
+  myQuestions: () => data(http('GET', '/me/questions')),
+  askQuestion: (question) => data(http('POST', '/questions', { question })),
+  openQuestions: () => data(http('GET', '/tailor/open-questions')),
+  answerQuestion: (id, answer) => data(http('POST', `/questions/${id}/answer`, { answer })),
+  adminQuestions: (status) => data(http('GET', `/admin/questions${qs({ status })}`)),
+  adminApproveQuestion: (id) => data(http('POST', `/admin/questions/${id}/approve`)),
+  adminHideQuestion: (id, note) => data(http('POST', `/admin/questions/${id}/hide`, { note })),
+  adminPublishQuestion: (id) => data(http('POST', `/admin/questions/${id}/publish`)),
+  adminMoments: (status) => data(http('GET', `/admin/moments${qs({ status })}`)),
+  adminMomentStatus: (id, status, note) => data(http('POST', `/admin/moments/${id}/status`, { status, note })),
   adminTailorDirectory: (status) => data(http('GET', `/admin/tailors${status ? qs({ status }) : ''}`)),
   adminOverrideTailor: (profileId, note) => data(http('POST', `/admin/tailor-profiles/${profileId}/override-verify`, { note })),
   adminBulkMailTailors: (userIds, subject, body) => data(http('POST', '/admin/tailors/bulk-mail', { user_ids: userIds, subject, body })),

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { api, type Story, type AdminTailorDirectoryRow } from '../api'
 import { Badge, Button, EmptyState, ErrorState, Skeleton, errorMessage } from './ui'
 import { useToast } from '../lib/toast'
+import { SaveStoryButton } from './Community'
 import { useAsync } from '../lib/useAsync'
 
 const STATUS_LABEL: Record<string, string> = { pending: 'Waiting for an OSAPS check', published: 'Live on the home page', hidden: 'Hidden' }
@@ -18,6 +19,7 @@ export function HomeStories() {
     <section className="sh-section stories" aria-labelledby="stories-title">
       <header className="sh-section__head">
         <h2 id="stories-title" className="sh-section__title">From the workshop</h2>
+        <Link to="/ask" className="text-link">Ask a tailor</Link>
       </header>
       <ul className="stories__rail">
         {res.data.map((s) => (
@@ -42,7 +44,10 @@ export function StoryCard({ story }: { story: Story }) {
         <p className="story-card__by">
           {story.tailor ? <Link to={`/tailors/${story.tailor.slug}`}>{story.byline}</Link> : story.byline}
         </p>
-        {internal && <Link to={internal} className="text-link">Read more</Link>}
+        <div className="story-card__actions">
+          {internal && <Link to={internal} className="text-link">Read more</Link>}
+          <SaveStoryButton storyId={story.id} />
+        </div>
       </div>
     </article>
   )
