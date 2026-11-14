@@ -175,6 +175,8 @@ class NegotiationFlowTest extends TestCase
 
         $move($this->customer, 'in_progress')->assertStatus(409);           // only the tailor starts work
         $move($this->tailorA, 'delivered')->assertStatus(409);              // cannot skip stages
+        $move($this->tailorA, 'in_progress')->assertStatus(422)->assertJsonPath('code', 'payment_required'); // not paid yet
+        \App\Models\Order::query()->where('reference', $ref)->update(['payment_status' => 'paid']);
         $move($this->tailorA, 'in_progress')->assertOk();
         $move($this->tailorA, 'ready')->assertOk();
         $move($this->tailorA, 'delivered')->assertOk();

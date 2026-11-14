@@ -19,6 +19,7 @@ class Order extends Model
         return [
             'spec_snapshot' => 'array',
             'due_on' => 'date',
+            'completed_at' => 'datetime',
             'tailoring_minor' => 'integer',
             'delivery_fee_minor' => 'integer',
             'service_fee_minor' => 'integer',

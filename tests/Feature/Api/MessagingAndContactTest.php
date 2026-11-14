@@ -80,6 +80,7 @@ class MessagingAndContactTest extends TestCase
         $tailor = TailorProfile::factory()->create()->user;
         $offerId = $this->actingAs($tailor)->postJson("/api/v1/job-requests/{$job->public_id}/offers", ['amount_minor' => 3_000_000, 'delivery_days' => 10])->json('data.id');
         $ref = $this->actingAs($customer)->postJson("/api/v1/offers/{$offerId}/accept", $this->acceptPayload($offerId))->json('data.reference');
+        \App\Models\Order::query()->where('reference', $ref)->update(['payment_status' => 'paid']);
         $this->actingAs($tailor)->postJson("/api/v1/orders/{$ref}/transitions", ['status' => 'in_progress'])->assertOk();
 
         $order = $this->actingAs($customer)->getJson("/api/v1/orders/{$ref}")->assertOk();

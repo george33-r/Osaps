@@ -24,7 +24,7 @@ use Illuminate\Support\Facades\Log;
  */
 class PaystackWebhookController extends Controller
 {
-    public function __invoke(Request $request, PaymentGateway $gateway, CheckoutService $checkouts, TrustService $trust): Response
+    public function __invoke(Request $request, PaymentGateway $gateway, CheckoutService $checkouts, TrustService $trust, \App\Services\OrderPaymentService $orderPayments): Response
     {
         $raw = $request->getContent();
         if (strlen($raw) > 100_000 || ! $gateway->verifyWebhook($raw, $request->header('x-paystack-signature'))) {
@@ -69,8 +69,12 @@ class PaystackWebhookController extends Controller
             }
         } elseif ($event === 'charge.success' && $reference !== null && ChargeCheck::isOurReference($reference)) {
             try {
-                $checkout = $checkouts->confirmPaid($reference, $data);
-                $result = $checkout->payment_status;
+                if (\App\Models\OrderPayment::query()->where('reference', $reference)->exists()) {
+                    $result = $orderPayments->confirmPaid($reference, $data)->status;
+                } else {
+                    $checkout = $checkouts->confirmPaid($reference, $data);
+                    $result = $checkout->payment_status;
+                }
             } catch (ModelNotFoundException) {
                 $result = 'unknown_reference';
             } catch (DomainRuleViolation $e) {

@@ -23,6 +23,10 @@ class OrderService
 
             OrderStatus::assert($order->status, $to, $role);
 
+            if ($to === OrderStatus::IN_PROGRESS && $order->payment_status !== 'paid') {
+                throw new DomainRuleViolation('The customer has not paid yet. Work can start once the payment is confirmed.', 'payment_required');
+            }
+
             if ($to === OrderStatus::DISPUTED && ! config('marketplace.disputes_enabled')) {
                 throw new DomainRuleViolation('Problem reports go to OSAPS support for now. Contact support and quote your order reference.', 'disputes_unavailable');
             }
@@ -33,6 +37,9 @@ class OrderService
 
             $from = $order->status;
             $order->status = $to;
+            if ($to === OrderStatus::COMPLETED) {
+                $order->completed_at = now();
+            }
             $order->save();
 
             $order->events()->create([
