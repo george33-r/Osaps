@@ -124,7 +124,8 @@ final class TailorScorer
         } else {
             // Shrink toward the neutral value so one or two reviews cannot dominate.
             $shrunk = (($average * $reviewCount) + self::NEUTRAL_STARS * self::RATING_CONFIDENCE_REVIEWS) / ($reviewCount + self::RATING_CONFIDENCE_REVIEWS);
-            $factors['rating'] = max(0.0, min(1.0, ($shrunk - 1) / 4));
+            // A shrunk average of 4.0 or more earns the full rating factor; 3.0 or less earns none.
+            $factors['rating'] = max(0.0, min(1.0, $shrunk - 3.0));
             if ($shrunk < self::POOR_RATING_STARS) {
                 $reasons[] = 'Lower customer ratings so far — read the reviews before choosing.';
             } elseif ($average >= 4.5 && $reviewCount >= 5) {

@@ -27,7 +27,7 @@ final class TailorRatingScoringTest extends TestCase
         $unrated = (new TailorScorer)->score($this->job(), $this->tailor(['review_count' => 0, 'average_stars' => null]));
         $noField = (new TailorScorer)->score($this->job(), $this->tailor());
 
-        $this->assertArrayNotHasKey('rating', $unrated['factors']);
+        $this->assertFalse(array_key_exists('rating', $unrated['factors']));
         $this->assertContains('Not yet rated by customers.', $unrated['reasons']);
         $this->assertSame($noField['score'], $unrated['score']);
         $this->assertGreaterThan(85, $unrated['score']);
@@ -39,7 +39,7 @@ final class TailorRatingScoringTest extends TestCase
         $rated = (new TailorScorer)->score($this->job(), $this->tailor(['review_count' => 20, 'average_stars' => 4.8]));
 
         $this->assertGreaterThan($unrated['score'], $rated['score']);
-        $this->assertArrayHasKey('rating', $rated['factors']);
+        $this->assertTrue(array_key_exists('rating', $rated['factors']));
     }
 
     public function test_poorly_rated_tailor_is_labelled_differently_from_unrated(): void

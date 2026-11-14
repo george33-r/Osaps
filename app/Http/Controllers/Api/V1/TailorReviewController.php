@@ -14,7 +14,7 @@ use App\Services\PrivatePhotoService;
 use App\Services\TailorReviewService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
+use Symfony\Component\HttpFoundation\Response;
 use Illuminate\Validation\Rule;
 
 class TailorReviewController extends Controller
