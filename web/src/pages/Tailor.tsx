@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, ApiError, type JobRequest, type Offer } from '../api'
 import { MessageThread } from '../components/Messages'
 import { DesignPhotos } from '../components/DesignPhotos'
+import { TailorReviewsPanel } from '../components/Reviews'
 import {
   Badge,
   Button,
@@ -50,6 +51,7 @@ export function TailorInbox() {
           </>
         }
       />
+      {res.data?.has_profile && <TailorReviewsPanel />}
       {res.status === 'error' && !res.data ? (
         <ErrorState error={res.error} onRetry={res.reload} />
       ) : !res.data ? (
@@ -379,6 +381,7 @@ export function TailorProfileEdit() {
         specialties: specs,
         portfolio_tags: list('portfolio_tags').map((t) => t.toLowerCase()),
         weekly_capacity: Number(f.get('weekly_capacity') || 5),
+        experience_years: f.get('experience_years') ? Number(f.get('experience_years')) : null,
         starting_price_minor: nairaToMinor(String(f.get('starting_price') ?? '')),
         accepting_work: f.get('accepting_work') === 'on',
       })
@@ -426,6 +429,9 @@ export function TailorProfileEdit() {
         <div className="form__row">
           <Field label="Orders you can take per week">
             {(p) => <input {...p} name="weekly_capacity" type="number" min={1} max={200} defaultValue={5} className="input" />}
+          </Field>
+          <Field label="Years in the trade" optional hint="Your own figure. OSAPS does not verify it.">
+            {(p) => <input {...p} name="experience_years" type="number" min={0} max={60} className="input" />}
           </Field>
           <Field label="Prices from" optional>
             {(p) => (

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api, type Order, type OrderStatus } from '../api'
 import { MessageThread } from '../components/Messages'
+import { OrderReviewPanel } from '../components/Reviews'
 import { Button, Dialog, EmptyState, ErrorState, Field, OrderStatusBadge, PageHeader, Skeleton, errorMessage } from '../components/ui'
 import { formatDate, plural } from '../lib/format'
 import { useSession } from '../lib/session'
@@ -207,6 +208,11 @@ export function OrderDetail() {
             <p className="muted">Payment status: {o.payment_status === 'unpaid' ? 'not paid through OSAPS. In-app payment is not available yet.' : o.payment_status}</p>
             {o.viewer_role === 'tailor' && o.customer?.phone && <p>Customer phone: {o.customer.phone}</p>}
           </section>
+          {o.viewer_role === 'customer' && o.status === 'completed' && o.payment_status === 'paid' && (
+            <section className="brief">
+              <OrderReviewPanel reference={o.reference} />
+            </section>
+          )}
           {o.viewer_role === 'tailor' && o.measurements && (
             <section className="brief">
               <h2 className="brief__title">Customer measurements (cm)</h2>

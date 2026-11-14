@@ -123,8 +123,73 @@ export interface Tailor {
   photo_url: string | null
   face_url: string | null
   track_record: { completed_orders: number; on_time_rate: number | null; is_new: boolean }
+  /** Self-reported by the tailor; OSAPS does not verify it. */
+  experience_years: number | null
+  reviews: ReviewSummary
   is_demo: boolean
   match?: MatchResult
+}
+
+// ---- Reviews ----
+
+export interface ReviewSummary {
+  count: number
+  average: number | null
+  breakdown: { quality: number | null; communication: number | null; delivery_time: number | null; value_for_money: number | null } | null
+}
+
+export interface TailorReviewPhoto {
+  id: number
+  status: 'pending' | 'approved' | 'rejected'
+  url: string
+}
+
+export interface TailorReview {
+  id: number
+  stars: number
+  ratings: { quality: number | null; communication: number | null; delivery_time: number | null; value_for_money: number | null }
+  body: string | null
+  reviewer_label: string
+  submitted_at: string | null
+  corrected: boolean
+  corrected_at: string | null
+  response: { body: string; created_at: string | null; responded_to_version: number } | null
+  photos: TailorReviewPhoto[]
+  /** Owner and admin only: every version of the text, oldest first. */
+  original?: { version: number; stars: number; body: string | null; created_at: string | null }[] | null
+  can_correct?: boolean
+  status?: 'published' | 'hidden'
+  hidden_reason?: string | null
+  order_id?: number
+  tailor_id?: number
+  customer_id?: number
+  correction_count?: number
+}
+
+export interface ReviewInput {
+  stars: number
+  quality?: number | null
+  communication?: number | null
+  delivery_time?: number | null
+  value_for_money?: number | null
+  body?: string | null
+}
+
+export interface OrderReviewState {
+  review: TailorReview | null
+  eligible: boolean
+  window_closes_at: string | null
+}
+
+export interface TailorReviewsState {
+  summary: ReviewSummary
+  reviews: TailorReview[]
+}
+
+export interface AdminReviewQueue {
+  reports: { id: number; reason: string; details: string | null; created_at: string | null; review: TailorReview }[]
+  appeals: { id: number; reason: string; created_at: string | null; review: TailorReview }[]
+  photos: { id: number; review_id: number; review_status: string; file_url: string }[]
 }
 
 export type OfferStatus =
@@ -312,6 +377,7 @@ export interface TailorProfileInput {
   specialties: string[]
   portfolio_tags: string[]
   weekly_capacity: number
+  experience_years: number | null
   starting_price_minor: number | null
   accepting_work: boolean
 }

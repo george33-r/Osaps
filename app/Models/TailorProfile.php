@@ -15,7 +15,7 @@ class TailorProfile extends Model
 
     protected $fillable = [
         'business_name', 'slug', 'bio', 'city', 'service_cities', 'specialties', 'portfolio_tags',
-        'weekly_capacity', 'starting_price_minor', 'accepting_work',
+        'weekly_capacity', 'experience_years', 'starting_price_minor', 'accepting_work',
     ];
 
     protected function casts(): array
@@ -25,6 +25,7 @@ class TailorProfile extends Model
             'specialties' => 'array',
             'portfolio_tags' => 'array',
             'accepting_work' => 'boolean',
+            'experience_years' => 'integer',
             'is_demo' => 'boolean',
             'verified_at' => 'datetime',
             'verification_requested_at' => 'datetime',

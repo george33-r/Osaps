@@ -248,6 +248,8 @@ class TailorReviewController extends Controller
         ];
 
         if ($audience === 'owner' || $audience === 'admin') {
+            $data['status'] = $r->status;
+            $data['hidden_reason'] = $r->hidden_reason;
             $data['original'] = $r->relationLoaded('revisions') && $r->revisions->isNotEmpty()
                 ? $r->revisions->map(fn (TailorReviewRevision $v) => [
                     'version' => $v->version, 'stars' => $v->stars, 'body' => $v->body,

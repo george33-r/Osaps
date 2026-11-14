@@ -1,3 +1,4 @@
+import type { AdminReviewQueue, OrderReviewState, ReviewInput, TailorReview, TailorReviewsState } from './types'
 import type {
   FabricFilters,
   Fabric,
@@ -95,6 +96,20 @@ export interface Api {
   adminReviewTailorDocument(id: number, decision: 'approved' | 'rejected', note?: string | null): Promise<{ id: number; status: string }>
   adminReviewTailorProfile(id: number, to: 'verified' | 'rejected' | 'suspended', note?: string | null): Promise<{ id: number; status: string }>
   adminTailorDirectory(status?: string): Promise<AdminTailorDirectoryRow[]>
+  /** Reviews: the customer's review of one order, and whether it can still be written. */
+  orderReview(reference: string): Promise<OrderReviewState>
+  submitOrderReview(reference: string, input: ReviewInput, photos: File[]): Promise<TailorReview>
+  correctReview(id: number, input: ReviewInput): Promise<TailorReview>
+  appealReview(id: number, reason: string): Promise<{ id: number; status: string }>
+  reportReview(id: number, reason: string, details: string | null): Promise<{ id: number; status: string }>
+  respondToReview(id: number, body: string): Promise<{ id: number; body: string }>
+  tailorReviews(slug: string): Promise<TailorReviewsState>
+  myTailorReviews(): Promise<TailorReviewsState>
+  adminReviewQueue(): Promise<AdminReviewQueue>
+  adminModerateReview(id: number, to: 'published' | 'hidden', note: string | null): Promise<{ id: number; status: string }>
+  adminDecideReport(id: number, decision: 'upheld' | 'dismissed', note: string | null): Promise<{ id: number; status: string }>
+  adminDecideAppeal(id: number, decision: 'restored' | 'upheld', note: string | null): Promise<{ id: number; status: string }>
+  adminDecidePhoto(id: number, decision: 'approved' | 'rejected'): Promise<{ id: number; status: string }>
   adminOverrideTailor(profileId: number, note: string): Promise<{ id: number; status: string }>
   adminBulkMailTailors(userIds: number[], subject: string, body: string): Promise<{ queued: number }>
   adminUploadTailorDocument(profileId: number, kind: string, file: File, tailorAgreed: boolean, how: string, expiresOn?: string | null): Promise<{ id: number; kind: string; status: string }>
@@ -313,6 +328,24 @@ export const httpApi: Api = {
   adminTailorQueue: (status) => data(http('GET', `/admin/tailor-verifications${qs({ status })}`)),
   adminReviewTailorDocument: (id, decision, note) => data(http('POST', `/admin/tailor-documents/${id}/review`, { decision, note: note ?? null })),
   adminReviewTailorProfile: (id, to, note) => data(http('POST', `/admin/tailor-profiles/${id}/review`, { to, note: note ?? null })),
+  orderReview: (reference) => data(http('GET', `/orders/${encodeURIComponent(reference)}/review`)),
+  submitOrderReview: (reference, input, photos) => {
+    const form = new FormData()
+    for (const [k, v] of Object.entries(input)) if (v !== undefined && v !== null && v !== '') form.append(k, String(v))
+    for (const p of photos) form.append('photos[]', p)
+    return data(http('POST', `/orders/${encodeURIComponent(reference)}/review`, form))
+  },
+  correctReview: (id, input) => data(http('POST', `/tailor-reviews/${id}/correct`, input)),
+  appealReview: (id, reason) => data(http('POST', `/tailor-reviews/${id}/appeal`, { reason })),
+  reportReview: (id, reason, details) => data(http('POST', `/tailor-reviews/${id}/report`, { reason, details })),
+  respondToReview: (id, body) => data(http('POST', `/tailor-reviews/${id}/respond`, { body })),
+  tailorReviews: (slug) => data(http('GET', `/tailors/${encodeURIComponent(slug)}/reviews`)),
+  myTailorReviews: () => data(http('GET', '/me/tailor-reviews')),
+  adminReviewQueue: () => data(http('GET', '/admin/tailor-reviews')),
+  adminModerateReview: (id, to, note) => data(http('POST', `/admin/tailor-reviews/${id}/moderate`, { to, note })),
+  adminDecideReport: (id, decision, note) => data(http('POST', `/admin/tailor-review-reports/${id}/decide`, { decision, note })),
+  adminDecideAppeal: (id, decision, note) => data(http('POST', `/admin/tailor-review-appeals/${id}/decide`, { decision, note })),
+  adminDecidePhoto: (id, decision) => data(http('POST', `/admin/tailor-review-photos/${id}/decide`, { decision })),
   adminTailorDirectory: (status) => data(http('GET', `/admin/tailors${status ? qs({ status }) : ''}`)),
   adminOverrideTailor: (profileId, note) => data(http('POST', `/admin/tailor-profiles/${profileId}/override-verify`, { note })),
   adminBulkMailTailors: (userIds, subject, body) => data(http('POST', '/admin/tailors/bulk-mail', { user_ids: userIds, subject, body })),

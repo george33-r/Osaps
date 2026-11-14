@@ -25,6 +25,7 @@ class UpsertTailorProfileRequest extends FormRequest
             'portfolio_tags' => ['nullable', 'array', 'max:12'],
             'portfolio_tags.*' => ['string', 'max:30'],
             'weekly_capacity' => ['required', 'integer', 'min:1', 'max:200'],
+            'experience_years' => ['nullable', 'integer', 'min:0', 'max:60'],
             'starting_price_minor' => ['nullable', 'integer', 'min:100000'],
             'accepting_work' => ['boolean'],
         ];

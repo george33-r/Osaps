@@ -1,6 +1,7 @@
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
 import { Monogram, TailorCard, TrustLine } from '../components/cards'
+import { TailorReviewsBlock } from '../components/Reviews'
 import { Badge, ButtonLink, EmptyState, ErrorState, Label, PageHeader, Skeleton } from '../components/ui'
 import { useSession } from '../lib/session'
 import { useAsync } from '../lib/useAsync'
@@ -79,6 +80,7 @@ export function TailorProfilePage() {
             <Label>{t.specialties.map((s) => s.label).join(', ')}</Label>
             <h1 className="maker__name">{t.business_name}</h1>
             <p className="maker__where">Based in {t.city}. Works in {t.service_cities.join(', ')}.</p>
+            {t.experience_years !== null && <p className="maker__where">{t.experience_years} {t.experience_years === 1 ? 'year' : 'years'} in the trade (self-reported)</p>}
             <TrustLine tailor={t} />
             {t.is_demo && <Badge tone="waiting">Demonstration profile</Badge>}
           </div>
@@ -89,9 +91,10 @@ export function TailorProfilePage() {
             {t.bio && <p className="maker__bio">{t.bio}</p>}
             {t.track_record.is_new && (
               <p className="maker__new">
-                New makers start without reviews. Ask to see past work in a message before you accept an offer, and agree fittings and alterations up front.
+                New makers have few or no reviews yet. Ask to see past work in a message before you accept an offer, and agree fittings and alterations up front.
               </p>
             )}
+            <TailorReviewsBlock slug={t.slug} summary={t.reviews} />
             <section className="maker__portfolio" aria-labelledby="portfolio-title">
               <h2 id="portfolio-title" className="section-title section-title--small">Portfolio</h2>
               <EmptyState title="Portfolio photographs are coming">

@@ -14,6 +14,7 @@ class TailorResource extends ApiResource
     {
         $record = $this->trackRecord();
         $labels = config('marketplace.garment_categories');
+        $reviews = $this->reviewSummary();
 
         return [
             'slug' => $this->slug,
@@ -25,6 +26,8 @@ class TailorResource extends ApiResource
             'portfolio_tags' => $this->portfolio_tags ?? [],
             'starting_price' => self::money($this->starting_price_minor),
             'accepting_work' => $this->accepting_work,
+            // Self-reported by the tailor; OSAPS does not verify years of experience.
+            'experience_years' => $this->experience_years,
             'verified' => $this->badgeActive(),
             'verification' => $this->verificationBadges(),
             // The selfie an OSAPS admin has checked. Shown only while the badges are active.
@@ -37,6 +40,8 @@ class TailorResource extends ApiResource
                     : null,
                 'is_new' => $record['completed_orders'] < 3,
             ],
+            // Rating comes only from published customer reviews. A null average means not yet rated.
+            'reviews' => $reviews,
             'is_demo' => $this->is_demo,
             'match' => $this->when($this->hasExtra('match'), fn () => $this->extra('match')),
         ];

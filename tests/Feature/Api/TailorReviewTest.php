@@ -218,4 +218,23 @@ class TailorReviewTest extends TestCase
             ->assertOk()->assertJsonPath('data.summary.count', 1)->assertJsonPath('data.summary.average', 4)
             ->assertJsonCount(1, 'data.reviews');
     }
+
+    public function test_profile_endpoint_carries_the_rating_summary_and_self_reported_experience(): void
+    {
+        $profile = TailorProfile::query()->where('user_id', $this->tailor->id)->firstOrFail();
+        $profile->forceFill(['experience_years' => 12])->save();
+
+        $this->getJson("/api/v1/tailors/{$profile->slug}")->assertOk()
+            ->assertJsonPath('data.experience_years', 12)
+            ->assertJsonPath('data.reviews.count', 0)
+            ->assertJsonPath('data.reviews.average', null);
+
+        $this->complete();
+        $this->postReview(['stars' => 4, 'quality' => 5])->assertCreated();
+
+        $this->getJson("/api/v1/tailors/{$profile->slug}")->assertOk()
+            ->assertJsonPath('data.reviews.count', 1)
+            ->assertJsonPath('data.reviews.average', 4)
+            ->assertJsonPath('data.reviews.breakdown.quality', 5);
+    }
 }
