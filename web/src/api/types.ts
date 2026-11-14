@@ -130,6 +130,28 @@ export interface Tailor {
   match?: MatchResult
 }
 
+// ---- Home page stories ----
+
+export interface Story {
+  id: number
+  kind: 'story' | 'tip' | 'spotlight'
+  kind_label: string
+  title: string
+  body: string
+  link_url: string | null
+  photo_url: string | null
+  byline: string
+  tailor: { name: string; slug: string } | null
+  published_at: string | null
+  /** Owner and admin only. */
+  status?: 'pending' | 'published' | 'hidden'
+  hidden_reason?: string | null
+  /** Admin only. */
+  author_id?: number
+  author_name?: string | null
+  tailor_profile_id?: number | null
+}
+
 // ---- Reviews ----
 
 export interface ReviewSummary {

@@ -4,6 +4,7 @@ import { api, ApiError, type JobRequest, type Offer } from '../api'
 import { MessageThread } from '../components/Messages'
 import { DesignPhotos } from '../components/DesignPhotos'
 import { TailorReviewsPanel } from '../components/Reviews'
+import { MyStoriesPanel } from '../components/Stories'
 import {
   Badge,
   Button,
@@ -51,6 +52,7 @@ export function TailorInbox() {
           </>
         }
       />
+      {res.data?.has_profile && <MyStoriesPanel />}
       {res.data?.has_profile && <TailorReviewsPanel />}
       {res.status === 'error' && !res.data ? (
         <ErrorState error={res.error} onRetry={res.reload} />

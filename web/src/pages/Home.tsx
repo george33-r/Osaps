@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, type Fabric } from '../api'
 import { FabricCard } from '../components/cards'
+import { HomeStories } from '../components/Stories'
 import { RecentlyViewed } from '../components/ProductKit'
 import { ButtonLink, Skeleton } from '../components/ui'
 import { HERO_VIDEO, LOOKBOOK } from '../data/photos'
@@ -154,6 +155,7 @@ export default function Home() {
     <div className="home home--shop">
       <Hero />
       <Trust />
+      <HomeStories />
       <Categories fabrics={fabrics} />
       <section className="sh-section" aria-labelledby="new-title">
         <header className="sh-section__head">

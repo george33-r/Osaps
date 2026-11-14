@@ -2,13 +2,14 @@ import { useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api, type AdminOrderRow, type AdminTailorDirectoryRow, type AdminTailorQueueRow, type AdminVendor, type VendorVerificationStatus } from '../api'
 import { ReviewQueue } from '../components/Reviews'
+import { AdminStories } from '../components/Stories'
 import { Badge, Button, EmptyState, ErrorState, PageHeader, Skeleton, errorMessage } from '../components/ui'
 import { formatDate } from '../lib/format'
 import { useSession } from '../lib/session'
 import { useToast } from '../lib/toast'
 import { useAsync } from '../lib/useAsync'
 
-type Tab = 'overview' | 'vendors' | 'tailors' | 'reviews' | 'disputes' | 'refunds' | 'payouts' | 'stuck' | 'log'
+type Tab = 'overview' | 'vendors' | 'tailors' | 'reviews' | 'stories' | 'disputes' | 'refunds' | 'payouts' | 'stuck' | 'log'
 
 const when = (iso: string | null | undefined) => (iso ? formatDate(iso, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—')
 
@@ -31,6 +32,7 @@ export function AdminPage() {
     { key: 'vendors', label: 'Shops to verify', n: o?.vendors_pending },
     { key: 'tailors', label: 'Tailors to verify' },
     { key: 'reviews', label: 'Reviews to check' },
+    { key: 'stories', label: 'Home stories' },
     { key: 'disputes', label: 'Problems', n: o?.disputes_open },
     { key: 'refunds', label: 'Refunds', n: (o?.refunds_owed ?? 0) + (o?.refunds_unconfirmed ?? 0) },
     { key: 'payouts', label: 'Payouts', n: (o?.payouts_releasable ?? 0) + (o?.payouts_approved ?? 0) },
@@ -51,6 +53,7 @@ export function AdminPage() {
       {tab === 'vendors' && <Vendors onChange={overview.reload} />}
       {tab === 'tailors' && <TailorChecks />}
       {tab === 'reviews' && <ReviewQueue />}
+      {tab === 'stories' && <AdminStories />}
       {tab === 'disputes' && <Disputes onChange={overview.reload} />}
       {tab === 'refunds' && <Refunds onChange={overview.reload} />}
       {tab === 'payouts' && <Payouts onChange={overview.reload} />}

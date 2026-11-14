@@ -13,6 +13,7 @@ import { makePreviewGrowth } from './preview-growth'
 import storeCatalogue from '../../../database/catalogue/osaps-store.json'
 import type {
   CartItemInput,
+  Story,
   SavedCartLine,
   Fabric,
   JobRequest,
@@ -400,6 +401,16 @@ export const previewApi: Api = {
   adminDecideReport: async (id) => ({ id, status: 'dismissed' }),
   adminDecideAppeal: async (id) => ({ id, status: 'restored' }),
   adminDecidePhoto: async (id, decision) => ({ id, status: decision }),
+  stories: async () => delay([] as Story[]),
+  myStories: async () => delay([] as Story[]),
+  createMyStory: async () => fail('Stories are not saved in the design preview.', 422, 'preview'),
+  updateMyStory: async () => fail('Stories are not saved in the design preview.', 422, 'preview'),
+  deleteMyStory: async () => ({ deleted: true }),
+  adminStories: async () => delay([] as Story[]),
+  adminCreateStory: async () => fail('Stories are not saved in the design preview.', 422, 'preview'),
+  adminUpdateStory: async () => fail('Stories are not saved in the design preview.', 422, 'preview'),
+  adminSetStoryStatus: async (id, status) => ({ id, status }),
+  adminDeleteStory: async () => ({ deleted: true }),
   adminUploadTailorDocument: async (_p, kind) => ({ id: 1, kind, status: 'submitted' }),
   vendorDocuments: async () => ({
     consent_given: false,

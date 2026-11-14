@@ -1,4 +1,4 @@
-import type { AdminReviewQueue, OrderReviewState, ReviewInput, TailorReview, TailorReviewsState } from './types'
+import type { AdminReviewQueue, OrderReviewState, ReviewInput, Story, TailorReview, TailorReviewsState } from './types'
 import type {
   FabricFilters,
   Fabric,
@@ -110,6 +110,17 @@ export interface Api {
   adminDecideReport(id: number, decision: 'upheld' | 'dismissed', note: string | null): Promise<{ id: number; status: string }>
   adminDecideAppeal(id: number, decision: 'restored' | 'upheld', note: string | null): Promise<{ id: number; status: string }>
   adminDecidePhoto(id: number, decision: 'approved' | 'rejected'): Promise<{ id: number; status: string }>
+  /** Home page stories. Writes send FormData so an optional photo can go with them. */
+  stories(): Promise<Story[]>
+  myStories(): Promise<Story[]>
+  createMyStory(form: FormData): Promise<Story>
+  updateMyStory(id: number, form: FormData): Promise<Story>
+  deleteMyStory(id: number): Promise<{ deleted: boolean }>
+  adminStories(status?: string): Promise<Story[]>
+  adminCreateStory(form: FormData): Promise<Story>
+  adminUpdateStory(id: number, form: FormData): Promise<Story>
+  adminSetStoryStatus(id: number, status: 'published' | 'hidden', note: string | null): Promise<{ id: number; status: string }>
+  adminDeleteStory(id: number): Promise<{ deleted: boolean }>
   adminOverrideTailor(profileId: number, note: string): Promise<{ id: number; status: string }>
   adminBulkMailTailors(userIds: number[], subject: string, body: string): Promise<{ queued: number }>
   adminUploadTailorDocument(profileId: number, kind: string, file: File, tailorAgreed: boolean, how: string, expiresOn?: string | null): Promise<{ id: number; kind: string; status: string }>
@@ -346,6 +357,16 @@ export const httpApi: Api = {
   adminDecideReport: (id, decision, note) => data(http('POST', `/admin/tailor-review-reports/${id}/decide`, { decision, note })),
   adminDecideAppeal: (id, decision, note) => data(http('POST', `/admin/tailor-review-appeals/${id}/decide`, { decision, note })),
   adminDecidePhoto: (id, decision) => data(http('POST', `/admin/tailor-review-photos/${id}/decide`, { decision })),
+  stories: () => data(http('GET', '/stories')),
+  myStories: () => data(http('GET', '/me/stories')),
+  createMyStory: (form) => data(http('POST', '/me/stories', form)),
+  updateMyStory: (id, form) => data(http('POST', `/me/stories/${id}`, form)),
+  deleteMyStory: (id) => data(http('DELETE', `/me/stories/${id}`)),
+  adminStories: (status) => data(http('GET', `/admin/stories${status ? qs({ status }) : ''}`)),
+  adminCreateStory: (form) => data(http('POST', '/admin/stories', form)),
+  adminUpdateStory: (id, form) => data(http('POST', `/admin/stories/${id}`, form)),
+  adminSetStoryStatus: (id, status, note) => data(http('POST', `/admin/stories/${id}/status`, { status, note })),
+  adminDeleteStory: (id) => data(http('DELETE', `/admin/stories/${id}`)),
   adminTailorDirectory: (status) => data(http('GET', `/admin/tailors${status ? qs({ status }) : ''}`)),
   adminOverrideTailor: (profileId, note) => data(http('POST', `/admin/tailor-profiles/${profileId}/override-verify`, { note })),
   adminBulkMailTailors: (userIds, subject, body) => data(http('POST', '/admin/tailors/bulk-mail', { user_ids: userIds, subject, body })),
