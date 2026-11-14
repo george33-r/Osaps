@@ -9,6 +9,8 @@ use App\Http\Controllers\Api\V1\OfferController;
 use App\Http\Controllers\Api\V1\OfferMessageController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\TailorController;
+use App\Http\Controllers\Api\V1\CommunityController;
+use App\Http\Controllers\Api\V1\QuestionController;
 use App\Http\Controllers\Api\V1\StoryController;
 use App\Http\Controllers\Api\V1\TailorReviewController;
 use App\Http\Controllers\Api\V1\TailorVerificationController;
@@ -41,6 +43,9 @@ Route::prefix('v1')->name('v1.')->group(function () {
     Route::get('tailors/{slug}', [TailorController::class, 'show'])->name('tailors.show');
     Route::get('tailors/{slug}/face', [TailorVerificationController::class, 'face'])->name('tailors.face');
     Route::get('stories', [StoryController::class, 'index'])->name('stories.index');
+    Route::get('tailor-of-week', [CommunityController::class, 'tailorOfWeek'])->name('tailor-of-week');
+    Route::get('moments', [CommunityController::class, 'rings'])->name('moments.index');
+    Route::get('questions', [QuestionController::class, 'published'])->name('questions.index');
     Route::get('tailors/{slug}/reviews', [TailorReviewController::class, 'publicList'])->name('tailors.reviews');
     Route::get('tailor-review-photos/{photo}', [TailorReviewController::class, 'publicPhoto'])->whereNumber('photo')->name('tailor-review-photos.show');
 
@@ -90,6 +95,19 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::post('tailor-reviews/{review}/appeal', [TailorReviewController::class, 'appeal'])->whereNumber('review')->middleware('throttle:marketplace-writes')->name('tailor-reviews.appeal');
         Route::post('tailor-reviews/{review}/respond', [TailorReviewController::class, 'respond'])->whereNumber('review')->middleware('throttle:marketplace-writes')->name('tailor-reviews.respond');
         Route::get('me/tailor-reviews', [TailorReviewController::class, 'mine'])->name('me.tailor-reviews');
+
+        // Saved stories, questions for tailors, and moments
+        Route::get('me/saved-stories', [CommunityController::class, 'savedStories'])->name('me.saved-stories');
+        Route::get('me/saved-story-ids', [CommunityController::class, 'savedIds'])->name('me.saved-story-ids');
+        Route::post('stories/{story}/save', [CommunityController::class, 'saveStory'])->whereNumber('story')->middleware('throttle:marketplace-writes')->name('stories.save');
+        Route::delete('stories/{story}/save', [CommunityController::class, 'unsaveStory'])->whereNumber('story')->middleware('throttle:marketplace-writes')->name('stories.unsave');
+        Route::post('questions', [QuestionController::class, 'ask'])->middleware('throttle:marketplace-writes')->name('questions.ask');
+        Route::get('me/questions', [QuestionController::class, 'mine'])->name('me.questions');
+        Route::get('tailor/open-questions', [QuestionController::class, 'openForTailors'])->name('tailor.open-questions');
+        Route::post('questions/{question}/answer', [QuestionController::class, 'answer'])->whereNumber('question')->middleware('throttle:marketplace-writes')->name('questions.answer');
+        Route::get('me/moments', [CommunityController::class, 'myMoments'])->name('me.moments');
+        Route::post('moments', [CommunityController::class, 'postMoment'])->middleware('throttle:marketplace-writes')->name('moments.store');
+        Route::delete('moments/{moment}', [CommunityController::class, 'deleteMoment'])->whereNumber('moment')->middleware('throttle:marketplace-writes')->name('moments.destroy');
 
         // Home page stories written by the tailor. Editing sends a story back to an OSAPS check.
         Route::get('me/stories', [StoryController::class, 'mine'])->name('me.stories');
@@ -206,6 +224,13 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('actions', [AdminController::class, 'actions'])->withoutMiddleware('throttle:marketplace-writes')->name('actions');
             Route::get('tailor-reviews', [TailorReviewController::class, 'adminQueue'])->withoutMiddleware('throttle:marketplace-writes')->name('tailor-reviews');
             Route::get('stories', [StoryController::class, 'adminIndex'])->withoutMiddleware('throttle:marketplace-writes')->name('stories.index');
+            Route::get('questions', [QuestionController::class, 'adminIndex'])->withoutMiddleware('throttle:marketplace-writes')->name('questions.index');
+            Route::post('questions/{question}/approve', [QuestionController::class, 'approve'])->whereNumber('question')->name('questions.approve');
+            Route::post('questions/{question}/hide', [QuestionController::class, 'hide'])->whereNumber('question')->name('questions.hide');
+            Route::post('questions/{question}/publish', [QuestionController::class, 'publish'])->whereNumber('question')->name('questions.publish');
+            Route::post('tailor-of-week', [CommunityController::class, 'setTailorOfWeek'])->name('tailor-of-week.set');
+            Route::get('moments', [CommunityController::class, 'adminMoments'])->withoutMiddleware('throttle:marketplace-writes')->name('moments.index');
+            Route::post('moments/{moment}/status', [CommunityController::class, 'decideMoment'])->whereNumber('moment')->name('moments.status');
             Route::post('stories', [StoryController::class, 'adminStore'])->name('stories.store');
             Route::post('stories/{story}', [StoryController::class, 'adminUpdate'])->whereNumber('story')->name('stories.update');
             Route::post('stories/{story}/status', [StoryController::class, 'adminStatus'])->whereNumber('story')->name('stories.status');

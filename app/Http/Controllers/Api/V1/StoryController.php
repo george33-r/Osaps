@@ -137,9 +137,10 @@ class StoryController extends Controller
         $authorIsAdmin = $author?->role === 'admin';
         $name = $profile?->business_name;
 
-        $label = $authorIsAdmin
+        // A tip is credited to the tailor who answered the question.
+        $label = $s->kind === 'tip' && $name ? 'Answered by '.$name : ($authorIsAdmin
             ? ($name ? 'Featuring '.$name : 'OSAPS')
-            : ($name ? 'By '.$name : 'By an OSAPS tailor');
+            : ($name ? 'By '.$name : 'By an OSAPS tailor'));
 
         $data = [
             'id' => $s->id,
