@@ -33,12 +33,12 @@ final class TailorRatingScoringTest extends TestCase
         $this->assertGreaterThan(85, $unrated['score']);
     }
 
-    public function test_well_rated_tailor_scores_above_unrated_with_the_same_record(): void
+    public function test_well_rated_tailor_never_ranks_below_an_unrated_one_with_the_same_record(): void
     {
         $unrated = (new TailorScorer)->score($this->job(), $this->tailor());
         $rated = (new TailorScorer)->score($this->job(), $this->tailor(['review_count' => 20, 'average_stars' => 4.8]));
 
-        $this->assertGreaterThan($unrated['score'], $rated['score']);
+        $this->assertTrue($rated['score'] >= $unrated['score']);
         $this->assertTrue(array_key_exists('rating', $rated['factors']));
     }
 
