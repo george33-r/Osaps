@@ -114,15 +114,11 @@ class CommunityTest extends TestCase
             ->assertStatus(422)->assertJsonPath('code', 'too_many_pending');
     }
 
-    public function test_moment_is_held_until_an_admin_publishes_it_and_appears_in_a_circle(): void
+    public function test_moment_shows_straight_away_in_a_circle_for_everyone(): void
     {
         $id = $this->actingAs($this->profile->user)->postJson('/api/v1/moments', [
             'media' => UploadedFile::fake()->image('outfit.jpg', 400, 500), 'caption' => 'Fresh from the workshop',
-        ])->assertCreated()->assertJsonPath('data.status', 'pending')->json('data.id');
-
-        $this->getJson('/api/v1/moments')->assertOk()->assertJsonCount(0, 'data');
-
-        $this->actingAs($this->admin)->postJson("/api/v1/admin/moments/{$id}/status", ['status' => 'published'])->assertOk();
+        ])->assertCreated()->assertJsonPath('data.status', 'published')->json('data.id');
 
         $this->getJson('/api/v1/moments')->assertOk()
             ->assertJsonPath('data.0.label', 'Ife Threads')

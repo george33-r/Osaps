@@ -137,7 +137,7 @@ function MomentComposer({ onDone, onCancel }: { onDone: () => void; onCancel: ()
     setError(null)
     try {
       await api.postMoment(form)
-      toast('Thanks. Your moment will show once checked.', 'good')
+      toast('Posted. Everyone can see it for 24 hours.', 'good')
       onDone()
     } catch (err) {
       setError(errorMessage(err))
@@ -148,7 +148,7 @@ function MomentComposer({ onDone, onCancel }: { onDone: () => void; onCancel: ()
   return (
     <form className="admin-card story-form" onSubmit={submit} aria-label="Add a moment">
       <h2 className="section-title section-title--small">Add a moment</h2>
-      <p className="muted">A photo or a short video (up to 30 MB) that shows in a circle for 24 hours. OSAPS checks it before it shows.</p>
+      <p className="muted">A photo or a short video (up to 30 MB). It shows in the circles for everyone for 24 hours, then it disappears. OSAPS can remove anything that breaks the rules.</p>
       <label className="field__label">
         Photo or video
         <input name="media" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime" required />
@@ -159,7 +159,7 @@ function MomentComposer({ onDone, onCancel }: { onDone: () => void; onCancel: ()
       </label>
       {error && <p className="notice" role="alert">{error}</p>}
       <div className="story-form__actions">
-        <Button type="submit" busy={busy}>Send for a check</Button>
+        <Button type="submit" busy={busy}>Post moment</Button>
         <Button type="button" variant="secondary" onClick={onCancel}>Cancel</Button>
       </div>
     </form>

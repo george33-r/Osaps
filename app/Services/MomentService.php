@@ -8,16 +8,16 @@ use App\Models\Moment;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 
 /**
  * Moments: short photos and videos in circles on the home page, like stories on social apps.
- * Anyone signed in can post. Each post is checked by an admin before it shows, and disappears after 24 hours.
+ * Anyone signed in can post (customers, tailors, vendors). A post shows straight away for everyone, disappears after
+ * 24 hours, and an admin can hide or remove any post that breaks the rules.
  */
 class MomentService
 {
-    public const MAX_WAITING = 3;
-
     public const MAX_PER_DAY = 10;
 
     /** @return array{0:string,1:string,2:int} media type, file extension, size limit in KB */
@@ -41,10 +41,6 @@ class MomentService
             throw new DomainRuleViolation('That file is too large for a moment.', 'too_large');
         }
 
-        $waiting = Moment::query()->where('author_id', $user->id)->where('status', Moment::PENDING)->count();
-        if ($waiting >= self::MAX_WAITING) {
-            throw new DomainRuleViolation('You have '.$waiting.' moments waiting for a check. Wait for a decision before posting more.', 'too_many_pending');
-        }
         $today = Moment::query()->where('author_id', $user->id)->where('created_at', '>=', now()->startOfDay())->count();
         if ($today >= self::MAX_PER_DAY) {
             throw new DomainRuleViolation('You have reached today\'s limit of '.self::MAX_PER_DAY.' moments. Try again tomorrow.', 'daily_limit');
@@ -52,6 +48,7 @@ class MomentService
 
         $dir = 'uploads/moments/'.$user->id;
         $name = Str::lower(Str::random(24)).'.'.$ext;
+        File::ensureDirectoryExists(public_path($dir));
         $file->move(public_path($dir), $name);
 
         return Moment::query()->create([
@@ -61,7 +58,8 @@ class MomentService
             'media_path' => $dir.'/'.$name,
             'mime' => (string) $file->getMimeType(),
             'caption' => $caption !== null && trim($caption) !== '' ? mb_substr(trim($caption), 0, 140) : null,
-            'status' => Moment::PENDING,
+            'status' => Moment::PUBLISHED,
+            'published_at' => now(),
         ]);
     }
 
