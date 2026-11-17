@@ -39,7 +39,9 @@ class MomentService
 
     public function post(User $user, UploadedFile $file, ?string $caption): Moment
     {
-        [$type, $ext, $maxKb] = $this->kindOf((string) $file->getMimeType());
+        // Read the type now: once the file is moved, PHP can no longer inspect it.
+        $mime = (string) $file->getMimeType();
+        [$type, $ext, $maxKb] = $this->kindOf($mime);
         if ($file->getSize() > $maxKb * 1024) {
             throw new DomainRuleViolation('That file is too large for a moment.', 'too_large');
         }
@@ -59,7 +61,7 @@ class MomentService
             'tailor_profile_id' => $user->tailorProfile?->id,
             'media_type' => $type,
             'media_path' => $dir.'/'.$name,
-            'mime' => (string) $file->getMimeType(),
+            'mime' => $mime,
             'caption' => $caption !== null && trim($caption) !== '' ? mb_substr(trim($caption), 0, 140) : null,
             'status' => Moment::PUBLISHED,
             'published_at' => now(),
