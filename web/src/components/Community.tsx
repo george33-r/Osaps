@@ -150,7 +150,7 @@ function MomentComposer({ onDone, onCancel }: { onDone: () => void; onCancel: ()
   return (
     <form className="admin-card story-form" onSubmit={submit} aria-label="Add a moment">
       <h2 className="section-title section-title--small">Add a moment</h2>
-      <p className="muted">A photo, or a video of up to 512 MB. It shows in the circles for everyone for 24 hours, then it disappears. OSAPS can remove anything that breaks the rules.</p>
+      <p className="muted">A photo, or a video of up to 1 GB. It shows in the circles for everyone for 24 hours, then it disappears. OSAPS can remove anything that breaks the rules.</p>
       <label className="field__label">
         Photo or video
         <input name="media" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime" required />

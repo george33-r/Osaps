@@ -20,8 +20,8 @@ class MomentService
 {
     public const MAX_PER_DAY = 10;
 
-    /** Videos up to 512 MB. The server's own PHP upload limit must be at least this (see the hosting settings). */
-    public const MAX_VIDEO_KB = 524288;
+    /** Videos up to 1 GB. The server's own PHP upload limit must be at least this (see the hosting settings). */
+    public const MAX_VIDEO_KB = 1048576;
 
     /** @return array{0:string,1:string,2:int} media type, file extension, size limit in KB */
     private function kindOf(string $mime): array

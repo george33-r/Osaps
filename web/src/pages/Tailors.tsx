@@ -75,7 +75,11 @@ export function TailorProfilePage() {
       </nav>
       <article className="maker">
         <header className="maker__head">
-          <Monogram name={t.business_name} large />
+          {t.photo_url ? (
+            <img src={t.photo_url} alt={t.business_name} style={{ width: 120, height: 120, borderRadius: 16, objectFit: 'cover', flexShrink: 0 }} />
+          ) : (
+            <Monogram name={t.business_name} large />
+          )}
           <div>
             <Label>{t.specialties.map((s) => s.label).join(', ')}</Label>
             <h1 className="maker__name">{t.business_name}</h1>
