@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Domain\Support\DomainRuleViolation;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
@@ -77,7 +78,16 @@ class PrivatePhotoService
     {
         $full = realpath(storage_path('app/private/'.$path));
         $root = realpath(storage_path('app/private'));
-        abort_unless($full !== false && $root !== false && str_starts_with($full, $root.DIRECTORY_SEPARATOR), 404);
+        if ($full === false || $root === false || ! str_starts_with($full, $root.DIRECTORY_SEPARATOR)) {
+            // The record exists but the file is not on this server (for example, not copied over with the code).
+            Log::warning('Private file missing', ['path' => $path, 'expected' => storage_path('app/private/'.$path)]);
+            abort(404);
+        }
+        if (! is_readable($full)) {
+            // Usually file permissions: the web user cannot read the file under storage/app/private.
+            Log::error('Private file not readable by the web server', ['file' => $full]);
+            abort(404);
+        }
 
         return response()->file($full, ['Content-Type' => $mime, 'Cache-Control' => 'private, max-age=86400', 'X-Content-Type-Options' => 'nosniff']);
     }
