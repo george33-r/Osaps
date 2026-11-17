@@ -55,7 +55,21 @@ class TailorController extends Controller
             return response()->json(['message' => 'Set up your tailor profile first.', 'code' => 'no_profile'], 422);
         }
 
-        $file = $request->file('photo');
+        return $this->savePhoto($profile, $request->file('photo'));
+    }
+
+    /** Admin: set a tailor's public profile photo. Logged, so the admin who set it is on record. */
+    public function adminUploadPhoto(Request $request, TailorProfile $tailorProfile): JsonResponse
+    {
+        $request->validate(['photo' => ['required', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120']]);
+        $response = $this->savePhoto($tailorProfile, $request->file('photo'));
+        AdminAction::record($request->user(), 'tailor_photo_set', $tailorProfile, "Profile photo set for {$tailorProfile->business_name}");
+
+        return $response;
+    }
+
+    private function savePhoto(TailorProfile $profile, \Illuminate\Http\UploadedFile $file): JsonResponse
+    {
         $ext = match ($file->guessExtension()) { 'jpeg' => 'jpg', 'jpg', 'png', 'webp' => $file->guessExtension(), default => null };
         if ($ext === null) {
             return response()->json(['message' => 'Upload a JPG, PNG or WebP photo.', 'code' => 'photo_type'], 422);

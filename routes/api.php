@@ -215,6 +215,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('tailor-profiles/{tailorProfile}/review', [TailorVerificationController::class, 'reviewProfile'])->whereNumber('tailorProfile')->name('tailor-profiles.review');
             Route::get('tailors', [TailorVerificationController::class, 'directory'])->withoutMiddleware('throttle:marketplace-writes')->name('tailors');
             Route::post('tailor-profiles/{tailorProfile}/override-verify', [TailorVerificationController::class, 'override'])->whereNumber('tailorProfile')->name('tailor-profiles.override');
+            Route::post('tailor-profiles/{tailorProfile}/photo', [TailorController::class, 'adminUploadPhoto'])->whereNumber('tailorProfile')->name('tailor-profiles.photo');
             Route::post('tailors/bulk-mail', [TailorVerificationController::class, 'bulkMail'])->name('tailors.bulk-mail');
             Route::post('tailor-profiles/{tailorProfile}/documents', [TailorVerificationController::class, 'uploadForTailor'])->whereNumber('tailorProfile')->name('tailor-profiles.documents');
             Route::post('users/{user}/tailor-profile', [TailorController::class, 'adminCreateProfile'])->whereNumber('user')->name('tailors.create-profile');

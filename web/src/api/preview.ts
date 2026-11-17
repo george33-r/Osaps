@@ -444,6 +444,7 @@ export const previewApi: Api = {
   adminMomentStatus: async (id, status) => ({ id, status }),
   adminDeleteStory: async () => ({ deleted: true }),
   adminUploadTailorDocument: async (_p, kind) => ({ id: 1, kind, status: 'submitted' }),
+  adminSetTailorPhoto: async () => ({ photo_url: '' }),
   vendorDocuments: async () => ({
     consent_given: false,
     documents: [

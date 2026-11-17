@@ -468,6 +468,19 @@ function TailorDirectory({ onChange }: { onChange: () => void }) {
     setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]))
   }
 
+  async function setPhoto(profileId: number, file: File) {
+    setBusy(true)
+    try {
+      await api.adminSetTailorPhoto(profileId, file)
+      toast('Profile photo saved. It now shows on the makers list.', 'good')
+      dir.reload()
+    } catch (e) {
+      toast(errorMessage(e), 'alert')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function verify(profileId: number) {
     setBusy(true)
     try {
@@ -571,6 +584,22 @@ function TailorDirectory({ onChange }: { onChange: () => void }) {
                   <td>
                     {r.profile_id === null && createFor !== r.user_id && (
                       <Button variant="secondary" onClick={() => setCreateFor(r.user_id)}>Create profile</Button>
+                    )}
+                    {r.profile_id !== null && (
+                      <label className="field__hint" style={{ display: 'grid', gap: 4, marginBottom: 6 }}>
+                        {r.has_photo ? 'Change profile photo' : 'Add profile photo (needed to show on the makers list)'}
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          aria-label={`Profile photo for ${r.business_name ?? r.name ?? 'tailor'}`}
+                          disabled={busy}
+                          onChange={(e) => {
+                            const f = e.target.files?.[0]
+                            if (f && r.profile_id) setPhoto(r.profile_id, f)
+                            e.target.value = ''
+                          }}
+                        />
+                      </label>
                     )}
                     {r.profile_id !== null && uploadFor !== r.profile_id && (
                       <Button variant="secondary" onClick={() => { setUploadFor(r.profile_id); setUKind('id_document') }}>Upload document</Button>
