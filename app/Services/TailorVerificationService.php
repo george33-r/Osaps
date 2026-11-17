@@ -118,10 +118,28 @@ class TailorVerificationService
             AdminAction::record($admin, 'tailor_document_'.$decision, $doc, $note, ['kind' => $doc->kind]);
             if ($decision === 'approved') {
                 $this->completeRecheckIfDone((int) $doc->tailor_profile_id);
+                $this->moveToReviewWhenDocumentsAreIn((int) $doc->tailor_profile_id);
             }
 
             return $doc;
         });
+    }
+
+    /**
+     * Admin-uploaded documents leave the profile as "unverified", where an admin cannot verify it.
+     * Once every required document is in and an admin has approved one, the profile moves to
+     * "waiting for review", so the Verify button works.
+     */
+    private function moveToReviewWhenDocumentsAreIn(int $profileId): void
+    {
+        $profile = TailorProfile::query()->find($profileId);
+        if ($profile === null || $profile->verification_status !== TailorVerification::UNVERIFIED) {
+            return;
+        }
+        if (TailorVerification::missing($this->statusByKind($profile), needApproved: false) !== []) {
+            return;
+        }
+        $profile->forceFill(['verification_status' => TailorVerification::PENDING, 'verification_requested_at' => now()])->save();
     }
 
     public function review(User $admin, TailorProfile $profile, string $to, ?string $note): TailorProfile
