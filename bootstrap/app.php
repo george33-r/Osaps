@@ -44,6 +44,15 @@ return Application::configure(basePath: dirname(__DIR__))
                 'message' => $e->getMessage(), 'code' => 'validation_failed', 'errors' => $e->errors(),
             ], 422) : null;
         });
+        // A photo or video whose upload was cut off (the server dropped the temporary file mid-request).
+        $exceptions->render(function (\Symfony\Component\Mime\Exception\InvalidArgumentException $e, Request $r) use ($api) {
+            if (! $api($r) || ! str_contains($e->getMessage(), 'does not exist or is not readable')) {
+                return null;
+            }
+            \Illuminate\Support\Facades\Log::warning('Upload cut off before the server could read it', ['message' => $e->getMessage()]);
+
+            return response()->json(['message' => 'The upload did not finish. Try again on a better connection, or use a smaller file.', 'code' => 'upload_incomplete'], 422);
+        });
         $exceptions->render(function (AuthenticationException $e, Request $r) use ($api) {
             return $api($r) ? response()->json(['message' => 'Please sign in.', 'code' => 'unauthenticated'], 401) : null;
         });
