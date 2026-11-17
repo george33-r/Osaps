@@ -1102,6 +1102,7 @@ export interface AdminTailorDirectoryRow {
   documents_uploaded: number
   missing: string[]
   can_override: boolean
+  can_verify: boolean
 }
 
 export interface AdminTailorQueueRow {

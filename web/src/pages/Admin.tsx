@@ -468,6 +468,20 @@ function TailorDirectory({ onChange }: { onChange: () => void }) {
     setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]))
   }
 
+  async function verify(profileId: number) {
+    setBusy(true)
+    try {
+      await api.adminReviewTailorProfile(profileId, 'verified')
+      toast('Profile verified. Badges are live.', 'good')
+      dir.reload()
+      onChange()
+    } catch (e) {
+      toast(errorMessage(e), 'alert')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function approve(profileId: number) {
     setBusy(true)
     try {
@@ -581,6 +595,20 @@ function TailorDirectory({ onChange }: { onChange: () => void }) {
                           <Button busy={busy} disabled={!uFile || uHow.trim().length < 10 || ((uKind === 'id_document' || uKind === 'selfie') && !uAgreed)} onClick={() => r.profile_id && uploadDoc(r.profile_id)}>Upload</Button>
                           <Button variant="secondary" onClick={() => { setUploadFor(null); setUFile(null); setUAgreed(false); setUHow('') }}>Cancel</Button>
                         </div>
+                      </div>
+                    )}
+                    {r.profile_id !== null && r.status !== 'verified' && (
+                      <div style={{ display: 'grid', gap: 4, justifyItems: 'start' }}>
+                        <Button busy={busy} disabled={!r.can_verify} onClick={() => r.profile_id && verify(r.profile_id)}>
+                          Verify profile
+                        </Button>
+                        {!r.can_verify && (
+                          <span className="field__hint">
+                            {r.status !== 'pending'
+                              ? 'Waiting for the tailor to submit for review.'
+                              : 'Approve the ID, selfie and workshop photo first.'}
+                          </span>
+                        )}
                       </div>
                     )}
                     {r.can_override && overrideFor !== r.profile_id && (
