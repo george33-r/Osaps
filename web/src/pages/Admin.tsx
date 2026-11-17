@@ -1,10 +1,11 @@
-import { useState, type ReactNode } from 'react'
+import { Fragment, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api, type AdminOrderRow, type AdminTailorDirectoryRow, type AdminTailorQueueRow, type AdminVendor, type VendorVerificationStatus } from '../api'
 import { ReviewQueue } from '../components/Reviews'
 import { AdminStories } from '../components/Stories'
 import { AdminCommunity } from '../components/Community'
 import { AdminAnnouncements } from '../components/Announcements'
+import { AdminCreateTailorProfile } from '../components/AdminTailorProfile'
 import { Badge, Button, EmptyState, ErrorState, PageHeader, Skeleton, errorMessage } from '../components/ui'
 import { formatDate } from '../lib/format'
 import { useSession } from '../lib/session'
@@ -437,6 +438,7 @@ function TailorDirectory({ onChange }: { onChange: () => void }) {
   const [body, setBody] = useState('')
   const [busy, setBusy] = useState(false)
   const [uploadFor, setUploadFor] = useState<number | null>(null)
+  const [createFor, setCreateFor] = useState<number | null>(null)
   const [uKind, setUKind] = useState('id_document')
   const [uFile, setUFile] = useState<File | null>(null)
   const [uAgreed, setUAgreed] = useState(false)
@@ -538,7 +540,8 @@ function TailorDirectory({ onChange }: { onChange: () => void }) {
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.user_id}>
+                <Fragment key={r.user_id}>
+                <tr>
                   <td>
                     <input type="checkbox" aria-label={`Select ${r.name ?? r.email}`} checked={picked.includes(r.user_id)} onChange={() => toggle(r.user_id)} />
                   </td>
@@ -552,6 +555,9 @@ function TailorDirectory({ onChange }: { onChange: () => void }) {
                   </td>
                   <td>{r.email ?? '—'}</td>
                   <td>
+                    {r.profile_id === null && createFor !== r.user_id && (
+                      <Button variant="secondary" onClick={() => setCreateFor(r.user_id)}>Create profile</Button>
+                    )}
                     {r.profile_id !== null && uploadFor !== r.profile_id && (
                       <Button variant="secondary" onClick={() => { setUploadFor(r.profile_id); setUKind('id_document') }}>Upload document</Button>
                     )}
@@ -591,6 +597,14 @@ function TailorDirectory({ onChange }: { onChange: () => void }) {
                     )}
                   </td>
                 </tr>
+                {createFor === r.user_id && (
+                  <tr>
+                    <td colSpan={8}>
+                      <AdminCreateTailorProfile row={r} onCancel={() => setCreateFor(null)} onDone={() => { setCreateFor(null); dir.reload() }} />
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               ))}
             </tbody>
           </table>

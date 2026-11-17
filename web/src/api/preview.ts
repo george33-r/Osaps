@@ -391,6 +391,7 @@ export const previewApi: Api = {
   adminTailorQueue: async () => [],
   adminReviewTailorDocument: async (id, decision) => ({ id, status: decision }),
   adminReviewTailorProfile: async (id, to) => ({ id, status: to }),
+  adminCreateTailorProfile: async () => fail('Profiles are not created in the design preview.', 422, 'preview'),
   adminTailorDirectory: async () => [],
   adminOverrideTailor: async (id) => ({ id, status: 'verified' }),
   adminBulkMailTailors: async (ids) => ({ queued: ids.length }),

@@ -86,6 +86,8 @@ export interface Api {
   tailors(filters: { city?: string; specialty?: string }): Promise<Paginated<Tailor>>
   tailor(slug: string): Promise<Tailor>
   saveTailorProfile(input: TailorProfileInput): Promise<Tailor>
+  /** Admin: create a tailor's profile for them, for a tailor account that has none. */
+  adminCreateTailorProfile(userId: number, input: TailorProfileInput): Promise<Tailor>
   /** The signed-in tailor's identity checks: documents, what is missing, and the status. */
   tailorVerification(): Promise<TailorVerificationState | null>
   /** Uploads one document. ID and selfie need consent; the server refuses them without it. */
@@ -348,6 +350,7 @@ export const httpApi: Api = {
   tailors: (f) => http('GET', '/tailors' + qs(f)),
   tailor: (slug) => data(http('GET', `/tailors/${encodeURIComponent(slug)}`)),
   saveTailorProfile: (input) => data(http('PUT', '/me/tailor-profile', input)),
+  adminCreateTailorProfile: (userId, input) => data(http('POST', `/admin/users/${userId}/tailor-profile`, input)),
   tailorVerification: () => data(http('GET', '/me/tailor-verification')),
   uploadTailorDocument: (kind, file, consent, expiresOn) => {
     const form = new FormData()

@@ -2,11 +2,15 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Domain\Support\DomainRuleViolation;
 use App\Domain\Tailors\TailorVerification;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\UpsertTailorProfileRequest;
 use App\Http\Resources\TailorResource;
+use App\Models\AdminAction;
 use App\Models\TailorProfile;
+use App\Models\User;
+use App\Services\Notifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -90,6 +94,31 @@ class TailorController extends Controller
         $profile->save();
 
         return (new TailorResource($profile))->response()->setStatusCode($profile->wasRecentlyCreated ? 201 : 200);
+    }
+
+    /**
+     * Admin: create a tailor's profile on their behalf, for a tailor account that has none yet.
+     * The same rules as the tailor's own form apply. The tailor is told, and the action is logged.
+     */
+    public function adminCreateProfile(Request $request, User $user): JsonResponse
+    {
+        if (! $user->isTailor()) {
+            throw new DomainRuleViolation('This account is not a tailor account.', 'not_a_tailor');
+        }
+        if ($user->tailorProfile()->exists()) {
+            throw new DomainRuleViolation('This tailor already has a profile.', 'profile_exists');
+        }
+
+        $data = $request->validate((new UpsertTailorProfileRequest)->rules());
+        $profile = new TailorProfile($data);
+        $profile->user_id = $user->id;
+        $profile->slug = $this->uniqueSlug($profile->business_name);
+        $profile->save();
+
+        AdminAction::record($request->user(), 'tailor_profile_created', $profile, "Profile created for {$user->name}", ['user_id' => $user->id]);
+        Notifier::notify($user, 'profile', 'OSAPS set up your tailor profile', 'Check your business details, add a photo and upload your documents so you can be verified.', '/tailor');
+
+        return (new TailorResource($profile))->response()->setStatusCode(201);
     }
 
     private function uniqueSlug(string $name): string
