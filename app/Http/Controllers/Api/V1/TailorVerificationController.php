@@ -70,8 +70,15 @@ class TailorVerificationController extends Controller
     {
         $status = $request->query('status', TailorVerification::PENDING);
         abort_unless(in_array($status, array_keys(TailorVerification::LABELS), true), 422);
-        $profiles = TailorProfile::query()->with(['user:id,name,email,phone', 'documents'])
-            ->where('verification_status', $status)->orderBy('verification_requested_at')->limit(200)->get();
+        $query = TailorProfile::query()->with(['user:id,name,email,phone', 'documents']);
+        if ($status === TailorVerification::PENDING) {
+            // Documents an admin uploads wait here too, even before the tailor submits.
+            $query->where(fn ($q) => $q->where('verification_status', TailorVerification::PENDING)
+                ->orWhereHas('documents', fn ($d) => $d->where('status', 'submitted')));
+        } else {
+            $query->where('verification_status', $status);
+        }
+        $profiles = $query->orderBy('verification_requested_at')->limit(200)->get();
 
         return response()->json(['data' => $profiles->map(fn (TailorProfile $p) => [
             'id' => $p->id, 'business_name' => $p->business_name, 'city' => $p->city,
