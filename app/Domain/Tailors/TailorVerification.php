@@ -51,7 +51,8 @@ final class TailorVerification extends StateMachine
     protected static function transitions(): array
     {
         return [
-            self::UNVERIFIED => [self::PENDING => ['tailor']],
+            // An admin may verify a profile whose documents were uploaded by the admin (the tailor never pressed submit).
+            self::UNVERIFIED => [self::PENDING => ['tailor'], self::VERIFIED => ['admin']],
             self::PENDING => [self::VERIFIED => ['admin'], self::REJECTED => ['admin']],
             self::REJECTED => [self::PENDING => ['tailor']],
             self::VERIFIED => [self::SUSPENDED => ['admin']],

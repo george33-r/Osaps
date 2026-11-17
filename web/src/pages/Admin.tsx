@@ -604,9 +604,11 @@ function TailorDirectory({ onChange }: { onChange: () => void }) {
                         </Button>
                         {!r.can_verify && (
                           <span className="field__hint">
-                            {r.status !== 'pending'
-                              ? 'Waiting for the tailor to submit for review.'
-                              : 'Approve the ID, selfie and workshop photo first.'}
+                            {r.status === 'pending' || r.status === 'unverified'
+                              ? 'Approve the ID, selfie and workshop photo first.'
+                              : r.status === 'rejected'
+                                ? 'Waiting for the tailor to fix the profile and resubmit.'
+                                : 'Suspended. Review it in the Tailor checks tab first.'}
                           </span>
                         )}
                       </div>

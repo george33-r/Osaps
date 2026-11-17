@@ -140,8 +140,8 @@ class TailorVerificationController extends Controller
                     'documents_uploaded' => $docs->count(),
                     'missing' => $missing,
                     'can_override' => $p !== null && $p->verification_status === TailorVerification::PENDING && $missing === [],
-                    // Verify needs a pending profile whose required documents are all approved (the same rule the server enforces).
-                    'can_verify' => $p !== null && $p->verification_status === TailorVerification::PENDING
+                    // Verify needs an unverified or pending profile whose required documents are all approved (the same rule the server enforces).
+                    'can_verify' => $p !== null && in_array($p->verification_status, [TailorVerification::UNVERIFIED, TailorVerification::PENDING], true)
                         && TailorVerification::missing($this->service->statusByKind($p), needApproved: true) === [],
                 ];
             })
