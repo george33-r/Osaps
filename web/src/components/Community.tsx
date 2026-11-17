@@ -42,11 +42,13 @@ export function MomentsRail() {
   const [posting, setPosting] = useState(false)
   const rings = res.data ?? []
 
-  if (res.status === 'error' && !res.data) return null
-  if (rings.length === 0 && !user) return null
-
+  // Visible to everyone, signed in or not. Only signed-in people can post.
   return (
     <section className="moments" aria-label="Moments from the workshop">
+      {res.status === 'error' && !res.data && <p className="field__hint">Moments could not load right now. Refresh to try again.</p>}
+      {res.status === 'ready' && rings.length === 0 && (
+        <p className="field__hint">{user ? 'No moments in the last 24 hours yet. Be the first to post one.' : 'No moments in the last 24 hours yet. Sign in to post one.'}</p>
+      )}
       <ul className="moments__rail">
         {user && (
           <li>
