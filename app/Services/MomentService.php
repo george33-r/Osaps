@@ -20,6 +20,9 @@ class MomentService
 {
     public const MAX_PER_DAY = 10;
 
+    /** Videos up to 512 MB. The server's own PHP upload limit must be at least this (see the hosting settings). */
+    public const MAX_VIDEO_KB = 524288;
+
     /** @return array{0:string,1:string,2:int} media type, file extension, size limit in KB */
     private function kindOf(string $mime): array
     {
@@ -27,9 +30,9 @@ class MomentService
             'image/jpeg' => ['photo', 'jpg', 8192],
             'image/png' => ['photo', 'png', 8192],
             'image/webp' => ['photo', 'webp', 8192],
-            'video/mp4' => ['video', 'mp4', 30720],
-            'video/webm' => ['video', 'webm', 30720],
-            'video/quicktime' => ['video', 'mov', 30720],
+            'video/mp4' => ['video', 'mp4', self::MAX_VIDEO_KB],
+            'video/webm' => ['video', 'webm', self::MAX_VIDEO_KB],
+            'video/quicktime' => ['video', 'mov', self::MAX_VIDEO_KB],
             default => throw new DomainRuleViolation('Upload a JPG, PNG, WebP photo or an MP4, WebM or MOV video.', 'media_type'),
         };
     }

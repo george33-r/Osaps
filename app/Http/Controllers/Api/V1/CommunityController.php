@@ -131,7 +131,7 @@ class CommunityController extends Controller
     public function postMoment(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'media' => ['required', 'file', 'mimetypes:image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime', 'max:30720'],
+            'media' => ['required', 'file', 'mimetypes:image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime', 'max:524288'],
             'caption' => ['nullable', 'string', 'max:140'],
         ]);
         $m = $this->moments->post($request->user(), $request->file('media'), $data['caption'] ?? null);
